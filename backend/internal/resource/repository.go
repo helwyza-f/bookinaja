@@ -121,7 +121,7 @@ func (r *Repository) ListPublicCatalogByTenant(ctx context.Context, tenantID uui
 		LEFT JOIN ranked_items ri ON ri.resource_id = r.id AND ri.row_no = 1
 		WHERE r.tenant_id = $1
 		  AND r.status != 'deleted'
-		ORDER BY r.created_at DESC
+		ORDER BY r.name ASC
 	`, tenantID)
 	if err != nil {
 		return nil, "", "", err
@@ -291,7 +291,8 @@ func (r *Repository) ListAdminByTenant(ctx context.Context, tenantID uuid.UUID) 
 			COALESCE(r.image_url, '') AS image_url,
 			COALESCE(r.description, '') AS description,
 			COUNT(ri.id) FILTER (WHERE ri.item_type IN ('main_option', 'main', 'console_option')) AS main_option_count,
-			COUNT(ri.id) FILTER (WHERE ri.item_type = 'add_on') AS addon_count
+			COUNT(ri.id) FILTER (WHERE ri.item_type = 'add_on') AS addon_count,
+			r.created_at
 		FROM resources r
 		LEFT JOIN resource_items ri ON ri.resource_id = r.id
 		WHERE r.tenant_id = $1 AND r.status != 'deleted'

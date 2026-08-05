@@ -61,6 +61,7 @@ type ResourceListItem struct {
 	Description     string    `db:"description" json:"description"`
 	MainOptionCount int       `db:"main_option_count" json:"main_option_count"`
 	AddonCount      int       `db:"addon_count" json:"addon_count"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
 }
 
 type ResourcePricingItem struct {

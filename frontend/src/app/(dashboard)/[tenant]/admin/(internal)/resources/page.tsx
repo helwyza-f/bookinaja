@@ -48,6 +48,7 @@ type ResourceRow = {
   image_url?: string;
   main_option_count?: number;
   addon_count?: number;
+  created_at?: string;
   smart_device_summary?: {
     id: string;
     device_id: string;
@@ -168,6 +169,7 @@ export default function ResourcesPage() {
   const [modeFilter, setModeFilter] = useState<
     "all" | "timed" | "direct_sale" | "hybrid"
   >("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
 
   const fetchResources = async () => {
     setLoading(true);
@@ -332,14 +334,31 @@ export default function ResourcesPage() {
 
   const shouldShowModeFilter = availableModeFilters.length > 1;
 
-  const filteredResources = useMemo(
-    () =>
-      resources.filter((resource) => {
-        if (modeFilter === "all") return true;
-        return normalizeOperatingMode(resource.operating_mode) === modeFilter;
-      }),
-    [modeFilter, resources],
-  );
+  const filteredResources = useMemo(() => {
+    const filtered = resources.filter((resource) => {
+      if (modeFilter === "all") return true;
+      return normalizeOperatingMode(resource.operating_mode) === modeFilter;
+    });
+
+    const toTime = (value?: string) => {
+      const time = value ? new Date(value).getTime() : NaN;
+      return Number.isNaN(time) ? 0 : time;
+    };
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "name") {
+        return a.name.localeCompare(b.name, "id", { sensitivity: "base" });
+      }
+      const diff = toTime(a.created_at) - toTime(b.created_at);
+      return sortBy === "oldest" ? diff : -diff;
+    });
+  }, [modeFilter, resources, sortBy]);
+
+  const sortOptions = [
+    { value: "newest" as const, label: "Terbaru" },
+    { value: "oldest" as const, label: "Terlama" },
+    { value: "name" as const, label: "Nama A–Z" },
+  ];
 
   const modeFilterOptions = [
     { value: "all" as const, label: "Semua" },
@@ -416,20 +435,48 @@ export default function ResourcesPage() {
             />
           </div>
 
-          {shouldShowModeFilter ? (
-            <div className="flex flex-wrap gap-1.5">
-              {modeFilterOptions.map((option) => {
-                const isActive = modeFilter === option.value;
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {shouldShowModeFilter ? (
+              <div className="flex flex-wrap gap-1.5">
+                {modeFilterOptions.map((option) => {
+                  const isActive = modeFilter === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setModeFilter(option.value)}
+                      className={cn(
+                        "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                        isActive
+                          ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span />
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                Urutkan
+              </span>
+              {sortOptions.map((option) => {
+                const isActive = sortBy === option.value;
                 return (
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setModeFilter(option.value)}
+                    onClick={() => setSortBy(option.value)}
                     className={cn(
-                      "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                      "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-wide transition-colors",
                       isActive
-                        ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+                        ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-950"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
                     )}
                   >
                     {option.label}
@@ -437,7 +484,7 @@ export default function ResourcesPage() {
                 );
               })}
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
 
