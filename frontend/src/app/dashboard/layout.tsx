@@ -18,9 +18,16 @@ export default function PlatformDashboardLayout({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const loginUrl = () => {
+      const next =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/dashboard/overview";
+      return `/platform-login?next=${encodeURIComponent(next)}`;
+    };
     const token = getCookie("auth_token");
     if (!token) {
-      router.replace("/login");
+      router.replace(loginUrl());
       return;
     }
     api
@@ -28,14 +35,14 @@ export default function PlatformDashboardLayout({
       .then((res) => {
         if (res.data?.role !== "platform_admin") {
           deleteCookie("auth_token");
-          router.replace("/login");
+          router.replace(loginUrl());
           return;
         }
         setReady(true);
       })
       .catch(() => {
         deleteCookie("auth_token");
-        router.replace("/login");
+        router.replace(loginUrl());
       });
   }, [router]);
 
