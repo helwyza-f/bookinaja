@@ -56,9 +56,11 @@ export default function PlatformEmailsPage() {
 
   const eventOptions = useMemo(() => {
     const values = new Set<string>();
-    data.items.forEach((item) => {
-      if (item.event_key) values.add(item.event_key);
-    });
+    if (data.items && Array.isArray(data.items)) {
+      data.items.forEach((item) => {
+        if (item.event_key) values.add(item.event_key);
+      });
+    }
     return Array.from(values);
   }, [data.items]);
 

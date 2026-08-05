@@ -73,6 +73,7 @@ export default function TenantDetailPage() {
   }, [tenantId]);
 
   const filteredCustomers = useMemo(() => {
+    if (!Array.isArray(customers)) return [];
     const q = customerQuery.toLowerCase();
     return customers.filter((item) => {
       const tierOk =
