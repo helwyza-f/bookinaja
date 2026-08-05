@@ -62,6 +62,7 @@ export function BillingPlanBoard({
   compact = false,
 }: BillingPlanBoardProps) {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [now] = useState(() => Date.now());
   const planState = resolvePlanState({
     plan: sub?.plan,
     subscription_status: sub?.status,
@@ -78,9 +79,52 @@ export function BillingPlanBoard({
   );
   const enterprisePlan = getBillingPlan("scale");
   const currentFeatures = (currentPlan?.adminFeatures || []).slice(0, 6);
-  const trialBadge = planState.isTrial
-    ? `Trial (${activeUntil === "-" ? "aktif" : `sampai ${activeUntil}`})`
-    : "Paket aktif";
+  // --- Ringkasan status langganan ---
+  const periodEndDate = sub?.current_period_end
+    ? new Date(sub.current_period_end)
+    : null;
+  const periodEndKnown = Boolean(
+    periodEndDate && !Number.isNaN(periodEndDate.getTime()),
+  );
+  const daysLeft = periodEndKnown
+    ? Math.max(
+        0,
+        Math.ceil((periodEndDate!.getTime() - now) / 86_400_000),
+      )
+    : null;
+  const isExpired = periodEndKnown && daysLeft === 0;
+  const statusLabel = planState.isTrial
+    ? isExpired
+      ? "Trial berakhir"
+      : "Trial aktif"
+    : planState.isActive
+      ? isExpired
+        ? "Berakhir"
+        : "Aktif"
+      : planState.status === "suspended"
+        ? "Ditangguhkan"
+        : "Nonaktif";
+  const statusToneClass = isExpired
+    ? "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+    : planState.isTrial
+      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      : planState.isActive
+        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+        : "bg-slate-500/10 text-slate-600 dark:text-slate-300";
+  const periodLabel = planState.isTrial ? "Trial berakhir" : "Berlaku sampai";
+  const statusNote = planState.isTrial
+    ? periodEndKnown
+      ? isExpired
+        ? "Masa trial sudah berakhir. Pilih paket berbayar untuk mengaktifkan kembali akses penuh."
+        : "Setelah trial berakhir, pilih paket berbayar agar tenant tetap aktif tanpa jeda."
+      : "Trial sedang berjalan. Pilih paket berbayar kapan saja untuk melanjutkan tanpa jeda."
+    : planState.isActive
+      ? periodEndKnown
+        ? isExpired
+          ? "Periode langganan sudah lewat. Perbarui pembayaran agar akses tetap aktif."
+          : "Langganan akan berakhir pada tanggal ini jika tidak diperpanjang."
+        : "Langganan aktif."
+      : "Langganan tidak aktif. Pilih paket untuk mengaktifkan kembali akses penuh.";
 
   const boardClasses =
     "rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96";
@@ -139,10 +183,54 @@ export function BillingPlanBoard({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-none bg-orange-500/10 px-3 py-1 text-sm text-orange-700 dark:text-orange-300">
-                {trialBadge}
+              <Badge className={cn("border-none px-3 py-1 text-sm", statusToneClass)}>
+                {statusLabel}
               </Badge>
             </div>
+          </div>
+
+          {/* RINGKASAN STATUS LANGGANAN */}
+          <div className="rounded-[1.25rem] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Paket aktif
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-lg font-semibold text-slate-950 dark:text-white">
+                    {PLAN_LABEL[planState.rawPlan] || planState.title}
+                  </span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", statusToneClass)}>
+                    {statusLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  {periodLabel}
+                </div>
+                <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                  {periodEndKnown ? activeUntil : "Belum tercatat"}
+                </div>
+                {daysLeft !== null ? (
+                  <div
+                    className={cn(
+                      "text-xs font-medium",
+                      isExpired
+                        ? "text-rose-600 dark:text-rose-300"
+                        : daysLeft <= 7
+                          ? "text-amber-600 dark:text-amber-300"
+                          : "text-slate-500 dark:text-slate-400",
+                    )}
+                  >
+                    {isExpired ? "sudah berakhir" : `${daysLeft} hari lagi`}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              {statusNote}
+            </p>
           </div>
 
           <div className={cn("rounded-[1.5rem] border border-slate-200 bg-slate-50/70 dark:border-white/10 dark:bg-white/[0.03]", compact ? "p-3" : "p-5")}>
