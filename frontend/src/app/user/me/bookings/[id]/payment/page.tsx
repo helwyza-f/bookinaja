@@ -334,7 +334,7 @@ export default function BookingPaymentPage() {
 
     return (
       <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs font-medium text-cyan-900 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-100">
-        Checkout di Midtrans.
+        Checkout di halaman pembayaran.
       </div>
     );
   };
@@ -372,7 +372,7 @@ export default function BookingPaymentPage() {
       if (window.snap) return window.snap;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    toast.error("Midtrans belum siap");
+    toast.error("Gateway pembayaran belum siap");
     return null;
   };
 
@@ -860,7 +860,7 @@ export default function BookingPaymentPage() {
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 {selectedMethodDetail?.verification_type === "auto"
-                  ? "Lanjut ke Midtrans"
+                  ? "Lanjut ke pembayaran"
                   : selectedMethodDetail?.code === "cash"
                     ? "Konfirmasi Cash"
                     : `Kirim ${selectedMethodDetail?.display_name || "Manual"}`}

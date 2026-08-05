@@ -228,7 +228,7 @@ export default function CustomerOrderPaymentPage() {
       if (window.snap) return window.snap;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    toast.error("Midtrans belum siap");
+    toast.error("Gateway pembayaran belum siap");
     return null;
   };
 
