@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
 import { type BuilderResource } from "@/lib/page-builder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { cn } from "@/lib/utils";
 import { getLandingPresetTone } from "./theme-preset";
 
@@ -75,6 +76,8 @@ export function ResourceCard({
                 alt={res.name}
                 fill
                 sizes="(min-width: 1280px) 360px, (min-width: 768px) 50vw, 100vw"
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
                 className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
               />
             ) : (

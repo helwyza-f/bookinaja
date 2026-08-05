@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarCheck, Zap } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { getLandingPresetTone } from "./theme-preset";
 import {
   LANDING_COPY_BUDGET,
@@ -132,6 +133,8 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               fill
               priority
               sizes="100vw"
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
               className="object-cover object-center opacity-68 scale-[1.03] md:opacity-86 md:scale-100"
             />
           </>
@@ -290,6 +293,8 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                       fill
                       loading="lazy"
                       sizes="(min-width: 1024px) 40vw, 100vw"
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
                       className="object-cover object-center"
                     />
                   </div>

@@ -24,6 +24,7 @@ import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -309,6 +310,8 @@ export default function ResourceDetailPage() {
             fill
             priority
             sizes="100vw"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="object-cover object-center"
           />
         ) : (
@@ -371,6 +374,8 @@ export default function ResourceDetailPage() {
                       alt={`${resource.name} ${index + 1}`}
                       fill
                       sizes="(min-width: 768px) 25vw, 50vw"
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </button>

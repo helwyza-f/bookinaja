@@ -37,6 +37,7 @@ import api from "@/lib/api";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 
 type ResourceRow = {
   id: string;
@@ -535,8 +536,9 @@ export default function ResourcesPage() {
                         src={res.image_url}
                         alt={res.name}
                         fill
-                        unoptimized
                         sizes="(min-width: 1280px) 360px, (min-width: 768px) 50vw, 100vw"
+                        placeholder="blur"
+                        blurDataURL={BLUR_DATA_URL}
                         className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
