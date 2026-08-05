@@ -52,6 +52,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
 			platformProtected.PATCH("/tenants/:tenant_id/discovery", cfg.PlatformHandler.UpdateTenantDiscoveryEditorial)
 			platformProtected.GET("/tenants/:tenant_id", cfg.PlatformHandler.TenantDetail)
+			platformProtected.PATCH("/tenants/:tenant_id/subscription", cfg.PlatformHandler.SetTenantPlan)
 			platformProtected.GET("/tenants/:tenant_id/customers", cfg.PlatformHandler.TenantCustomers)
 			platformProtected.GET("/tenants/:tenant_id/transactions", cfg.PlatformHandler.TenantTransactions)
 			platformProtected.GET("/tenants/:tenant_id/balance", cfg.PlatformHandler.TenantBalanceDetail)

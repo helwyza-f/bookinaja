@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { isAfter, isBefore, parseISO } from "date-fns";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import {
   getPlatformTenantBalance,
   getPlatformTenantCustomers,
   getPlatformTenantDetail,
+  setPlatformTenantPlan,
   getPlatformTenantNotifications,
   getPlatformTenantTransactions,
   type MidtransNotificationLog,
@@ -41,6 +43,25 @@ export default function TenantDetailPage() {
   const [logStatus, setLogStatus] = useState("all");
   const [logFrom, setLogFrom] = useState("");
   const [logTo, setLogTo] = useState("");
+
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+
+  const applyTestPlan = async (
+    plan: "free" | "trial" | "starter" | "pro" | "scale",
+  ) => {
+    if (!tenantId || savingPlan) return;
+    setSavingPlan(plan);
+    try {
+      await setPlatformTenantPlan(tenantId, plan);
+      const fresh = await getPlatformTenantDetail(tenantId);
+      setDetail(fresh);
+      toast.success(`Plan tenant di-set ke ${plan}`);
+    } catch {
+      toast.error("Gagal mengubah plan tenant");
+    } finally {
+      setSavingPlan(null);
+    }
+  };
 
   useEffect(() => {
     if (!tenantId) return;
@@ -175,6 +196,37 @@ export default function TenantDetailPage() {
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
                     Plan: {formatPlanLabel(detail.plan)}
+                  </div>
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Set plan (testing)
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(["free", "trial", "starter", "pro", "scale"] as const).map(
+                        (plan) => {
+                          const isCurrent =
+                            (detail.plan || "").toLowerCase() === plan;
+                          return (
+                            <button
+                              key={plan}
+                              type="button"
+                              onClick={() => applyTestPlan(plan)}
+                              disabled={Boolean(savingPlan)}
+                              className={`rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase transition disabled:opacity-60 ${
+                                isCurrent
+                                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                                  : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              {savingPlan === plan ? "..." : plan}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                    <div className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                      trial = 14 hari Pro; free = tanpa langganan; starter/pro/scale = aktif 30 hari.
+                    </div>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-4">

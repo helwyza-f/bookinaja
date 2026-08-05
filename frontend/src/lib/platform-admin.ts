@@ -361,6 +361,13 @@ export function updatePlatformDiscoveryFeedSetting(enableDiscoveryPosts: boolean
   });
 }
 
+export function setPlatformTenantPlan(
+  tenantId: string,
+  plan: "free" | "trial" | "starter" | "pro" | "scale",
+) {
+  return api.patch(`/platform/tenants/${tenantId}/subscription`, { plan });
+}
+
 export function getPlatformPaymentGateway() {
   return safeGet<PlatformPaymentGatewaySetting>("/platform/payment-gateway", {
     active_gateway: "midtrans",

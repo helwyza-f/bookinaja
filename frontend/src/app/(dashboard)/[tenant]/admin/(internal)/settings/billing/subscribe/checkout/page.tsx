@@ -96,12 +96,12 @@ export default function SettingsBillingCheckoutPage() {
     ? [
         "Langganan aktif mengikuti paket yang kamu pilih.",
         `Paket yang dipilih: ${selectedPlanLabel}.`,
-        "Pembayaran diproses lewat checkout Midtrans.",
+        "Pembayaran diproses lewat gateway pembayaran.",
       ]
     : [
         `Plan sekarang: ${formatPlanLabel(currentPlanKey)}.`,
         `Kamu memilih upgrade ke ${selectedPlanLabel}.`,
-        "Pembayaran diproses lewat checkout Midtrans.",
+        "Pembayaran diproses lewat gateway pembayaran.",
       ];
 
   const loadMidtransSnap = async () => {
@@ -158,19 +158,19 @@ export default function SettingsBillingCheckoutPage() {
   };
 
   const checkout = async () => {
-    const snap = await waitForSnap();
-    if (!snap) return;
-
     try {
       const res = await api.post("/billing/checkout", {
         plan: selectedPlan,
         interval: isAnnual ? "annual" : "monthly",
       });
 
+      // Gateway redirect (mis. Xendit): tak butuh Snap, langsung ke invoice.
       if (!res.data?.snap_token && res.data?.redirect_url) {
         window.location.assign(res.data.redirect_url);
         return;
       }
+      const snap = await waitForSnap();
+      if (!snap) return;
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
           toast.success("Pembayaran berhasil");
@@ -323,7 +323,7 @@ export default function SettingsBillingCheckoutPage() {
                 Lanjutkan pembayaran
               </div>
               <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Kalau paket dan tagihannya sudah sesuai, lanjutkan ke Midtrans untuk menyelesaikan pembayaran.
+                Kalau paket dan tagihannya sudah sesuai, lanjutkan ke halaman pembayaran untuk menyelesaikannya.
               </p>
             </div>
 
@@ -338,7 +338,7 @@ export default function SettingsBillingCheckoutPage() {
 
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <ShieldCheck className="h-4 w-4" />
-              Pembayaran diproses lewat Midtrans Snap.
+              Pembayaran diproses lewat gateway pembayaran aktif.
             </div>
 
             <div className="mt-4 grid gap-2">

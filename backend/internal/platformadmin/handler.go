@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/platform/security"
 	"github.com/lib/pq"
@@ -80,6 +81,26 @@ func (h *Handler) DiscoveryAnalytics(c *gin.Context) {
 		return
 	}
 	respondData(c, data)
+}
+
+func (h *Handler) SetTenantPlan(c *gin.Context) {
+	tenantID, err := uuid.Parse(strings.TrimSpace(c.Param("tenant_id")))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant id tidak valid"})
+		return
+	}
+	var req struct {
+		Plan string `json:"plan"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload plan tidak valid"})
+		return
+	}
+	if err := h.repo.SetTenantPlan(c.Request.Context(), tenantID, req.Plan); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "plan tenant diperbarui"})
 }
 
 func (h *Handler) GetPaymentGatewaySetting(c *gin.Context) {

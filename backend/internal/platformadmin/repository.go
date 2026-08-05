@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
@@ -22,6 +23,44 @@ type Repository struct {
 type DiscoveryFeedSetting struct {
 	EnableDiscoveryPosts bool      `json:"enable_discovery_posts"`
 	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+// SetTenantPlan menetapkan (plan, status, period) yang koheren untuk sebuah
+// tenant — dipakai platform admin untuk menguji tiap tier tanpa lewat bayar.
+func (r *Repository) SetTenantPlan(ctx context.Context, tenantID uuid.UUID, choice string) error {
+	var plan, status string
+	days := 0
+	switch strings.ToLower(strings.TrimSpace(choice)) {
+	case "free":
+		plan, status, days = "free", "inactive", 0
+	case "trial":
+		plan, status, days = "pro", "trial", 14
+	case "starter":
+		plan, status, days = "starter", "active", 30
+	case "pro":
+		plan, status, days = "pro", "active", 30
+	case "scale":
+		plan, status, days = "scale", "active", 30
+	default:
+		return errors.New("plan tidak dikenal (free/trial/starter/pro/scale)")
+	}
+
+	if days > 0 {
+		_, err := r.db.ExecContext(ctx, `
+			UPDATE tenants
+			SET plan = $2, subscription_status = $3,
+				subscription_current_period_start = NOW(),
+				subscription_current_period_end = NOW() + ($4 || ' days')::interval
+			WHERE id = $1`, tenantID, plan, status, days)
+		return err
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE tenants
+		SET plan = $2, subscription_status = $3,
+			subscription_current_period_start = NULL,
+			subscription_current_period_end = NULL
+		WHERE id = $1`, tenantID, plan, status)
+	return err
 }
 
 type PaymentGatewaySetting struct {
