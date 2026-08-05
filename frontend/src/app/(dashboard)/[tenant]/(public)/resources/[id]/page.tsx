@@ -307,7 +307,7 @@ export default function ResourceDetailPage() {
             src={resource.image_url}
             alt={resource.name}
             fill
-            unoptimized
+            priority
             sizes="100vw"
             className="object-cover object-center"
           />
@@ -366,11 +366,12 @@ export default function ResourceDetailPage() {
                       themeVisuals.mediaClass,
                     )}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={image}
                       alt={`${resource.name} ${index + 1}`}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      fill
+                      sizes="(min-width: 768px) 25vw, 50vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </button>
                 ))}
