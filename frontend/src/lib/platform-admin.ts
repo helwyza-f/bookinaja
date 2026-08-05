@@ -306,11 +306,16 @@ async function safeGetPage<T>(url: string, fallback: PaginatedResponse<T>): Prom
 }
 
 export async function getPlatformSummary() {
-  const [tenants, customers, transactions] = await Promise.all([
+  const [tenantsRes, customersRes, transactionsRes] = await Promise.all([
     getPlatformTenants(),
     getPlatformCustomers(),
     getPlatformTransactions(),
   ]);
+
+  // Guard against non-array API payloads so downstream .length/.reduce never throw.
+  const tenants = Array.isArray(tenantsRes) ? tenantsRes : [];
+  const customers = Array.isArray(customersRes) ? customersRes : [];
+  const transactions = Array.isArray(transactionsRes) ? transactionsRes : [];
 
   return {
     tenants,
@@ -481,7 +486,10 @@ export function getPlatformTransactions() {
     page: 1,
     page_size: mockTransactions.length,
     total: mockTransactions.length,
-  }).then((res) => res.items ?? res);
+  }).then((res) => {
+    const items = (res as PaginatedResponse<PlatformTransaction>)?.items ?? res;
+    return Array.isArray(items) ? items : [];
+  });
 }
 
 export function getPlatformTransactionsPage(page = 1, pageSize = 25) {
