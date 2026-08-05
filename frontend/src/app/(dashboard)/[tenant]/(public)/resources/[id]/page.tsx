@@ -8,15 +8,19 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   Check,
   Clock,
   ImageIcon,
+  Loader2,
   MapPin,
   MessageCircle,
   Package2,
   ShieldCheck,
   X,
 } from "lucide-react";
+import { addDays, format, isSameDay } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -96,6 +100,28 @@ function parseFeatureList(description?: string): string[] {
   return parts.length >= 2 ? parts : [];
 }
 
+// --- Availability peek helpers (selaras dengan perhitungan slot di flow booking) ---
+function clockToMinutes(value?: string): number {
+  const [h, m] = String(value || "0:0").split(":").map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function minutesToClock(total: number): string {
+  const h = Math.floor(total / 60) % 24;
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function getOperatingWindow(open?: string, close?: string) {
+  const openMinutes = clockToMinutes(open || "08:00");
+  let closeMinutes = clockToMinutes(close || "22:00");
+  if (closeMinutes <= openMinutes) closeMinutes = 24 * 60; // toko lewat tengah malam
+  return { openMinutes, closeMinutes };
+}
+
+type BusyInterval = { startMin: number; endMin: number };
+type PeekSlot = { time: string; available: boolean };
+
 function isMainItem(item: ResourceItem) {
   return ["main_option", "main", "console_option", "package", "pricing"].includes(
     String(item.item_type || "").toLowerCase(),
@@ -170,6 +196,77 @@ export default function ResourceDetailPage() {
     );
   }, [mainItems]);
 
+  // --- Availability peek (hanya untuk resource berbasis jadwal) ---
+  const [peekDate, setPeekDate] = useState<Date>(() => new Date());
+  const [peekBusy, setPeekBusy] = useState<BusyInterval[]>([]);
+  const [peekLoading, setPeekLoading] = useState(false);
+
+  const peekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(new Date(), i)),
+    [],
+  );
+
+  useEffect(() => {
+    if (isDirectSale || !params.id) return;
+    let alive = true;
+    const run = async () => {
+      setPeekLoading(true);
+      try {
+        const res = await api.get(
+          `/guest/availability/${params.id}?date=${format(peekDate, "yyyy-MM-dd")}`,
+        );
+        if (!alive) return;
+        const busy: BusyInterval[] = (res.data?.busy_slots || []).map(
+          (slot: any) => {
+            const startMin = clockToMinutes(slot.start_time);
+            let endMin = clockToMinutes(slot.end_time);
+            if (endMin <= startMin) endMin = 24 * 60;
+            return { startMin, endMin };
+          },
+        );
+        setPeekBusy(busy);
+      } catch {
+        if (alive) setPeekBusy([]);
+      } finally {
+        if (alive) setPeekLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      alive = false;
+    };
+  }, [peekDate, params.id, isDirectSale]);
+
+  const peekSlots = useMemo<PeekSlot[]>(() => {
+    if (isDirectSale) return [];
+    const step = bestPrice?.unit_duration && bestPrice.unit_duration > 0
+      ? bestPrice.unit_duration
+      : 60;
+    const { openMinutes, closeMinutes } = getOperatingWindow(
+      profile?.open_time,
+      profile?.close_time,
+    );
+    const now = new Date();
+    const isToday = isSameDay(peekDate, now);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const slots: PeekSlot[] = [];
+    for (let start = openMinutes; start + step <= closeMinutes; start += step) {
+      const end = start + step;
+      const overlapsBusy = peekBusy.some(
+        (b) => start < b.endMin && end > b.startMin,
+      );
+      const inPast = isToday && start < nowMinutes;
+      slots.push({ time: minutesToClock(start), available: !overlapsBusy && !inPast });
+    }
+    return slots;
+  }, [isDirectSale, bestPrice, profile?.open_time, profile?.close_time, peekBusy, peekDate]);
+
+  const peekAvailableCount = useMemo(
+    () => peekSlots.filter((s) => s.available).length,
+    [peekSlots],
+  );
+
   const galleryImages = useMemo(() => {
     const images = [resource?.image_url, ...(resource?.gallery || [])]
       .map((url) => String(url || "").trim())
@@ -177,9 +274,12 @@ export default function ResourceDetailPage() {
     return Array.from(new Set(images));
   }, [resource?.image_url, resource?.gallery]);
 
+  const peekDateParam = format(peekDate, "yyyy-MM-dd");
   const bookHref = isDirectSale
     ? `/orders/${params.id}`
-    : `/bookings/${params.id}`;
+    : `/bookings/${params.id}?date=${peekDateParam}`;
+  const slotHref = (time: string) =>
+    `/bookings/${params.id}?date=${peekDateParam}&time=${time}`;
   const ctaLabel = isDirectSale ? "Pesan sekarang" : "Cek jadwal & booking";
 
   const whatsappHref = profile?.whatsapp_number
@@ -250,7 +350,7 @@ export default function ResourceDetailPage() {
 
       <main className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:px-8 lg:grid-cols-[1.6fr_0.9fr] lg:items-start">
         {/* LEFT: content */}
-        <div className="space-y-10">
+        <div className="min-w-0 space-y-10">
           {/* GALLERY */}
           {galleryImages.length > 1 ? (
             <section className="space-y-4">
@@ -389,6 +489,108 @@ export default function ResourceDetailPage() {
                   </div>
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {/* AVAILABILITY PEEK (mobile-first) */}
+          {!isDirectSale ? (
+            <section className="space-y-4">
+              <SectionLabel themeVisuals={themeVisuals} title="Cek ketersediaan" />
+
+              {/* Pilih hari — baris yang bisa di-scroll (mobile-first) */}
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {peekDays.map((day) => {
+                  const selected = isSameDay(day, peekDate);
+                  const isTodayChip = isSameDay(day, new Date());
+                  const topLabel = isTodayChip
+                    ? "Hari ini"
+                    : isSameDay(day, addDays(new Date(), 1))
+                      ? "Besok"
+                      : format(day, "EEE", { locale: idLocale });
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      type="button"
+                      onClick={() => setPeekDate(day)}
+                      className={cn(
+                        "flex min-w-[68px] shrink-0 flex-col items-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition",
+                        selected ? "text-white" : themeVisuals.infoRowClass,
+                      )}
+                      style={selected ? { backgroundColor: activeTheme.primary_color, borderColor: activeTheme.primary_color } : undefined}
+                    >
+                      <span className={cn("text-[11px] font-semibold", selected ? "text-white/90" : themeVisuals.mutedClass)}>
+                        {topLabel}
+                      </span>
+                      <span className={cn("text-base font-bold leading-none", selected ? "text-white" : themeVisuals.titleClass)}>
+                        {format(day, "d")}
+                      </span>
+                      <span className={cn("text-[10px] uppercase", selected ? "text-white/80" : themeVisuals.mutedClass)}>
+                        {format(day, "MMM", { locale: idLocale })}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Ringkasan + grid slot */}
+              {peekLoading ? (
+                <div className={cn("flex items-center gap-2 text-sm", themeVisuals.mutedClass)}>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Memuat jadwal...
+                </div>
+              ) : peekSlots.length === 0 ? (
+                <div className={cn("flex items-start gap-2 rounded-2xl border px-3 py-3 text-sm", themeVisuals.infoRowClass)}>
+                  <CalendarDays className={cn("mt-0.5 h-4 w-4 shrink-0", themeVisuals.mutedClass)} />
+                  <span className={themeVisuals.bodyClass}>Jam operasional belum diatur. Lanjut ke booking untuk cek jadwal.</span>
+                </div>
+              ) : (
+                <>
+                  <div className={cn("text-sm font-semibold", themeVisuals.bodyClass)}>
+                    {peekAvailableCount > 0 ? (
+                      <span>
+                        <span style={{ color: activeTheme.primary_color }}>{peekAvailableCount} slot</span> tersedia
+                        {" · "}
+                        {format(peekDate, "EEEE, d MMM", { locale: idLocale })}
+                      </span>
+                    ) : (
+                      <span className={themeVisuals.mutedClass}>
+                        Tidak ada slot untuk {format(peekDate, "EEEE, d MMM", { locale: idLocale })} — coba hari lain
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                    {peekSlots.map((slot) =>
+                      slot.available ? (
+                        <Link
+                          key={slot.time}
+                          href={slotHref(slot.time)}
+                          className="flex items-center justify-center rounded-xl border py-2.5 text-sm font-semibold transition hover:opacity-90"
+                          style={{
+                            borderColor: `${activeTheme.primary_color}55`,
+                            backgroundColor: `${activeTheme.primary_color}14`,
+                            color: activeTheme.primary_color,
+                          }}
+                        >
+                          {slot.time}
+                        </Link>
+                      ) : (
+                        <span
+                          key={slot.time}
+                          className={cn(
+                            "flex items-center justify-center rounded-xl border py-2.5 text-sm font-medium line-through opacity-40",
+                            themeVisuals.infoRowClass,
+                            themeVisuals.mutedClass,
+                          )}
+                        >
+                          {slot.time}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <p className={cn("text-xs leading-5", themeVisuals.mutedClass)}>
+                    Slot indikatif. Durasi, DP, dan total final dihitung di langkah booking.
+                  </p>
+                </>
+              )}
             </section>
           ) : null}
 

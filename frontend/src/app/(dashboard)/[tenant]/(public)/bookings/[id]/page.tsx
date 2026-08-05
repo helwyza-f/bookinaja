@@ -202,8 +202,16 @@ export default function ResourceBookingDetail() {
   );
 
   useEffect(() => {
-    setDate((current) => current ?? getTenantToday(new Date(), tenantTimezone));
-  }, [tenantTimezone]);
+    setDate((current) => {
+      if (current) return current;
+      const q = searchParams.get("date");
+      if (q) {
+        const parsed = parse(q, "yyyy-MM-dd", new Date());
+        if (!isNaN(parsed.getTime())) return parsed;
+      }
+      return getTenantToday(new Date(), tenantTimezone);
+    });
+  }, [tenantTimezone, searchParams]);
 
   // Smooth Scroll Trigger — first reveal only
   useEffect(() => {

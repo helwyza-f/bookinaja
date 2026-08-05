@@ -325,32 +325,25 @@ export function TenantNavbar({
             <SheetTitle className="text-lg font-semibold text-slate-950 dark:text-white">
               Menu
             </SheetTitle>
-            <SheetDescription className="text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Pilih cara masuk yang paling sesuai buat kamu.
+            <SheetDescription className="sr-only">
+              Menu navigasi dan pilihan masuk
             </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-4 px-5 py-4">
-            {mobileSectionItems.length ? (
-              <div className="space-y-3">
-                <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                  Jelajahi halaman
-                </div>
-                <div className="space-y-3">
-                  {mobileSectionItems.map((item) => (
-                    <a
-                      key={item.id}
-                      href={item.href}
-                      onClick={() => setActionsOpen(false)}
-                      className="group flex min-h-[56px] w-full items-center justify-between rounded-[1.15rem] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-900"
-                    >
-                      <span>{item.label}</span>
-                      <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--bookinaja-600)] transition group-hover:translate-x-0.5" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+          <nav className="flex flex-col px-3 py-2">
+            {mobileSectionItems.map((item) => (
+              <a
+                key={item.id}
+                href={item.href}
+                onClick={() => setActionsOpen(false)}
+                className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800/60"
+              >
+                <span>{item.label}</span>
+                <ChevronDown className="h-4 w-4 -rotate-90 text-slate-400" />
+              </a>
+            ))}
+
+            <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
 
             <button
               type="button"
@@ -358,85 +351,31 @@ export function TenantNavbar({
                 setTheme(isDark ? "light" : "dark");
                 setActionsOpen(false);
               }}
-              className="group flex min-h-[72px] w-full items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-[0_16px_32px_rgba(15,23,42,0.1)] dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-900"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800/60"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                {isDark ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div>{isDark ? "Pakai mode terang" : "Pakai mode gelap"}</div>
-                <div className="mt-1 text-xs leading-5 font-medium text-slate-500 dark:text-slate-400">
-                  Biar tampilan lebih nyaman dibaca
-                </div>
-              </div>
-              <div className="text-slate-300 transition group-hover:text-slate-500 dark:text-slate-600 dark:group-hover:text-slate-300">
-                →
-              </div>
+              {isDark ? <Sun className="h-4.5 w-4.5 text-slate-400" /> : <Moon className="h-4.5 w-4.5 text-slate-400" />}
+              <span>{isDark ? "Mode terang" : "Mode gelap"}</span>
             </button>
 
-            <div className="space-y-3">
-              <a
-                href={adminHref}
-                className="group flex min-h-[78px] items-center gap-3 rounded-[1.45rem] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-[0_16px_32px_rgba(15,23,42,0.1)] dark:border-slate-800 dark:bg-slate-900/70 dark:text-white dark:hover:bg-slate-900"
-                onClick={() => setActionsOpen(false)}
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-                  <ShieldCheck className="h-4.5 w-4.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div>Masuk Admin</div>
-                  <div className="mt-1 text-xs leading-5 font-medium text-slate-500 dark:text-slate-400">
-                    Untuk pemilik atau tim yang mengelola bisnis ini
-                  </div>
-                </div>
-                <div className="text-slate-300 transition group-hover:text-slate-500 dark:text-slate-600 dark:group-hover:text-slate-300">
-                  →
-                </div>
-              </a>
+            <a
+              href={adminHref}
+              onClick={() => setActionsOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800/60"
+            >
+              <ShieldCheck className="h-4.5 w-4.5 text-slate-400" />
+              <span>Masuk Admin</span>
+            </a>
 
-              <a
-                href={customerHref}
-                className="group relative flex min-h-[84px] items-center gap-3 overflow-hidden rounded-[1.55rem] px-4 py-3 text-sm font-semibold text-white shadow-[0_20px_44px_rgba(59,130,246,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_54px_rgba(59,130,246,0.32)]"
-                style={{ backgroundColor: primaryColor }}
-                onClick={() => setActionsOpen(false)}
-              >
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.14)_0%,transparent_52%,rgba(255,255,255,0.08)_100%)]" />
-                <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-white/16 text-white ring-1 ring-white/10">
-                  {customer?.avatar_url && isAuthenticated ? (
-                    <Image
-                      src={customer.avatar_url}
-                      alt={customer?.name || "Customer"}
-                      width={28}
-                      height={28}
-                      unoptimized
-                      className="h-7 w-7 rounded-full object-cover object-center"
-                    />
-                  ) : isAuthenticated ? (
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/18 text-[11px] font-black text-white">
-                      {customerInitials || "CU"}
-                    </span>
-                  ) : (
-                    <UserCircle2 className="h-4.5 w-4.5" />
-                  )}
-                </div>
-                <div className="relative min-w-0 flex-1">
-                  <div>{isAuthenticated ? "Lanjut ke akun kamu" : "Masuk sebagai Customer"}</div>
-                  <div className="mt-1 text-xs leading-5 font-medium text-white/80">
-                    {isAuthenticated
-                      ? `Buka akun ${truncateLandingCopy(firstName || customer?.name || "customer", 18)} untuk lihat booking dan status terbaru`
-                      : "Lihat booking, status pesanan, dan riwayat akun kamu"}
-                  </div>
-                </div>
-                <div className="relative text-white/70 transition group-hover:text-white">
-                  →
-                </div>
-              </a>
-            </div>
-
-            <div className="rounded-[1.25rem] border border-dashed border-slate-200 px-4 py-3.5 text-xs leading-6 text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              Kalau kamu mau booking atau cek status pesanan, masuk sebagai customer. Kalau kamu yang mengelola bisnis ini, masuk lewat admin.
-            </div>
-          </div>
+            <a
+              href={customerHref}
+              onClick={() => setActionsOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              style={{ color: primaryColor }}
+            >
+              <UserCircle2 className="h-4.5 w-4.5" />
+              <span>{isAuthenticated ? "Akun kamu" : "Masuk sebagai Customer"}</span>
+            </a>
+          </nav>
         </SheetContent>
       </Sheet>
     </div>
