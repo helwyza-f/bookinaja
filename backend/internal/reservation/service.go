@@ -316,12 +316,14 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	var unitMinutes int = 60 // Default fallback
 	var grandTotal float64
 	mainPriceUnit := "hour"
+	var mainItemMetadata *json.RawMessage
 
 	for _, item := range resDetail.Items {
 		if item.ID == mainItemID {
 			unitMinutes = item.UnitDuration
 			mainPriceUnit = strings.ToLower(strings.TrimSpace(item.PriceUnit))
 			grandTotal += item.Price * float64(req.Duration)
+			mainItemMetadata = item.Metadata
 			break
 		}
 	}
@@ -343,6 +345,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
 	localStart, localEnd := bookingWindowInLocation(start, end, tenantLocation)
 	if err := s.validateBookingSchedule(ctx, tID, localStart, localEnd, mainPriceUnit, isManualWalkIn); err != nil {
+		return nil, nil, err
+	}
+	// Penguncian jam paket (opsional): tolak kalau paket dikunci ke rentang jam
+	// tertentu dan booking berada di luar rentang itu.
+	if err := validatePackageTimeWindow(mainItemMetadata, localStart, localEnd); err != nil {
 		return nil, nil, err
 	}
 

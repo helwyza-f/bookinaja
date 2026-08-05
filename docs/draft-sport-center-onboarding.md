@@ -1,5 +1,16 @@
 # Draft Isian Onboarding — Sport Center (per unit)
 
+## Brand / Identitas Halaman Booking (modal "Setup cepat")
+
+| Field | Isi |
+|-------|-----|
+| Kalimat kecil di atas judul (eyebrow) | `Booking lapangan online, tanpa antre chat` |
+| Judul utama halaman booking (hero) | `Cek slot kosong & amankan lapanganmu sekarang` |
+| Deskripsi hero | `Futsal, padel, badminton, basket, dan lainnya — pilih tanggal, lihat jam yang tersedia, bayar DP, dan lapangan langsung terkunci untukmu.` |
+| Penjelasan singkat bisnis | `Arena Champion Sports Center: 22 lapangan dari 7 jenis olahraga di satu lokasi. Customer bisa lihat jadwal realtime, pilih durasi main, dan booking tanpa proses manual yang panjang.` |
+
+---
+
 > Format mengikuti form onboarding Bookinaja:
 > **Nama unit** → **Ringkasan singkat** → **Cover banner** → **Paket utama** (nama paket + harga `/jam`).
 > Tiap unit isi 1x. Paket tambahan (Malam / Weekend) ditambahkan setelah paket utama.

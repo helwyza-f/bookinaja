@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -191,12 +192,13 @@ func (h *Handler) AddItem(c *gin.Context) {
 	resourceID := c.Param("id")
 
 	var req struct {
-		Name         string  `json:"name" binding:"required"`
-		Price        float64 `json:"price" binding:"required"`
-		PriceUnit    string  `json:"price_unit" binding:"required"`
-		UnitDuration int     `json:"unit_duration"`
-		ItemType     string  `json:"item_type" binding:"required"`
-		IsDefault    bool    `json:"is_default"`
+		Name         string           `json:"name" binding:"required"`
+		Price        float64          `json:"price" binding:"required"`
+		PriceUnit    string           `json:"price_unit" binding:"required"`
+		UnitDuration int              `json:"unit_duration"`
+		ItemType     string           `json:"item_type" binding:"required"`
+		IsDefault    bool             `json:"is_default"`
+		Metadata     *json.RawMessage `json:"metadata"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -213,6 +215,7 @@ func (h *Handler) AddItem(c *gin.Context) {
 		req.ItemType,
 		req.IsDefault,
 		req.UnitDuration,
+		req.Metadata,
 	)
 
 	if err != nil {

@@ -201,7 +201,7 @@ func (s *Service) ListDeviceMap(ctx context.Context, tenantID string) ([]Resourc
 }
 
 // AddResourceItem menambahkan opsi harga/layanan/addons ke dalam resource
-func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int) (*ResourceItem, error) {
+func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int, metadata *json.RawMessage) (*ResourceItem, error) {
 	rID, err := uuid.Parse(resID)
 	if err != nil {
 		return nil, err
@@ -223,6 +223,10 @@ func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price
 	}
 
 	emptyMeta := json.RawMessage("{}")
+	itemMeta := &emptyMeta
+	if metadata != nil && len(*metadata) > 0 {
+		itemMeta = metadata
+	}
 
 	item := ResourceItem{
 		ID:           uuid.New(),
@@ -233,7 +237,7 @@ func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price
 		UnitDuration: duration,
 		ItemType:     iType,
 		IsDefault:    isDefault,
-		Metadata:     &emptyMeta,
+		Metadata:     itemMeta,
 	}
 
 	created, err := s.repo.CreateItem(ctx, item)

@@ -73,6 +73,9 @@ export type ResourceItemConfig = {
   unit_duration?: number;
   is_default?: boolean;
   item_type?: string;
+  metadata?: {
+    time_lock?: { enabled?: boolean; from?: string; to?: string };
+  } | null;
 };
 
 export function ManageItemDialog({
@@ -95,6 +98,10 @@ export function ManageItemDialog({
   const [unitDuration, setUnitDuration] = useState<number>(60);
   const [customDuration, setCustomDuration] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Penguncian jam paket (opsional). Default: tersedia semua jam.
+  const [lockEnabled, setLockEnabled] = useState(false);
+  const [lockFrom, setLockFrom] = useState("08:00");
+  const [lockTo, setLockTo] = useState("17:00");
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
   const resetForm = useCallback(() => {
@@ -106,6 +113,9 @@ export function ManageItemDialog({
     setPriceUnit(operatingMode === "direct_sale" ? "pcs" : "hour");
     setUnitDuration(operatingMode === "direct_sale" ? 0 : 60);
     setCustomDuration(false);
+    setLockEnabled(false);
+    setLockFrom("08:00");
+    setLockTo("17:00");
   }, [operatingMode]);
 
   useEffect(() => {
@@ -126,6 +136,12 @@ export function ManageItemDialog({
         nextUnit === "session" &&
           !SESSION_DURATION_PRESETS.some((preset) => preset.minutes === nextDuration),
       );
+      // Muat konfigurasi penguncian jam kalau ada.
+      const lock = editingItem.metadata?.time_lock;
+      setLockEnabled(Boolean(lock?.enabled));
+      setLockFrom(lock?.from || "08:00");
+      // "24:00" (akhir hari) dipetakan ke 00:00 untuk input type=time.
+      setLockTo(lock?.to === "24:00" ? "00:00" : lock?.to || "17:00");
     } else {
       resetForm();
     }
@@ -145,6 +161,28 @@ export function ManageItemDialog({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Penguncian jam hanya untuk paket utama berbasis waktu.
+    const supportsLock = itemType === "main" && operatingMode !== "direct_sale";
+    // "00:00" sebagai jam selesai berarti tutup tengah malam (akhir hari).
+    const normalizedTo = lockTo === "00:00" ? "24:00" : lockTo;
+    if (supportsLock && lockEnabled) {
+      const [fh, fm] = lockFrom.split(":").map(Number);
+      const [th, tm] = normalizedTo.split(":").map(Number);
+      const fromMin = fh * 60 + fm;
+      const toMin = normalizedTo === "24:00" ? 1440 : th * 60 + tm;
+      if (!(fromMin < toMin)) {
+        toast.error("Jam mulai harus lebih awal dari jam selesai.");
+        return;
+      }
+    }
+
+    const timeLock = supportsLock
+      ? lockEnabled
+        ? { enabled: true, from: lockFrom, to: normalizedTo }
+        : { enabled: false }
+      : undefined;
+
     setLoading(true);
 
     const payload = {
@@ -155,6 +193,7 @@ export function ManageItemDialog({
       is_default: itemType === "addon" ? false : isDefault,
       // Universal mapping: console_option diganti menjadi main_option
       item_type: itemType === "main" ? "main_option" : "add_on",
+      ...(timeLock ? { metadata: { time_lock: timeLock } } : {}),
     };
 
     try {
@@ -444,6 +483,59 @@ export function ManageItemDialog({
                   Customer memilih jumlahnya saat booking.
                 </div>
               )}
+            </div>
+          ) : null}
+
+          {/* PENGUNCIAN JAM (opsional, main + timed) */}
+          {itemType === "main" && operatingMode !== "direct_sale" ? (
+            <div className="space-y-3 rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-900/40">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={lockEnabled}
+                  onChange={(e) => setLockEnabled(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase italic leading-none tracking-widest text-slate-700 dark:text-slate-200">
+                    Batasi jam paket ini
+                  </span>
+                  <span className="mt-1.5 block text-[10px] font-medium leading-tight text-slate-400">
+                    Default paket tersedia semua jam. Aktifkan agar paket ini hanya
+                    bisa dipesan pada rentang jam tertentu.
+                  </span>
+                </span>
+              </label>
+
+              {lockEnabled ? (
+                <div className="grid grid-cols-2 gap-2.5 animate-in slide-in-from-top-2">
+                  <div className="space-y-1.5">
+                    <Label className="px-1 text-[9px] font-black uppercase italic tracking-widest text-slate-400">
+                      Dari jam
+                    </Label>
+                    <Input
+                      type="time"
+                      value={lockFrom}
+                      onChange={(e) => setLockFrom(e.target.value)}
+                      className="h-11 rounded-xl border-none bg-white font-bold dark:bg-slate-900"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="px-1 text-[9px] font-black uppercase italic tracking-widest text-slate-400">
+                      Sampai jam
+                    </Label>
+                    <Input
+                      type="time"
+                      value={lockTo}
+                      onChange={(e) => setLockTo(e.target.value)}
+                      className="h-11 rounded-xl border-none bg-white font-bold dark:bg-slate-900"
+                    />
+                    <span className="px-1 text-[9px] font-medium leading-tight text-slate-400">
+                      Pilih 00:00 untuk “sampai tutup / tengah malam”.
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
