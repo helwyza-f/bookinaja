@@ -2,28 +2,35 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { format, parseISO, startOfMonth, startOfYear, subDays } from "date-fns";
-import {
-  ArrowUpRight,
-  Building2,
-  CalendarRange,
-  Download,
-  DollarSign,
-  WalletCards,
-} from "lucide-react";
+import { format, startOfMonth, startOfYear, subDays } from "date-fns";
+import { Download, DollarSign, WalletCards, ArrowUpRight, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PageShell } from "@/components/dashboard/page-shell";
+import { Input } from "@/components/ui/input";
 import {
-  DashboardDonutPanel,
-  DashboardLeaderboardPanel,
-  DashboardLineChartPanel,
-  DashboardPanel,
-  DashboardStatStrip,
-} from "@/components/dashboard/analytics-kit";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { DashboardLineChartPanel } from "@/components/dashboard/analytics-kit";
+import {
+  AdminHeader,
+  StatCard,
+  SectionCard,
+  EmptyState,
+  formatIDR,
+  formatCompactIDR,
+} from "@/components/platform/admin-kit";
 import {
   getPlatformRevenue,
   getPlatformRevenueBreakdown,
@@ -41,12 +48,7 @@ type RevenueData = {
   pending_transactions: number;
 };
 
-type RevenuePoint = {
-  period: string;
-  revenue: number;
-  cashflow: number;
-  orders: number;
-};
+type RevenuePoint = { period: string; revenue: number; cashflow: number; orders: number };
 
 type RevenueBreakdown = {
   tenant_id: string;
@@ -59,12 +61,12 @@ type RevenueBreakdown = {
   pending_orders: number;
 };
 
-const formatIDR = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
-
 export default function RevenuePage() {
   const params = useSearchParams();
   const [tenantFilter, setTenantFilter] = useState(params.get("tenant") || "all");
-  const [interval, setInterval] = useState<"week" | "month">(params.get("interval") === "week" ? "week" : "month");
+  const [interval, setInterval] = useState<"week" | "month">(
+    params.get("interval") === "week" ? "week" : "month",
+  );
   const [from, setFrom] = useState(params.get("from") || "");
   const [to, setTo] = useState(params.get("to") || "");
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
@@ -79,74 +81,24 @@ export default function RevenuePage() {
   const [series, setSeries] = useState<RevenuePoint[]>([]);
 
   useEffect(() => {
-    getPlatformTenants().then(setTenants);
+    getPlatformTenants().then((t) => setTenants(Array.isArray(t) ? t : []));
   }, []);
 
   useEffect(() => {
     const tenant = tenantFilter === "all" ? "" : tenantFilter;
-    getPlatformRevenue({
-      tenant,
-      from: from || undefined,
-      to: to || undefined,
-    }).then((res) => setRevenue(res as RevenueData));
-    getPlatformRevenueBreakdown({
-      from: from || undefined,
-      to: to || undefined,
-    }).then((res) => setBreakdown(res as RevenueBreakdown[]));
+    getPlatformRevenue({ tenant, from: from || undefined, to: to || undefined }).then((res) =>
+      setRevenue(res as RevenueData),
+    );
+    getPlatformRevenueBreakdown({ from: from || undefined, to: to || undefined }).then((res) =>
+      setBreakdown(Array.isArray(res) ? (res as RevenueBreakdown[]) : []),
+    );
     getPlatformRevenueTimeseries({
       tenant,
       interval,
       from: from || undefined,
       to: to || undefined,
-    }).then((res) => setSeries(res as RevenuePoint[]));
+    }).then((res) => setSeries(Array.isArray(res) ? (res as RevenuePoint[]) : []));
   }, [tenantFilter, from, to, interval]);
-
-  const stats = useMemo(
-    () => [
-      {
-        label: "Revenue realized",
-        value: formatIDR(revenue.revenue),
-        hint: "kas yang sudah masuk",
-      },
-      {
-        label: "Pending cashflow",
-        value: formatIDR(revenue.pending_cashflow),
-        hint: `${revenue.pending_transactions.toLocaleString("id-ID")} menunggu settlement`,
-      },
-      {
-        label: "Paid transactions",
-        value: revenue.paid_transactions.toLocaleString("id-ID"),
-        hint: "transaksi settled",
-      },
-      {
-        label: "All transactions",
-        value: revenue.transactions.toLocaleString("id-ID"),
-        hint: "seluruh transaksi dalam rentang ini",
-      },
-    ],
-    [revenue],
-  );
-
-  const paymentSegments = useMemo(
-    () => [
-      {
-        label: "Paid",
-        value: revenue.paid_transactions,
-        colorClass: "--chart-emerald",
-      },
-      {
-        label: "Pending",
-        value: revenue.pending_transactions,
-        colorClass: "--chart-amber",
-      },
-      {
-        label: "Other",
-        value: Math.max(revenue.transactions - revenue.paid_transactions - revenue.pending_transactions, 0),
-        colorClass: "--chart-rose",
-      },
-    ],
-    [revenue],
-  );
 
   const chartPoints = useMemo(
     () =>
@@ -154,42 +106,27 @@ export default function RevenuePage() {
         label: point.period,
         primary: point.revenue,
         secondary: point.cashflow,
-        tertiary: point.orders,
-        meta: `${point.orders} orders`,
+        meta: `${point.orders} order`,
       })),
     [series],
   );
 
-  const breakdownRows = useMemo(() => {
-    const maxRevenue = Math.max(...breakdown.map((item) => Number(item.revenue || 0)), 1);
-    return breakdown.map((item) => ({
-      id: item.tenant_id,
-      title: item.tenant_name,
-      subtitle: `${item.tenant_slug} • ${item.owner_name || item.owner_email || "owner"}`,
-      value: formatIDR(Number(item.revenue || 0)),
-      meta: `${item.paid_orders || 0} paid • ${item.pending_orders || 0} pending`,
-      progress: (Number(item.revenue || 0) / maxRevenue) * 100,
-    }));
-  }, [breakdown]);
+  const sortedBreakdown = useMemo(
+    () => [...breakdown].sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0)),
+    [breakdown],
+  );
 
   const applyPreset = (preset: "7d" | "30d" | "month" | "year") => {
     const now = new Date();
-    if (preset === "7d") {
-      setFrom(format(subDays(now, 6), "yyyy-MM-dd"));
-      setTo(format(now, "yyyy-MM-dd"));
-    }
-    if (preset === "30d") {
-      setFrom(format(subDays(now, 29), "yyyy-MM-dd"));
-      setTo(format(now, "yyyy-MM-dd"));
-    }
-    if (preset === "month") {
-      setFrom(format(startOfMonth(now), "yyyy-MM-dd"));
-      setTo(format(now, "yyyy-MM-dd"));
-    }
-    if (preset === "year") {
-      setFrom(format(startOfYear(now), "yyyy-MM-dd"));
-      setTo(format(now, "yyyy-MM-dd"));
-    }
+    const map = {
+      "7d": [subDays(now, 6), now],
+      "30d": [subDays(now, 29), now],
+      month: [startOfMonth(now), now],
+      year: [startOfYear(now), now],
+    } as const;
+    const [f, t] = map[preset];
+    setFrom(format(f, "yyyy-MM-dd"));
+    setTo(format(t, "yyyy-MM-dd"));
   };
 
   const exportCsv = () => {
@@ -203,45 +140,63 @@ export default function RevenuePage() {
   };
 
   return (
-    <PageShell
-      eyebrow="Platform finance"
-      title="Revenue & cashflow"
-      description="Halaman laporan ini sekarang ditata seperti dashboard finance: filter ringkas di atas, chart utama di kiri, komposisi pembayaran di kanan, lalu leaderboard tenant di bawah."
-      actions={
-        <Button onClick={exportCsv} className="rounded-2xl bg-slate-950 text-white hover:bg-slate-800">
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
-        </Button>
-      }
-      stats={stats}
-    >
-      <DashboardPanel
-        eyebrow="Filters"
-        title="Kontrol laporan"
-        description="Filter dibuat satu baris supaya analyst bisa ganti tenant, tanggal, dan granularitas tanpa kehilangan konteks chart utama."
-      >
-        <div className="flex flex-wrap gap-2">
-          {(["7d", "30d", "month", "year"] as const).map((preset) => (
-            <button
-              key={preset}
-              onClick={() => applyPreset(preset)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-600 transition-colors hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:bg-white dark:hover:text-slate-950"
-            >
-              {preset === "7d"
-                ? "7d"
-                : preset === "30d"
-                  ? "30d"
-                  : preset === "month"
-                    ? "This month"
-                    : "This year"}
-            </button>
-          ))}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <FilterCard title="Tenant">
+    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 lg:px-6">
+      <AdminHeader
+        title="Revenue"
+        subtitle="Laporan pendapatan dan cashflow platform."
+        actions={
+          <Button size="sm" className="rounded-lg" onClick={exportCsv}>
+            <Download className="mr-1.5 h-4 w-4" />
+            Export CSV
+          </Button>
+        }
+      />
+
+      {/* KPIs */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Revenue realized" value={formatCompactIDR(revenue.revenue)} icon={DollarSign} />
+        <StatCard
+          label="Pending cashflow"
+          value={formatCompactIDR(revenue.pending_cashflow)}
+          icon={WalletCards}
+          hint={`${revenue.pending_transactions.toLocaleString("id-ID")} menunggu`}
+        />
+        <StatCard
+          label="Paid transactions"
+          value={revenue.paid_transactions.toLocaleString("id-ID")}
+          icon={ArrowUpRight}
+        />
+        <StatCard
+          label="Total transaksi"
+          value={revenue.transactions.toLocaleString("id-ID")}
+          icon={CalendarRange}
+        />
+      </section>
+
+      {/* Filter bar */}
+      <SectionCard>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {(["7d", "30d", "month", "year"] as const).map((preset) => (
+              <button
+                key={preset}
+                onClick={() => applyPreset(preset)}
+                className="rounded-lg border border-[var(--admin-line)] px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                {preset === "7d"
+                  ? "7 hari"
+                  : preset === "30d"
+                    ? "30 hari"
+                    : preset === "month"
+                      ? "Bulan ini"
+                      : "Tahun ini"}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <Select value={tenantFilter} onValueChange={setTenantFilter}>
-              <SelectTrigger className="h-12 rounded-2xl">
-                <SelectValue placeholder="Filter tenant" />
+              <SelectTrigger className="h-10 rounded-lg">
+                <SelectValue placeholder="Tenant" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Platform total</SelectItem>
@@ -252,228 +207,83 @@ export default function RevenuePage() {
                 ))}
               </SelectContent>
             </Select>
-          </FilterCard>
-          <FilterCard title="From">
-            <DatePicker value={from} onChange={setFrom} label="From" />
-          </FilterCard>
-          <FilterCard title="To">
-            <DatePicker value={to} onChange={setTo} label="To" />
-          </FilterCard>
-          <FilterCard title="Granularity">
-            <Select
-              value={interval}
-              onValueChange={(value) => setInterval(value as "week" | "month")}
-            >
-              <SelectTrigger className="h-12 rounded-2xl">
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="h-10 rounded-lg"
+            />
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="h-10 rounded-lg"
+            />
+            <Select value={interval} onValueChange={(v) => setInterval(v as "week" | "month")}>
+              <SelectTrigger className="h-10 rounded-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="month">Monthly</SelectItem>
-                <SelectItem value="week">Weekly</SelectItem>
+                <SelectItem value="month">Bulanan</SelectItem>
+                <SelectItem value="week">Mingguan</SelectItem>
               </SelectContent>
             </Select>
-          </FilterCard>
+          </div>
         </div>
-      </DashboardPanel>
+      </SectionCard>
 
-      <DashboardStatStrip
-        items={[
-          {
-            label: "Finance mode",
-            value: tenantFilter === "all" ? "Platform total" : tenantFilter,
-            tone: "slate",
-          },
-          {
-            label: "Chart grain",
-            value: interval === "week" ? "Weekly buckets" : "Monthly buckets",
-            tone: "indigo",
-          },
-          {
-            label: "Settlement focus",
-            value: `${revenue.pending_transactions.toLocaleString("id-ID")} pending`,
-            tone: "amber",
-          },
-          {
-            label: "Best signal",
-            value:
-              breakdown[0]?.tenant_name
-                ? `${breakdown[0].tenant_name} leading`
-                : "Waiting data",
-            tone: "emerald",
-          },
-        ]}
+      {/* Chart */}
+      <DashboardLineChartPanel
+        title={interval === "week" ? "Pergerakan mingguan" : "Pergerakan bulanan"}
+        points={chartPoints}
+        primaryLabel="Revenue"
+        secondaryLabel="Cashflow"
+        formatValue={(value) => formatIDR(value)}
       />
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <DashboardLineChartPanel
-          eyebrow="Cashflow chart"
-          title={interval === "week" ? "Weekly movement" : "Monthly movement"}
-          description="Revenue menjadi seri utama, cashflow pending jadi pembanding kedua. Ini memberi hierarchy yang lebih jelas daripada progress bar bertumpuk."
-          points={chartPoints}
-          primaryLabel="Revenue"
-          secondaryLabel="Cashflow"
-          tertiaryLabel="Orders"
-          formatValue={(value) => formatIDR(value)}
-        />
-
-        <DashboardDonutPanel
-          eyebrow="Payment mix"
-          title="Distribusi status pembayaran"
-          description="Komposisi paid vs pending ditaruh di panel sendiri supaya bottleneck cashflow cepat terlihat."
-          totalLabel="Transactions"
-          totalValue={revenue.transactions.toLocaleString("id-ID")}
-          segments={paymentSegments}
-          footer={
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[1.3rem] border border-slate-200/80 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  Revenue realized
-                </div>
-                <div className="mt-2 text-lg font-[950] text-slate-950 dark:text-white">
-                  {formatIDR(revenue.revenue)}
-                </div>
-              </div>
-              <div className="rounded-[1.3rem] border border-slate-200/80 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  Pending cashflow
-                </div>
-                <div className="mt-2 text-lg font-[950] text-amber-600 dark:text-amber-300">
-                  {formatIDR(revenue.pending_cashflow)}
-                </div>
-              </div>
-            </div>
-          }
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardLeaderboardPanel
-          eyebrow="Revenue breakdown"
-          title="Tenant dengan kontribusi terbesar"
-          description="Leaderboard menggantikan tabel panjang dan menambah progress bar untuk melihat share revenue per tenant."
-          rows={breakdownRows}
-          emptyText="Belum ada breakdown tenant untuk filter ini."
-        />
-
-        <DashboardPanel
-          eyebrow="Collection watch"
-          title="Snapshot operasional finance"
-          description="Panel kanan dipakai untuk insight cepat: total transaksi, paid throughput, pending orders, dan tenant tertinggi."
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FinanceCallout
-              label="Realized revenue"
-              value={formatIDR(revenue.revenue)}
-              icon={DollarSign}
-            />
-            <FinanceCallout
-              label="Pending cashflow"
-              value={formatIDR(revenue.pending_cashflow)}
-              icon={WalletCards}
-            />
-            <FinanceCallout
-              label="Paid transactions"
-              value={revenue.paid_transactions.toLocaleString("id-ID")}
-              icon={ArrowUpRight}
-            />
-            <FinanceCallout
-              label="All transactions"
-              value={revenue.transactions.toLocaleString("id-ID")}
-              icon={CalendarRange}
-            />
+      {/* Breakdown table */}
+      <SectionCard title="Revenue per tenant" bodyClassName="p-0">
+        {sortedBreakdown.length === 0 ? (
+          <div className="p-4">
+            <EmptyState icon={DollarSign} title="Belum ada data revenue" />
           </div>
-          <div className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                  Leading tenant
-                </div>
-                <div className="mt-2 text-lg font-[950] text-slate-950 dark:text-white">
-                  {breakdown[0]?.tenant_name || "Belum ada data"}
-                </div>
-                <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  {breakdown[0]?.tenant_slug || "Tunggu transaksi pertama"}
-                </div>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-                <Building2 className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        </DashboardPanel>
-      </section>
-    </PageShell>
-  );
-}
-
-function FilterCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-[1.45rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function FinanceCallout({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: typeof DollarSign;
-}) {
-  return (
-    <div className="rounded-[1.4rem] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-          {label}
-        </div>
-        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-      </div>
-      <div className="mt-3 text-lg font-[950] text-slate-950 dark:text-white">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function DatePicker({
-  value,
-  onChange,
-  label,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  label: string;
-}) {
-  const selected = value ? parseISO(value) : undefined;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="h-12 w-full justify-between rounded-2xl">
-          <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-            {label}
-          </span>
-          <span className="text-sm">{value || "Select date"}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={selected}
-          onSelect={(date) => onChange(date ? format(date, "yyyy-MM-dd") : "")}
-        />
-      </PopoverContent>
-    </Popover>
+        ) : (
+          <Table className="rounded-none border-0 bg-transparent shadow-none">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tenant</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">Pending</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedBreakdown.map((item) => (
+                <TableRow key={item.tenant_id}>
+                  <TableCell>
+                    <div className="font-medium text-slate-900 dark:text-white">
+                      {item.tenant_name}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {item.tenant_slug}
+                      {item.owner_email ? ` · ${item.owner_email}` : ""}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-slate-600 dark:text-slate-300">
+                    {(item.paid_orders || 0).toLocaleString("id-ID")}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-amber-600 dark:text-amber-400">
+                    {(item.pending_orders || 0).toLocaleString("id-ID")}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums text-slate-900 dark:text-white">
+                    {formatIDR(item.revenue)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </SectionCard>
+    </main>
   );
 }

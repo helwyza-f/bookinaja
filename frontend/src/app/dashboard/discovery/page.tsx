@@ -56,7 +56,7 @@ export default function PlatformDiscoveryPage() {
       getPlatformDiscoveryFeedSetting(),
     ]).then(
       ([items, analyticsData, setting]) => {
-        const sorted = [...items].sort(sortDiscoveryTenants);
+        const sorted = [...(Array.isArray(items) ? items : [])].sort(sortDiscoveryTenants);
         setTenants(sorted);
         setAnalytics(analyticsData);
         setFeedSetting(setting);

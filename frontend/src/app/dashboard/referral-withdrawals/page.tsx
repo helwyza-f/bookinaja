@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, HandCoins, RefreshCw, WalletCards, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AdminHeader,
+  StatCard,
+  StatusPill,
+  SectionCard,
+  EmptyState,
+  formatIDR,
+} from "@/components/platform/admin-kit";
 import api from "@/lib/api";
 
 type Withdrawal = {
@@ -16,8 +23,6 @@ type Withdrawal = {
   created_at?: string;
 };
 
-const formatIDR = (value?: number) => new Intl.NumberFormat("id-ID").format(Number(value || 0));
-
 export default function ReferralWithdrawalsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Withdrawal[]>([]);
@@ -29,7 +34,7 @@ export default function ReferralWithdrawalsPage() {
     setMessage(null);
     try {
       const res = await api.get("/platform/referral-withdrawals", { params: { status: "pending" } });
-      setItems(res.data?.data || []);
+      setItems(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch {
       setMessage("Gagal memuat antrian pencairan.");
     } finally {
@@ -56,132 +61,107 @@ export default function ReferralWithdrawalsPage() {
     }
   };
 
-  const totalPending = useMemo(() => items.reduce((sum, item) => sum + Number(item.amount || 0), 0), [items]);
+  const totalPending = useMemo(
+    () => items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [items],
+  );
 
   return (
-    <div className="space-y-4 p-3 pb-24 sm:space-y-6 sm:p-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a] sm:p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
-              <HandCoins className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="text-xs font-black uppercase tracking-[0.3em] text-blue-600">Referral Payout</div>
-              <h1 className="text-2xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Antrian pencairan referral
-              </h1>
-              <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
-                Request dari tenant masuk ke status pending dan diproses langsung dari dashboard Bookinaja.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Jumlah request</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{items.length}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Nominal pending</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">Rp {formatIDR(totalPending)}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Status antrian</div>
-              <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Perlu review manual</div>
-            </div>
-          </div>
-
-          <Button variant="outline" onClick={loadData} className="w-full justify-center sm:w-auto">
-            <RefreshCw className="mr-2 h-4 w-4" />
+    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 lg:px-6">
+      <AdminHeader
+        title="Referral payout"
+        subtitle="Review dan proses request pencairan referral dari tenant."
+        actions={
+          <Button size="sm" variant="outline" className="rounded-lg" onClick={loadData}>
+            <RefreshCw className="mr-1.5 h-4 w-4" />
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {message && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Jumlah request" value={items.length.toLocaleString("id-ID")} icon={HandCoins} loading={loading} />
+        <StatCard label="Nominal pending" value={formatIDR(totalPending)} icon={WalletCards} loading={loading} />
+        <StatCard label="Status" value="Perlu review" />
+      </section>
+
+      {message ? (
+        <div className="rounded-lg border border-[var(--admin-line)] bg-[var(--admin-surface-soft)] px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
           {message}
         </div>
-      )}
+      ) : null}
 
-      <Card className="border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
-        <CardHeader>
-          <CardTitle className="text-base">Pending Requests</CardTitle>
-          <CardDescription>Semua withdrawal referral yang belum diproses.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loading ? (
-            <div className="text-sm text-slate-500">Memuat...</div>
-          ) : items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 dark:border-white/10">
-              Tidak ada request pending.
-            </div>
-          ) : (
-            items.map((item) => (
+      <SectionCard title="Request pending">
+        {loading ? (
+          <div className="text-sm text-slate-400">Memuat…</div>
+        ) : items.length === 0 ? (
+          <EmptyState icon={HandCoins} title="Tidak ada request pending" />
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
               <div
                 key={item.id}
-                className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                className="rounded-lg border border-[var(--admin-line)] bg-[var(--admin-surface-soft)] p-4"
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                      {item.tenant_name || item.tenant_slug || "-"}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900 dark:text-white">
+                      {item.tenant_name || item.tenant_slug || "—"}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {item.tenant_slug || "-"} - {item.created_at || "-"}
+                    <div className="text-xs text-slate-400">
+                      {item.tenant_slug || "—"}
+                      {item.created_at ? ` · ${item.created_at}` : ""}
                     </div>
+                    {item.note ? (
+                      <div className="mt-2 rounded-md border border-[var(--admin-line-soft)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+                        {item.note}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="text-left sm:text-right">
-                    <div className="text-sm font-semibold text-blue-600">Rp {formatIDR(item.amount)}</div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      {String(item.status || "-")}
+                  <div className="flex flex-col items-start gap-1 sm:items-end">
+                    <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">
+                      {formatIDR(item.amount)}
                     </div>
+                    <StatusPill status="trial" label={item.status || "pending"} />
                   </div>
                 </div>
 
-                {item.note ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-300">
-                    {item.note}
-                  </div>
-                ) : null}
-
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="outline"
+                    className="rounded-lg"
                     onClick={() => updateStatus(item.id, "approved")}
                     disabled={busyId === item.id}
-                    className="w-full"
                   >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
                     Approve
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
+                    className="rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
                     onClick={() => updateStatus(item.id, "rejected")}
                     disabled={busyId === item.id}
-                    className="w-full"
                   >
-                    <XCircle className="mr-2 h-4 w-4" />
+                    <XCircle className="mr-1.5 h-4 w-4" />
                     Reject
                   </Button>
                   <Button
                     size="sm"
+                    className="rounded-lg"
                     onClick={() => updateStatus(item.id, "paid")}
                     disabled={busyId === item.id}
-                    className="w-full"
                   >
-                    <WalletCards className="mr-2 h-4 w-4" />
+                    <WalletCards className="mr-1.5 h-4 w-4" />
                     Mark Paid
                   </Button>
                 </div>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+    </main>
   );
 }
