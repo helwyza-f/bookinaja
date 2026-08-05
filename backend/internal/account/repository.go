@@ -167,10 +167,12 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO tenants (
 			id, name, slug, business_category, business_type,
-			plan, subscription_status, timezone, whatsapp_number,
+			plan, subscription_status,
+			subscription_current_period_start, subscription_current_period_end,
+			timezone, whatsapp_number,
 			tagline, about_us, primary_color, referral_code, referred_by_tenant_id, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW() + INTERVAL '14 days', $8, $9, $10, $11, $12, $13, $14, NOW())
 	`, tenantID, workspace.Name, workspace.Slug, workspace.BusinessCategory, workspace.BusinessType,
 		workspace.Plan, workspace.SubscriptionStatus, workspace.Timezone, workspace.WhatsappNumber,
 		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode, workspace.ReferredByTenantID); err != nil {

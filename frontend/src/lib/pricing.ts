@@ -1,4 +1,4 @@
-export type BillingPlanKey = "trial" | "starter" | "pro" | "scale";
+export type BillingPlanKey = "free" | "trial" | "starter" | "pro" | "scale";
 
 export type BillingPlanDefinition = {
   key: BillingPlanKey;
@@ -17,6 +17,29 @@ export type BillingPlanDefinition = {
 };
 
 export const BILLING_PLANS: BillingPlanDefinition[] = [
+  {
+    key: "free",
+    name: "Free",
+    label: "Gratis selamanya",
+    headline: "Jalankan booking inti tanpa biaya. Upgrade saat bisnis tumbuh.",
+    note: "Cocok untuk owner solo. Batas 2 unit, tanpa staff.",
+    monthly: 0,
+    annualTotal: 0,
+    monthlyBefore: 0,
+    annualBefore: 0,
+    publicFeatures: [
+      "Booking inti (booking, DP, sesi, pelunasan)",
+      "Landing tenant + customer portal",
+      "Dashboard dasar",
+      "Sampai 2 unit",
+    ],
+    adminFeatures: [
+      "Booking inti",
+      "Dashboard dasar",
+      "Landing tenant",
+      "Customer portal",
+    ],
+  },
   {
     key: "trial",
     name: "Free Trial",

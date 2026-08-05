@@ -26,7 +26,7 @@ import {
   type BillingPlanKey,
 } from "@/lib/pricing";
 
-type PlanKey = Exclude<BillingPlanKey, "trial">;
+type PlanKey = Exclude<BillingPlanKey, "trial" | "free">;
 
 type StoryCard = {
   title: string;

@@ -1,6 +1,6 @@
 import { getBillingPlan } from "@/lib/pricing";
 
-export type BillingPlanKey = "trial" | "starter" | "pro" | "scale";
+export type BillingPlanKey = "free" | "trial" | "starter" | "pro" | "scale";
 export type SubscriptionStatusKey =
   | "trial"
   | "active"
@@ -39,6 +39,7 @@ type FeatureMeta = {
 };
 
 const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
+  free: [],
   trial: [],
   starter: [],
   pro: [
@@ -80,7 +81,7 @@ const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
   ],
 };
 
-const PLAN_ORDER: BillingPlanKey[] = ["trial", "starter", "pro", "scale"];
+const PLAN_ORDER: BillingPlanKey[] = ["free", "trial", "starter", "pro", "scale"];
 
 const FEATURE_META: Record<TenantFeatureKey, FeatureMeta> = {
   advanced_receipt_branding: {
@@ -192,6 +193,7 @@ const FEATURE_META: Record<TenantFeatureKey, FeatureMeta> = {
 
 export function normalizeBillingPlan(value?: string | null): BillingPlanKey {
   const plan = String(value || "").toLowerCase();
+  if (plan === "free") return "free";
   if (plan === "trial") return "trial";
   if (plan === "pro") return "pro";
   if (plan === "scale") return "scale";
@@ -240,6 +242,7 @@ function getFeatureMatrix(input?: {
   }
 
   const normalized = {
+    free: [] as TenantFeatureKey[],
     trial: [] as TenantFeatureKey[],
     starter: [] as TenantFeatureKey[],
     pro: [] as TenantFeatureKey[],
@@ -344,10 +347,27 @@ export function resolvePlanState(input: {
 }) {
   const rawPlan = normalizeBillingPlan(input.plan);
   const status = normalizeSubscriptionStatus(input.subscription_status);
-  const billingPlan = getBillingPlan(rawPlan);
+
+  // Efektif: trial yang sudah lewat period_end (atau langganan tidak aktif)
+  // turun ke tier Free — akses advanced mati, booking inti tetap jalan.
+  const periodEnd = input.current_period_end
+    ? new Date(input.current_period_end)
+    : null;
+  const periodPast = Boolean(
+    periodEnd && !Number.isNaN(periodEnd.getTime()) && periodEnd.getTime() < Date.now(),
+  );
+  const trialActive = status === "trial" && !periodPast;
+  const isEffectivelyFree =
+    (status === "trial" && periodPast) ||
+    (status !== "trial" && status !== "active");
+  const effectivePlan: BillingPlanKey = isEffectivelyFree ? "free" : rawPlan;
+
+  const billingPlan = getBillingPlan(effectivePlan);
 
   const title =
-    rawPlan === "trial" || status === "trial"
+    effectivePlan === "free"
+      ? "Free"
+      : trialActive
       ? "Free Trial"
       : rawPlan === "pro"
         ? "Pro"
@@ -356,8 +376,10 @@ export function resolvePlanState(input: {
           : "Starter";
 
   const short =
-    rawPlan === "trial" || status === "trial"
-      ? "Coba flow Bookinaja dulu tanpa komitmen."
+    effectivePlan === "free"
+      ? "Booking inti gratis selamanya. Upgrade saat bisnis tumbuh."
+      : trialActive
+      ? "Sedang mencicipi semua fitur Pro tanpa komitmen."
       : rawPlan === "pro"
         ? "Untuk tenant yang butuh tim dan kontrol lebih rapi."
         : rawPlan === "scale"
@@ -365,7 +387,7 @@ export function resolvePlanState(input: {
           : "Untuk bisnis yang baru mulai rapi.";
 
   const tone =
-    rawPlan === "trial" || status === "trial"
+    trialActive
       ? "amber"
       : status === "active"
         ? "emerald"
@@ -374,21 +396,26 @@ export function resolvePlanState(input: {
           : "slate";
 
   const nextActionLabel =
-    rawPlan === "trial" || status === "trial"
+    effectivePlan === "free"
+      ? "Upgrade paket"
+      : trialActive
       ? "Pilih plan"
       : rawPlan === "starter"
         ? "Upgrade ke Pro"
         : "Kelola billing";
 
   const outcome =
-    rawPlan === "trial" || status === "trial"
-      ? "Supaya tenant tetap jalan setelah trial selesai, pilih plan saat kamu sudah yakin flow-nya cocok."
+    effectivePlan === "free"
+      ? "Kamu di tier Free — booking inti tetap jalan. Upgrade saat butuh staff, POS, laporan, atau analitik."
+      : trialActive
+      ? "Kamu sedang mencicipi Pro. Setelah trial berakhir, akun turun otomatis ke Free (booking inti tetap jalan)."
       : rawPlan === "starter"
         ? "Starter sudah cukup untuk mulai jalan. Upgrade ke Pro saat kamu mulai butuh staff, analytics, dan kontrol yang lebih kuat."
         : "Kamu sudah ada di plan yang paling lengkap yang tersedia saat ini.";
 
   return {
     rawPlan,
+    effectivePlan,
     status,
     billingPlan,
     title,
@@ -396,15 +423,17 @@ export function resolvePlanState(input: {
     tone,
     nextActionLabel,
     outcome,
-    isTrial: rawPlan === "trial" || status === "trial",
+    isTrial: trialActive,
     isActive: status === "active",
-    isStarter: rawPlan === "starter",
-    isPro: rawPlan === "pro",
+    isFree: effectivePlan === "free",
+    isStarter: effectivePlan === "starter",
+    isPro: effectivePlan === "pro",
   };
 }
 
 export function formatPlanLabel(value?: string | null) {
   const plan = normalizeBillingPlan(value);
+  if (plan === "free") return "Free";
   if (plan === "trial") return "Free Trial";
   if (plan === "pro") return "Pro";
   if (plan === "scale") return "Scale";

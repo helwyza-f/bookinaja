@@ -576,7 +576,11 @@ func (s *Service) CreateWorkspace(ctx context.Context, accountID uuid.UUID, req 
 		BusinessCategory:   category,
 		BusinessType:       "",
 		Status:             "onboarding",
-		Plan:               "trial",
+		// Trial-of-Pro: tenant baru mencicipi fitur Pro selama 14 hari
+		// (subscription_current_period_end di-set +14 hari saat insert), lalu
+		// otomatis turun ke tier Free saat trial lewat (entitlement mati sendiri
+		// via IsSubscriptionActive; tampilan billing menampilkan "Free").
+		Plan:               "pro",
 		SubscriptionStatus: "trial",
 		Timezone:           "Asia/Jakarta",
 		WhatsappNumber:     "",
