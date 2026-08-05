@@ -1,13 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { isAfter, isBefore, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import {
+  ArrowLeft,
+  Wallet,
+  Users,
+  CreditCard,
+  CalendarCheck,
+  Search,
+  Mail,
+  Phone,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  StatCard,
+  StatusPill,
+  SectionCard,
+  EmptyState,
+  formatIDR,
+  formatCompactIDR,
+} from "@/components/platform/admin-kit";
 import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import {
   getPlatformTenantBalance,
@@ -23,39 +55,47 @@ import {
   type PlatformTransaction,
 } from "@/lib/platform-admin";
 
+const PLANS = ["free", "trial", "starter", "pro", "scale"] as const;
+type Plan = (typeof PLANS)[number];
+
 export default function TenantDetailPage() {
   const params = useParams<{ id: string }>();
   const tenantId = params.id;
+
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null);
   const [balance, setBalance] = useState<PlatformTenantBalance | null>(null);
   const [customers, setCustomers] = useState<PlatformCustomer[]>([]);
   const [transactions, setTransactions] = useState<PlatformTransaction[]>([]);
   const [notifications, setNotifications] = useState<MidtransNotificationLog[]>([]);
-  const [overviewQuery, setOverviewQuery] = useState("");
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+
   const [customerQuery, setCustomerQuery] = useState("");
-  const [customerTier, setCustomerTier] = useState("all");
   const [transactionQuery, setTransactionQuery] = useState("");
-  const [transactionType, setTransactionType] = useState("all");
   const [transactionStatus, setTransactionStatus] = useState("all");
   const [transactionFrom, setTransactionFrom] = useState("");
   const [transactionTo, setTransactionTo] = useState("");
   const [logQuery, setLogQuery] = useState("");
   const [logStatus, setLogStatus] = useState("all");
-  const [logFrom, setLogFrom] = useState("");
-  const [logTo, setLogTo] = useState("");
 
-  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    getPlatformTenantDetail(tenantId).then(setDetail);
+    getPlatformTenantBalance(tenantId).then(setBalance);
+    getPlatformTenantCustomers(tenantId).then((c) => setCustomers(Array.isArray(c) ? c : []));
+    getPlatformTenantTransactions(tenantId).then((t) => setTransactions(Array.isArray(t) ? t : []));
+    getPlatformTenantNotifications(tenantId).then((n) =>
+      setNotifications(Array.isArray(n) ? n : []),
+    );
+  }, [tenantId]);
 
-  const applyTestPlan = async (
-    plan: "free" | "trial" | "starter" | "pro" | "scale",
-  ) => {
+  const applyPlan = async (plan: Plan) => {
     if (!tenantId || savingPlan) return;
     setSavingPlan(plan);
     try {
       await setPlatformTenantPlan(tenantId, plan);
       const fresh = await getPlatformTenantDetail(tenantId);
       setDetail(fresh);
-      toast.success(`Plan tenant di-set ke ${plan}`);
+      toast.success(`Plan tenant diubah ke ${formatPlanLabel(plan)}`);
     } catch {
       toast.error("Gagal mengubah plan tenant");
     } finally {
@@ -63,411 +103,430 @@ export default function TenantDetailPage() {
     }
   };
 
-  useEffect(() => {
-    if (!tenantId) return;
-    getPlatformTenantDetail(tenantId).then(setDetail);
-    getPlatformTenantBalance(tenantId).then(setBalance);
-    getPlatformTenantCustomers(tenantId).then(setCustomers);
-    getPlatformTenantTransactions(tenantId).then(setTransactions);
-    getPlatformTenantNotifications(tenantId).then(setNotifications);
-  }, [tenantId]);
-
   const filteredCustomers = useMemo(() => {
     if (!Array.isArray(customers)) return [];
     const q = customerQuery.toLowerCase();
-    return customers.filter((item) => {
-      const tierOk =
-        customerTier === "all" || (item.tier || "").toLowerCase() === customerTier;
-      const queryOk = [item.name, item.phone, item.email, item.tier, item.tenant_name].some((v) =>
+    return customers.filter((item) =>
+      [item.name, item.phone, item.email, item.tier].some((v) =>
         String(v || "").toLowerCase().includes(q),
-      );
-      return tierOk && queryOk;
-    });
-  }, [customerQuery, customerTier, customers]);
+      ),
+    );
+  }, [customerQuery, customers]);
 
   const filteredTransactions = useMemo(() => {
+    if (!Array.isArray(transactions)) return [];
     const q = transactionQuery.toLowerCase();
     return transactions.filter((item) => {
       const created = item.created_at ? parseISO(item.created_at) : null;
       const passDate =
         (!transactionFrom || !created || !isBefore(created, parseISO(`${transactionFrom}T00:00:00`))) &&
         (!transactionTo || !created || !isAfter(created, parseISO(`${transactionTo}T23:59:59`)));
-      const passType =
-        transactionType === "all" || (item.source_type || "unknown") === transactionType;
       const passStatus =
         transactionStatus === "all" ||
         (item.transaction_status || item.status || "").toLowerCase() === transactionStatus;
-      const passQuery = [item.order_id, item.plan, item.billing_interval, item.source_type].some((v) =>
+      const passQuery = [item.order_id, item.plan, item.source_type].some((v) =>
         String(v || "").toLowerCase().includes(q),
-      );
-      return passDate && passType && passStatus && passQuery;
-    });
-  }, [transactionFrom, transactionQuery, transactionStatus, transactionTo, transactionType, transactions]);
-
-  const filteredNotifications = useMemo(() => {
-    const q = logQuery.toLowerCase();
-    return notifications.filter((item) => {
-      const received = item.received_at ? parseISO(item.received_at) : null;
-      const passDate =
-        (!logFrom || !received || !isBefore(received, parseISO(`${logFrom}T00:00:00`))) &&
-        (!logTo || !received || !isAfter(received, parseISO(`${logTo}T23:59:59`)));
-      const passStatus =
-        logStatus === "all" || (item.processing_status || "").toLowerCase() === logStatus;
-      const passQuery = [item.order_id, item.transaction_id, item.transaction_status, item.source_type].some(
-        (v) => String(v || "").toLowerCase().includes(q),
       );
       return passDate && passStatus && passQuery;
     });
-  }, [logFrom, logQuery, logStatus, logTo, notifications]);
+  }, [transactionFrom, transactionQuery, transactionStatus, transactionTo, transactions]);
+
+  const filteredNotifications = useMemo(() => {
+    if (!Array.isArray(notifications)) return [];
+    const q = logQuery.toLowerCase();
+    return notifications.filter((item) => {
+      const passStatus =
+        logStatus === "all" || (item.processing_status || "").toLowerCase() === logStatus;
+      const passQuery = [item.order_id, item.transaction_id, item.transaction_status].some((v) =>
+        String(v || "").toLowerCase().includes(q),
+      );
+      return passStatus && passQuery;
+    });
+  }, [logQuery, logStatus, notifications]);
 
   if (!detail) {
     return (
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-        <div className="text-sm text-slate-500">Loading tenant detail...</div>
+      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+        <Link
+          href="/dashboard/tenants"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Kembali
+        </Link>
+        <div className="mt-6 text-sm text-slate-400">Memuat detail tenant…</div>
       </main>
     );
   }
 
   const subscriptionRevenue = Number(detail.subscription_revenue || 0);
   const bookingBalance = Number(balance?.balance ?? detail.booking_revenue ?? 0);
-  const bookingTransactions = Number(detail.booking_transactions_count || 0);
+  const currentPlan = (detail.plan || "").toLowerCase();
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.35em] text-blue-600">
-            Tenant scope
-          </div>
-          <h1 className="mt-2 text-3xl font-black uppercase tracking-tight">{detail.name}</h1>
-          <div className="mt-2 text-sm text-slate-500">
-            {detail.slug} • {detail.owner_name} • {detail.owner_email}
-          </div>
-        </div>
+    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 lg:px-6">
+      {/* Header */}
+      <div className="space-y-4">
         <Link
           href="/dashboard/tenants"
-          className="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white"
         >
-          Back to tenants
+          <ArrowLeft className="h-4 w-4" />
+          Kembali ke tenant
         </Link>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                {detail.name}
+              </h1>
+              <StatusPill status={detail.status || detail.subscription_status} />
+            </div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {detail.slug}
+              {detail.owner_name ? ` · ${detail.owner_name}` : ""}
+              {detail.owner_email ? ` · ${detail.owner_email}` : ""}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Tabs
-        overview={
-          <section className="space-y-4">
-            <Card className="space-y-4 rounded-[2rem] p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black uppercase tracking-tight">Overview</h2>
-                <Badge variant="outline" className="rounded-full uppercase">
-                  Snapshot
-                </Badge>
+      {/* Quick stats */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Subscription revenue"
+          value={formatCompactIDR(subscriptionRevenue)}
+          icon={CreditCard}
+        />
+        <StatCard label="Booking balance" value={formatCompactIDR(bookingBalance)} icon={Wallet} />
+        <StatCard
+          label="Customer"
+          value={(detail.customers_count || 0).toLocaleString("id-ID")}
+          icon={Users}
+        />
+        <StatCard
+          label="Booking"
+          value={(detail.bookings_count || 0).toLocaleString("id-ID")}
+          icon={CalendarCheck}
+        />
+      </section>
+
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="gap-4">
+        <TabsList variant="line" className="h-9">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="customers">Customer ({filteredCustomers.length})</TabsTrigger>
+          <TabsTrigger value="transactions">Transaksi ({filteredTransactions.length})</TabsTrigger>
+          <TabsTrigger value="logs">Log Midtrans ({filteredNotifications.length})</TabsTrigger>
+        </TabsList>
+
+        {/* Overview tab */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard title="Subscription">
+              <dl className="space-y-3 text-sm">
+                <Row label="Status">
+                  <StatusPill
+                    status={detail.status || detail.subscription_status}
+                    label={formatSubscriptionStatusLabel(
+                      detail.status || detail.subscription_status,
+                    )}
+                  />
+                </Row>
+                <Row label="Plan aktif">
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {formatPlanLabel(detail.plan)}
+                  </span>
+                </Row>
+                <Row label="Revenue subscription">
+                  <span className="font-medium tabular-nums text-slate-900 dark:text-white">
+                    {formatIDR(subscriptionRevenue)}
+                  </span>
+                </Row>
+                <Row label="Booking balance">
+                  <span className="font-medium tabular-nums text-slate-900 dark:text-white">
+                    {formatIDR(bookingBalance)}
+                  </span>
+                </Row>
+              </dl>
+            </SectionCard>
+
+            <SectionCard title="Ubah plan">
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                trial = 14 hari Pro · free = tanpa langganan · starter/pro/scale = aktif 30 hari.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PLANS.map((plan) => {
+                  const isCurrent = currentPlan === plan;
+                  return (
+                    <button
+                      key={plan}
+                      type="button"
+                      onClick={() => applyPlan(plan)}
+                      disabled={Boolean(savingPlan)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium capitalize transition disabled:opacity-50 ${
+                        isCurrent
+                          ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                          : "border-[var(--admin-line)] text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      {savingPlan === plan ? "…" : plan}
+                    </button>
+                  );
+                })}
               </div>
-              <Input
-                value={overviewQuery}
-                onChange={(e) => setOverviewQuery(e.target.value)}
-                placeholder="Search summary..."
-                className="h-12 rounded-2xl"
-              />
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ["Subscription Revenue", `Rp ${subscriptionRevenue.toLocaleString("id-ID")}`],
-                  ["Booking Balance", `Rp ${bookingBalance.toLocaleString("id-ID")}`],
-                  ["Customers", String(detail.customers_count || 0)],
-                  ["Booking Tx", String(bookingTransactions)],
-                ]
-                  .filter(([label, value]) =>
-                    `${label} ${value}`.toLowerCase().includes(overviewQuery.toLowerCase()),
-                  )
-                  .map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-slate-200 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                        {label}
-                      </div>
-                      <div className="mt-2 text-xl font-black">{value}</div>
-                    </div>
-                  ))}
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                    Subscription
-                  </div>
-                  <div className="mt-2 text-xl font-black">
-                    {formatSubscriptionStatusLabel(detail.status || detail.subscription_status)}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-500">
-                    Plan: {formatPlanLabel(detail.plan)}
-                  </div>
-                  <div className="mt-3 border-t border-slate-100 pt-3">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                      Set plan (testing)
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(["free", "trial", "starter", "pro", "scale"] as const).map(
-                        (plan) => {
-                          const isCurrent =
-                            (detail.plan || "").toLowerCase() === plan;
-                          return (
-                            <button
-                              key={plan}
-                              type="button"
-                              onClick={() => applyTestPlan(plan)}
-                              disabled={Boolean(savingPlan)}
-                              className={`rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase transition disabled:opacity-60 ${
-                                isCurrent
-                                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                                  : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
-                            >
-                              {savingPlan === plan ? "..." : plan}
-                            </button>
-                          );
-                        },
-                      )}
-                    </div>
-                    <div className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                      trial = 14 hari Pro; free = tanpa langganan; starter/pro/scale = aktif 30 hari.
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                    Booking balance
-                  </div>
-                  <div className="mt-2 text-xl font-black">
-                    Rp {bookingBalance.toLocaleString("id-ID")}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-500">
-                    Saldo tenant yang masih tersimpan di Bookinaja.
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </section>
-        }
-        customers={
-          <section className="space-y-3">
-            <Card className="space-y-3 rounded-[2rem] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black uppercase tracking-tight">Customers</h2>
-                <Badge variant="outline" className="rounded-full uppercase">
-                  {filteredCustomers.length}
-                </Badge>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
+            </SectionCard>
+          </div>
+        </TabsContent>
+
+        {/* Customers tab */}
+        <TabsContent value="customers" className="space-y-4">
+          <SectionCard bodyClassName="p-0">
+            <div className="border-b border-[var(--admin-line-soft)] p-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
-                  placeholder="Search customer..."
-                  className="h-12 rounded-2xl"
+                  placeholder="Cari customer…"
+                  className="h-10 rounded-lg pl-9"
                 />
-                <select
-                  value={customerTier}
-                  onChange={(e) => setCustomerTier(e.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
-                >
-                  <option value="all">All tiers</option>
-                  <option value="vip">VIP</option>
-                  <option value="regular">Regular</option>
-                  <option value="new">New</option>
-                </select>
               </div>
-            </Card>
-            {filteredCustomers.map((item) => (
-              <Card key={item.id} className="rounded-[2rem] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-black">{item.name}</div>
-                    <div className="text-sm text-slate-500">
-                      {item.phone || "-"} • {item.email || "-"}
-                    </div>
-                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">
-                      {item.tier || "unknown"} • {item.tenant_name || detail.name}
-                    </div>
-                  </div>
-                  <div className="text-right text-sm text-slate-500">
-                    <div>Visits: {item.visits || 0}</div>
-                    <div>Spend: Rp {(item.spend || 0).toLocaleString("id-ID")}</div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </section>
-        }
-        transactions={
-          <section className="space-y-3">
-            <Card className="space-y-3 rounded-[2rem] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black uppercase tracking-tight">Transactions</h2>
-                <Badge variant="outline" className="rounded-full uppercase">
-                  {filteredTransactions.length}
-                </Badge>
+            </div>
+            {filteredCustomers.length === 0 ? (
+              <div className="p-4">
+                <EmptyState icon={Users} title="Belum ada customer" />
               </div>
-              <div className="grid gap-3 md:grid-cols-5">
+            ) : (
+              <Table className="rounded-none border-0 bg-transparent shadow-none">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Kontak</TableHead>
+                    <TableHead className="text-right">Kunjungan</TableHead>
+                    <TableHead className="text-right">Spend</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCustomers.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="font-medium text-slate-900 dark:text-white">
+                          {item.name}
+                        </div>
+                        {item.tier ? (
+                          <div className="text-xs capitalize text-slate-400">{item.tier}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-slate-600 dark:text-slate-300">
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          {item.phone ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Phone className="h-3 w-3 text-slate-400" />
+                              {item.phone}
+                            </span>
+                          ) : null}
+                          {item.email ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Mail className="h-3 w-3 text-slate-400" />
+                              {item.email}
+                            </span>
+                          ) : null}
+                          {!item.phone && !item.email ? "—" : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-slate-600 dark:text-slate-300">
+                        {(item.visits || 0).toLocaleString("id-ID")}
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums text-slate-900 dark:text-white">
+                        {formatIDR(item.spend)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* Transactions tab */}
+        <TabsContent value="transactions" className="space-y-4">
+          <SectionCard bodyClassName="p-0">
+            <div className="flex flex-col gap-2 border-b border-[var(--admin-line-soft)] p-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={transactionQuery}
                   onChange={(e) => setTransactionQuery(e.target.value)}
-                  placeholder="Search transaction..."
-                  className="h-12 rounded-2xl"
+                  placeholder="Cari transaksi…"
+                  className="h-10 rounded-lg pl-9"
                 />
-                <select
-                  value={transactionType}
-                  onChange={(e) => setTransactionType(e.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
-                >
-                  <option value="all">All source</option>
-                  <option value="subscription">Subscription</option>
-                  <option value="booking">Booking</option>
-                </select>
-                <select
-                  value={transactionStatus}
-                  onChange={(e) => setTransactionStatus(e.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
-                >
-                  <option value="all">All status</option>
-                  <option value="pending">Pending</option>
-                  <option value="settlement">Settlement</option>
-                  <option value="capture">Capture</option>
-                  <option value="paid">Paid</option>
-                  <option value="failed">Failed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-                <Input value={transactionFrom} onChange={(e) => setTransactionFrom(e.target.value)} type="date" className="h-12 rounded-2xl" />
-                <Input value={transactionTo} onChange={(e) => setTransactionTo(e.target.value)} type="date" className="h-12 rounded-2xl" />
               </div>
-            </Card>
-            {filteredTransactions.map((item) => (
-              <Card key={`${item.id}-${item.created_at}`} className="rounded-[2rem] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-black">{item.order_id}</div>
-                    <div className="text-sm text-slate-500">
-                      {(item.source_type || "unknown").toUpperCase()} • {item.plan || item.billing_interval || "-"} • {item.created_at}
-                    </div>
-                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      {item.transaction_status || item.status || "-"}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant="outline" className="rounded-full uppercase">
-                      {item.source_type || "unknown"}
-                    </Badge>
-                    <div className="mt-2 font-black">
-                      Rp {(item.amount || 0).toLocaleString("id-ID")}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </section>
-        }
-        logs={
-          <section className="space-y-3">
-            <Card className="space-y-3 rounded-[2rem] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black uppercase tracking-tight">Midtrans logs</h2>
-                <Badge variant="outline" className="rounded-full uppercase">
-                  {filteredNotifications.length}
-                </Badge>
+              <Select value={transactionStatus} onValueChange={setTransactionStatus}>
+                <SelectTrigger className="h-10 w-36 rounded-lg">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="settlement">Settlement</SelectItem>
+                  <SelectItem value="capture">Capture</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                value={transactionFrom}
+                onChange={(e) => setTransactionFrom(e.target.value)}
+                type="date"
+                className="h-10 w-36 rounded-lg"
+              />
+              <Input
+                value={transactionTo}
+                onChange={(e) => setTransactionTo(e.target.value)}
+                type="date"
+                className="h-10 w-36 rounded-lg"
+              />
+            </div>
+            {filteredTransactions.length === 0 ? (
+              <div className="p-4">
+                <EmptyState icon={CreditCard} title="Belum ada transaksi" />
               </div>
-              <div className="grid gap-3 md:grid-cols-4">
+            ) : (
+              <Table className="rounded-none border-0 bg-transparent shadow-none">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Sumber</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                    <TableHead className="text-right">Waktu</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTransactions.map((item) => (
+                    <TableRow key={`${item.id}-${item.created_at}`}>
+                      <TableCell className="font-medium text-slate-900 dark:text-white">
+                        {item.order_id || item.code || item.id}
+                      </TableCell>
+                      <TableCell className="capitalize text-slate-600 dark:text-slate-300">
+                        {item.source_type || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill
+                          status={String(item.transaction_status || item.status || "pending")}
+                          label={String(item.transaction_status || item.status || "pending")}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums text-slate-900 dark:text-white">
+                        {formatIDR(item.amount)}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-slate-400">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* Logs tab */}
+        <TabsContent value="logs" className="space-y-4">
+          <SectionCard bodyClassName="p-0">
+            <div className="flex flex-col gap-2 border-b border-[var(--admin-line-soft)] p-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={logQuery}
                   onChange={(e) => setLogQuery(e.target.value)}
-                  placeholder="Search logs..."
-                  className="h-12 rounded-2xl"
+                  placeholder="Cari log…"
+                  className="h-10 rounded-lg pl-9"
                 />
-                <select
-                  value={logStatus}
-                  onChange={(e) => setLogStatus(e.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
-                >
-                  <option value="all">All status</option>
-                  <option value="received">Received</option>
-                  <option value="processed">Processed</option>
-                  <option value="ignored">Ignored</option>
-                  <option value="failed">Failed</option>
-                </select>
-                <Input value={logFrom} onChange={(e) => setLogFrom(e.target.value)} type="date" className="h-12 rounded-2xl" />
-                <Input value={logTo} onChange={(e) => setLogTo(e.target.value)} type="date" className="h-12 rounded-2xl" />
               </div>
-            </Card>
-            {filteredNotifications.map((item) => (
-              <Card key={item.id} className="rounded-[2rem] p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="font-black">{item.order_id}</div>
-                    <div className="text-sm text-slate-500">
-                      {item.received_at} • {item.transaction_status || "-"} • {item.payment_type || "-"}
-                    </div>
-                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      {item.transaction_id || "-"} • {item.fraud_status || "-"} • {item.source_type || "unknown"}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge
-                      variant={item.signature_valid ? "default" : "destructive"}
-                      className="rounded-full uppercase"
-                    >
-                      {item.processing_status}
-                    </Badge>
-                    <div className="mt-2 font-black">
-                      Rp {(item.gross_amount || 0).toLocaleString("id-ID")}
-                    </div>
-                  </div>
-                </div>
-                {item.error_message ? (
-                  <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
-                    {item.error_message}
-                  </div>
-                ) : null}
-              </Card>
-            ))}
-          </section>
-        }
-      />
+              <Select value={logStatus} onValueChange={setLogStatus}>
+                <SelectTrigger className="h-10 w-36 rounded-lg">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua status</SelectItem>
+                  <SelectItem value="received">Received</SelectItem>
+                  <SelectItem value="processed">Processed</SelectItem>
+                  <SelectItem value="ignored">Ignored</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {filteredNotifications.length === 0 ? (
+              <div className="p-4">
+                <EmptyState icon={CreditCard} title="Belum ada log" />
+              </div>
+            ) : (
+              <Table className="rounded-none border-0 bg-transparent shadow-none">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Transaksi</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                    <TableHead className="text-right">Diterima</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredNotifications.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium text-slate-900 dark:text-white">
+                        {item.order_id}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                        {item.transaction_id || "—"}
+                        {item.payment_type ? ` · ${item.payment_type}` : ""}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill
+                          status={item.signature_valid ? "active" : "suspended"}
+                          label={item.processing_status}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums text-slate-900 dark:text-white">
+                        {formatIDR(item.gross_amount)}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-slate-400">
+                        {item.received_at
+                          ? new Date(item.received_at).toLocaleString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </SectionCard>
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
 
-function Tabs({
-  overview,
-  customers,
-  transactions,
-  logs,
-}: {
-  overview: ReactNode;
-  customers: ReactNode;
-  transactions: ReactNode;
-  logs: ReactNode;
-}) {
-  const [active, setActive] = useState<"overview" | "customers" | "transactions" | "logs">("overview");
-  const items = [
-    { key: "overview" as const, label: "Overview" },
-    { key: "customers" as const, label: "Customers" },
-    { key: "transactions" as const, label: "Transactions" },
-    { key: "logs" as const, label: "Midtrans Logs" },
-  ];
-
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 rounded-[2rem] border border-slate-200 bg-white p-2">
-        {items.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => setActive(item.key)}
-            className={`rounded-2xl px-4 py-3 text-sm font-semibold transition-colors ${
-              active === item.key ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-100"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      {active === "overview" && overview}
-      {active === "customers" && customers}
-      {active === "transactions" && transactions}
-      {active === "logs" && logs}
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
