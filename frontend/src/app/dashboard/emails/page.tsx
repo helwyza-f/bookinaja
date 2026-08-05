@@ -1,18 +1,44 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Mail, RefreshCw, SendHorizonal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Mail, RefreshCw, SendHorizonal, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PageShell } from "@/components/dashboard/page-shell";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AdminHeader,
+  StatCard,
+  StatusPill,
+  SectionCard,
+  EmptyState,
+} from "@/components/platform/admin-kit";
 import { getPlatformEmailLogsPage, sendPlatformEmail, type PlatformEmailLog } from "@/lib/platform-admin";
 
 const DEFAULT_HTML = "<h1>Bookinaja</h1><p>Email test dari platform admin.</p>";
 const DEFAULT_TEXT = "Bookinaja - email test dari platform admin.";
+
+function emailStatusTone(status?: string) {
+  const s = (status || "").toLowerCase();
+  if (s === "accepted" || s === "sent" || s === "delivered") return "active";
+  if (s === "queued" || s === "pending") return "trial";
+  if (s === "failed" || s === "bounced") return "suspended";
+  return "neutral";
+}
 
 export default function PlatformEmailsPage() {
   const [page, setPage] = useState(1);
@@ -21,12 +47,13 @@ export default function PlatformEmailsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [data, setData] = useState<{ items: PlatformEmailLog[]; total: number; page: number; page_size: number }>({
-    items: [],
-    total: 0,
-    page: 1,
-    page_size: 25,
-  });
+  const [data, setData] = useState<{
+    items: PlatformEmailLog[];
+    total: number;
+    page: number;
+    page_size: number;
+  }>({ items: [], total: 0, page: 1, page_size: 25 });
+  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [recipient, setRecipient] = useState("");
@@ -35,34 +62,40 @@ export default function PlatformEmailsPage() {
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [text, setText] = useState(DEFAULT_TEXT);
 
-  const loadLogs = () =>
-    getPlatformEmailLogsPage({
+  const loadLogs = () => {
+    setLoading(true);
+    return getPlatformEmailLogsPage({
       page,
       pageSize,
       eventKey: eventFilter,
       status: statusFilter,
       q: appliedQuery,
-    }).then(setData);
+    })
+      .then((res) => {
+        setData({
+          items: Array.isArray(res?.items) ? res.items : [],
+          total: Number(res?.total || 0),
+          page: Number(res?.page || 1),
+          page_size: Number(res?.page_size || pageSize),
+        });
+      })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    void getPlatformEmailLogsPage({
-      page,
-      pageSize,
-      eventKey: eventFilter,
-      status: statusFilter,
-      q: appliedQuery,
-    }).then(setData);
+    void loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedQuery, page, pageSize, eventFilter, statusFilter]);
+
+  const items = useMemo(() => (Array.isArray(data.items) ? data.items : []), [data.items]);
 
   const eventOptions = useMemo(() => {
     const values = new Set<string>();
-    if (data.items && Array.isArray(data.items)) {
-      data.items.forEach((item) => {
-        if (item.event_key) values.add(item.event_key);
-      });
-    }
+    items.forEach((item) => {
+      if (item.event_key) values.add(item.event_key);
+    });
     return Array.from(values);
-  }, [data.items]);
+  }, [items]);
 
   const totalPages = Math.max(Math.ceil((data.total || 0) / pageSize), 1);
 
@@ -81,72 +114,108 @@ export default function PlatformEmailsPage() {
         text,
         event_key: eventKey.trim() || "platform_manual",
         source: "platform_admin",
-        tags: {
-          source: "platform_admin",
-          purpose: "manual_send",
-        },
+        tags: { source: "platform_admin", purpose: "manual_send" },
       });
       setFeedback(`Email queued: ${res.data?.email_id || "ok"}`);
       setPage(1);
       await loadLogs();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Email belum berhasil dikirim.";
-      setFeedback(message);
+      setFeedback(error instanceof Error ? error.message : "Email belum berhasil dikirim.");
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <PageShell
-      eyebrow="Email operations"
-      title="Programmatic email logs"
-      description="Pantau semua email yang dikirim aplikasi, kelompokkan per event, dan pakai halaman ini untuk smoke test sebelum flow onboarding atau reset password dihidupkan."
-      actions={
-        <Button variant="outline" className="rounded-2xl" onClick={() => void loadLogs()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-      }
-      stats={[
-        { label: "Logs", value: `${data.total}` },
-        { label: "Page", value: `${page} / ${totalPages}` },
-        { label: "Event keys", value: `${eventOptions.length}` },
-      ]}
-    >
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <SendHorizonal className="h-4 w-4" />
-            Manual send
-          </div>
-          <div className="mt-4 grid gap-3">
-            <Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="recipient@email.com" className="h-11 rounded-2xl" />
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject email" className="h-11 rounded-2xl" />
-            <Input value={eventKey} onChange={(e) => setEventKey(e.target.value)} placeholder="event key, mis. onboarding" className="h-11 rounded-2xl" />
-            <Textarea value={html} onChange={(e) => setHtml(e.target.value)} className="min-h-28 rounded-2xl" placeholder="HTML content" />
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} className="min-h-20 rounded-2xl" placeholder="Plain text content" />
-            <Button className="rounded-2xl" disabled={sending} onClick={handleSend}>
-              <Mail className="mr-2 h-4 w-4" />
-              {sending ? "Sending..." : "Send email"}
+    <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 lg:px-6">
+      <AdminHeader
+        title="Email"
+        subtitle="Log email programatik dan smoke test pengiriman."
+        actions={
+          <Button size="sm" variant="outline" className="rounded-lg" onClick={() => void loadLogs()}>
+            <RefreshCw className="mr-1.5 h-4 w-4" />
+            Refresh
+          </Button>
+        }
+      />
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Total log" value={data.total.toLocaleString("id-ID")} icon={Inbox} loading={loading} />
+        <StatCard label="Halaman" value={`${page} / ${totalPages}`} />
+        <StatCard label="Event key" value={String(eventOptions.length)} />
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        {/* Manual send */}
+        <SectionCard title="Kirim manual">
+          <div className="grid gap-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+              <SendHorizonal className="h-4 w-4" />
+              Smoke test
+            </div>
+            <Input
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="recipient@email.com"
+              className="h-10 rounded-lg"
+            />
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Subject"
+              className="h-10 rounded-lg"
+            />
+            <Input
+              value={eventKey}
+              onChange={(e) => setEventKey(e.target.value)}
+              placeholder="event key, mis. onboarding"
+              className="h-10 rounded-lg"
+            />
+            <Textarea
+              value={html}
+              onChange={(e) => setHtml(e.target.value)}
+              className="min-h-24 rounded-lg"
+              placeholder="HTML content"
+            />
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="min-h-16 rounded-lg"
+              placeholder="Plain text content"
+            />
+            <Button className="rounded-lg" disabled={sending} onClick={handleSend}>
+              <Mail className="mr-1.5 h-4 w-4" />
+              {sending ? "Mengirim…" : "Kirim email"}
             </Button>
             {feedback ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+              <div className="rounded-lg border border-[var(--admin-line)] bg-[var(--admin-surface-soft)] px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
                 {feedback}
               </div>
             ) : null}
           </div>
-        </Card>
+        </SectionCard>
 
-        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
-          <div className="grid gap-3 xl:grid-cols-5">
+        {/* Logs */}
+        <SectionCard bodyClassName="p-0">
+          <div className="flex flex-col gap-2 border-b border-[var(--admin-line-soft)] p-3 sm:flex-row">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setPage(1);
+                  setAppliedQuery(query.trim());
+                }
+              }}
+              placeholder="Cari recipient, subject, event…"
+              className="h-10 flex-1 rounded-lg"
+            />
             <Select value={eventFilter} onValueChange={setEventFilter}>
-              <SelectTrigger className="h-11 rounded-2xl">
+              <SelectTrigger className="h-10 w-36 rounded-lg">
                 <SelectValue placeholder="Event" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All events</SelectItem>
+                <SelectItem value="all">Semua event</SelectItem>
                 {eventOptions.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
@@ -155,87 +224,103 @@ export default function PlatformEmailsPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-11 rounded-2xl">
+              <SelectTrigger className="h-10 w-32 rounded-lg">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All status</SelectItem>
+                <SelectItem value="all">Semua status</SelectItem>
                 <SelectItem value="queued">Queued</SelectItem>
                 <SelectItem value="accepted">Accepted</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
               </SelectContent>
             </Select>
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search recipient, subject, event..." className="h-11 rounded-2xl xl:col-span-2" />
-            <Button
-              variant="outline"
-              className="rounded-2xl"
-              onClick={() => {
-                const nextQuery = query.trim();
-                setPage(1);
-                setAppliedQuery(nextQuery);
-                if (page === 1 && appliedQuery === nextQuery) {
-                  void loadLogs();
-                }
-              }}
-            >
-              Apply
-            </Button>
           </div>
 
-          <div className="mt-4 grid gap-3">
-            {data.items.map((item) => (
-              <Card key={item.id} className="rounded-3xl border-slate-200 p-4 shadow-none dark:border-white/10 dark:bg-[#050505]">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    <div className="text-base font-semibold text-slate-950 dark:text-white">{item.subject || "(no subject)"}</div>
-                    <div className="text-sm text-slate-500">{item.recipient}</div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="rounded-full uppercase">{item.event_key}</Badge>
-                      <Badge variant="outline" className="rounded-full uppercase">{item.status}</Badge>
-                      <Badge variant="outline" className="rounded-full uppercase">{item.source || "app"}</Badge>
-                    </div>
-                    {item.error_message ? (
-                      <div className="text-sm text-rose-500">{item.error_message}</div>
-                    ) : null}
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">{item.provider}</div>
-                    <div className="mt-1 text-xs text-slate-500">{item.provider_message_id || "-"}</div>
-                    <div className="mt-2 text-xs text-slate-500">{item.sent_at || item.created_at}</div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          {data.items.length === 0 ? (
-            <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
-              Belum ada log email.
+          {loading ? (
+            <div className="p-4 text-sm text-slate-400">Memuat log…</div>
+          ) : items.length === 0 ? (
+            <div className="p-4">
+              <EmptyState icon={Inbox} title="Belum ada log email" />
             </div>
-          ) : null}
+          ) : (
+            <Table className="rounded-none border-0 bg-transparent shadow-none">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Recipient</TableHead>
+                  <TableHead>Event</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Waktu</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="font-medium text-slate-900 dark:text-white">
+                        {item.subject || "(no subject)"}
+                      </div>
+                      {item.error_message ? (
+                        <div className="text-xs text-rose-500">{item.error_message}</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-300">
+                      {item.recipient}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">{item.event_key}</TableCell>
+                    <TableCell>
+                      <StatusPill status={emailStatusTone(item.status)} label={item.status} />
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-slate-400">
+                      {item.sent_at || item.created_at
+                        ? new Date(item.sent_at || item.created_at).toLocaleString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-[var(--admin-line-soft)] p-3">
             <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-              <SelectTrigger className="h-11 w-36 rounded-2xl">
+              <SelectTrigger className="h-9 w-28 rounded-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="10">10 rows</SelectItem>
-                <SelectItem value="25">25 rows</SelectItem>
-                <SelectItem value="50">50 rows</SelectItem>
+                <SelectItem value="10">10 baris</SelectItem>
+                <SelectItem value="25">25 baris</SelectItem>
+                <SelectItem value="50">50 baris</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <Button variant="outline" className="rounded-2xl" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page <= 1}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => setPage((v) => Math.max(1, v - 1))}
+                disabled={page <= 1}
+              >
                 Prev
               </Button>
-              <Button variant="outline" className="rounded-2xl" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page >= totalPages}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => setPage((v) => Math.min(totalPages, v + 1))}
+                disabled={page >= totalPages}
+              >
                 Next
               </Button>
             </div>
           </div>
-        </Card>
-      </section>
-    </PageShell>
+        </SectionCard>
+      </div>
+    </main>
   );
 }
