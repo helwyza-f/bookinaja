@@ -1459,6 +1459,21 @@ function BusinessStudioPanel({
                 }
               />
             </Field>
+            <Field label="Deskripsi section keunggulan">
+              <Textarea
+                value={String(highlightsSection?.props?.description || "")}
+                onChange={(event) =>
+                  highlightsSection &&
+                  onSectionPropChange(
+                    highlightsSection.id,
+                    "description",
+                    event.target.value,
+                  )
+                }
+                className="min-h-24"
+                placeholder="Informasi yang penting buat customer dibikin singkat, jadi orang cepat paham apa yang menarik dari tempat ini."
+              />
+            </Field>
             <div className="space-y-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                 Poin keunggulan

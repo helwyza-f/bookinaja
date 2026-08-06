@@ -612,8 +612,6 @@ func DefaultLandingPageConfig() LandingPageConfig {
 				},
 			}},
 			{ID: "about", Type: "about", Label: "Tentang Bisnis", Enabled: true, Variant: "split"},
-			{ID: "contact", Type: "contact", Label: "Kontak & Lokasi", Enabled: true, Variant: "panel"},
-			{ID: "booking_form", Type: "booking_form", Label: "Form Booking", Enabled: true, Variant: "sticky_cta"},
 		},
 	}
 }
@@ -767,27 +765,28 @@ func NormalizeLandingPageConfig(input LandingPageConfig) LandingPageConfig {
 		return input
 	}
 
-	incomingByID := make(map[string]LandingBuilderSection, len(input.Sections))
-	customSections := make([]LandingBuilderSection, 0)
+	// Pertahankan urutan tersimpan (input) supaya hasil reorder milik owner
+	// tidak dipaksa balik ke urutan default. Default hanya mengisi field yang
+	// hilang, bukan menentukan urutan.
+	merged := make([]LandingBuilderSection, 0, len(input.Sections)+len(defaultSections))
+	usedIDs := make(map[string]bool, len(input.Sections))
 	for _, section := range input.Sections {
 		if strings.TrimSpace(section.ID) == "" {
 			continue
 		}
-		if _, exists := defaultsByID[section.ID]; exists {
-			incomingByID[section.ID] = section
+		// Section yang sudah dipensiunkan dari landing tidak dipertahankan.
+		if section.Type == "contact" || section.Type == "booking_form" {
 			continue
 		}
-		if section.Props == nil {
-			section.Props = map[string]interface{}{}
-		}
-		customSections = append(customSections, section)
-	}
+		usedIDs[section.ID] = true
 
-	merged := make([]LandingBuilderSection, 0, len(defaultSections)+len(customSections))
-	for _, defaultSection := range defaultSections {
-		incoming, exists := incomingByID[defaultSection.ID]
+		defaultSection, exists := defaultsByID[section.ID]
 		if !exists {
-			merged = append(merged, defaultSection)
+			// Section custom milik tenant.
+			if section.Props == nil {
+				section.Props = map[string]interface{}{}
+			}
+			merged = append(merged, section)
 			continue
 		}
 
@@ -795,21 +794,28 @@ func NormalizeLandingPageConfig(input LandingPageConfig) LandingPageConfig {
 		for key, value := range defaultSection.Props {
 			props[key] = value
 		}
-		for key, value := range incoming.Props {
+		for key, value := range section.Props {
 			props[key] = value
 		}
 
 		merged = append(merged, LandingBuilderSection{
 			ID:      defaultSection.ID,
-			Type:    firstNonEmptyBuilderString(incoming.Type, defaultSection.Type),
-			Label:   firstNonEmptyBuilderString(incoming.Label, defaultSection.Label),
-			Enabled: incoming.Enabled,
-			Variant: firstNonEmptyBuilderString(incoming.Variant, defaultSection.Variant),
+			Type:    firstNonEmptyBuilderString(section.Type, defaultSection.Type),
+			Label:   firstNonEmptyBuilderString(section.Label, defaultSection.Label),
+			Enabled: section.Enabled,
+			Variant: firstNonEmptyBuilderString(section.Variant, defaultSection.Variant),
 			Props:   props,
 		})
 	}
 
-	input.Sections = append(merged, customSections...)
+	// Default yang belum pernah tersimpan (mis. section baru) ditempel di akhir.
+	for _, defaultSection := range defaultSections {
+		if !usedIDs[defaultSection.ID] {
+			merged = append(merged, defaultSection)
+		}
+	}
+
+	input.Sections = merged
 	return input
 }
 
