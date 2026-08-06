@@ -431,6 +431,11 @@ export default function ResourceBookingDetail() {
     resource?.dp_percentage,
   );
   const balanceAtVenue = Math.max(0, totalBooking - depositAmount);
+  // Mode pembayaran efektif untuk resource ini (partial | none | full).
+  // "full" menagih 100% di muka, jadi wording-nya "Bayar penuh", bukan "DP".
+  const paymentMode = String(resource?.payment_mode || "").toLowerCase();
+  const isFullMode = paymentMode === "full";
+  const payNowLabel = isFullMode ? "Bayar penuh" : "Bayar sekarang (DP)";
 
   useEffect(() => {
     setPromoPreview(null);
@@ -950,6 +955,8 @@ export default function ResourceBookingDetail() {
               </div>
 
               {/* ADDONS */}
+              {(profile?.booking_form_config?.controller_features?.enable_addons ?? true) &&
+                resource.items?.some(isAddonBookingItem) ? (
               <div className="space-y-4 pt-2">
                 <h2 className={cn("flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em]", themeVisuals.mutedClass)}>
                   <Plus size={14} /> Tambahan opsional
@@ -1016,6 +1023,7 @@ export default function ResourceBookingDetail() {
                     })}
                 </div>
               </div>
+              ) : null}
 
               {/* CUSTOMER FORM */}
               <div className="space-y-6 pt-8 border-t-4 border-slate-50 dark:border-white/5 animate-in fade-in duration-1000">
@@ -1167,7 +1175,7 @@ export default function ResourceBookingDetail() {
               {selectedMainId ? (
                 <>
                   <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
-                    {depositAmount > 0 ? "Bayar sekarang (DP)" : "Total booking"}
+                    {depositAmount > 0 ? payNowLabel : "Total booking"}
                   </span>
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="flex items-baseline gap-1">
@@ -1194,7 +1202,9 @@ export default function ResourceBookingDetail() {
                       </span>
                       <span aria-hidden className={cn("opacity-40", themeVisuals.mutedClass)}>•</span>
                       <span className={themeVisuals.mutedClass}>
-                        Sisa dibayar di lokasi Rp{balanceAtVenue.toLocaleString("id-ID")}
+                        {isFullMode
+                          ? "Pembayaran lunas di muka"
+                          : `Sisa dibayar di lokasi Rp${balanceAtVenue.toLocaleString("id-ID")}`}
                       </span>
                     </div>
                   ) : (

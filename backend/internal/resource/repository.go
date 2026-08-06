@@ -724,6 +724,7 @@ func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resour
 			r.status,
 			COALESCE(dep.override_enabled, dep.tenant_enabled, true) AS dp_enabled,
 			COALESCE(dep.override_percentage, dep.tenant_percentage, 40) AS dp_percentage,
+			COALESCE(dep.override_mode, dep.tenant_mode, 'partial') AS payment_mode,
 			r.metadata,
 			r.created_at
 		FROM resources r
@@ -731,8 +732,10 @@ func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resour
 			SELECT
 				CASE WHEN tro.override_dp THEN tro.dp_enabled ELSE NULL END AS override_enabled,
 				CASE WHEN tro.override_dp THEN tro.dp_percentage ELSE NULL END AS override_percentage,
+				CASE WHEN tro.override_dp THEN tro.payment_mode ELSE NULL END AS override_mode,
 				tds.dp_enabled AS tenant_enabled,
-				tds.dp_percentage AS tenant_percentage
+				tds.dp_percentage AS tenant_percentage,
+				tds.payment_mode AS tenant_mode
 			FROM tenant_deposit_settings tds
 			LEFT JOIN tenant_resource_deposit_overrides tro
 				ON tro.tenant_id = r.tenant_id
