@@ -77,11 +77,11 @@ type DepositSettings = {
 const defaults: PaymentMethodItem[] = [
   {
     code: "midtrans",
-    display_name: "Midtrans / QRIS Gateway",
+    display_name: "Pembayaran Online (QRIS, VA, E-wallet)",
     category: "gateway",
     verification_type: "auto",
     provider: "midtrans",
-    instructions: "Pembayaran diverifikasi otomatis oleh Midtrans.",
+    instructions: "Pembayaran diverifikasi otomatis oleh gateway pembayaran.",
     is_active: true,
     sort_order: 1,
     metadata: {},
@@ -157,7 +157,7 @@ const methodSummary = (item: PaymentMethodItem) => {
   if (item.code === "cash") {
     return "Konfirmasi langsung ke kasir atau admin";
   }
-  return "Snap Midtrans untuk DP dan pelunasan otomatis";
+  return "Pembayaran online otomatis untuk DP dan pelunasan";
 };
 
 const methodGuide = (item: PaymentMethodItem) => {

@@ -592,7 +592,7 @@ func (r *Repository) loadTenantPaymentMethods(ctx context.Context, tenantID uuid
 func (r *Repository) seedDefaultTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) error {
 	now := time.Now().UTC()
 	defaults := []BookingPaymentMethod{
-		{Code: "midtrans", DisplayName: "Midtrans / QRIS Gateway", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh gateway Midtrans.", IsActive: true, SortOrder: 10, Metadata: JSONB(`{}`)},
+		{Code: "midtrans", DisplayName: "Pembayaran Online (QRIS, VA, E-wallet)", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh gateway pembayaran.", IsActive: true, SortOrder: 10, Metadata: JSONB(`{}`)},
 		{Code: "bank_transfer", DisplayName: "Transfer Bank", Category: "manual", VerificationType: "manual", Provider: "bank_transfer", Instructions: "Transfer ke rekening tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 20, Metadata: JSONB(`{}`)},
 		{Code: "qris_static", DisplayName: "QRIS Static", Category: "manual", VerificationType: "manual", Provider: "qris_static", Instructions: "Scan QRIS tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 30, Metadata: JSONB(`{}`)},
 		{Code: "cash", DisplayName: "Cash / Bayar di Tempat", Category: "manual", VerificationType: "manual", Provider: "cash", Instructions: "Pembayaran diterima langsung oleh admin atau kasir tenant.", IsActive: true, SortOrder: 40, Metadata: JSONB(`{}`)},
