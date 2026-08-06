@@ -29,6 +29,7 @@ type Booking struct {
 	BalanceDue            float64    `db:"balance_due" json:"balance_due"`
 	PaymentStatus         string     `db:"payment_status" json:"payment_status"`
 	PaymentMethod         string     `db:"payment_method" json:"payment_method"`
+	PaymentMode           string     `db:"payment_mode" json:"payment_mode"`
 	DepositOverrideActive bool       `db:"deposit_override_active" json:"deposit_override_active"`
 	DepositOverrideReason *string    `db:"deposit_override_reason" json:"deposit_override_reason"`
 	DepositOverrideBy     *string    `db:"deposit_override_by" json:"deposit_override_by"`

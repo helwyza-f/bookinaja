@@ -19,6 +19,7 @@ import (
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/promo"
 	"github.com/helwiza/backend/internal/resource"
+	"github.com/helwiza/backend/internal/tenant"
 )
 
 type Service struct {
@@ -416,7 +417,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		}
 	}
 
-	dpEnabled, dpPercentage, err := s.repo.ResolveDepositPolicy(ctx, tID, rID)
+	paymentMode, dpPercentage, err := s.repo.ResolveDepositPolicy(ctx, tID, rID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MEMUAT PENGATURAN DP: %w", err)
 	}
@@ -427,7 +428,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	var originalGrandTotalValue *float64
 	originalGrandTotalValue = &originalGrandTotal
 	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
-		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, dpEnabled, dpPercentage)
+		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, paymentMode, dpPercentage)
 	nowUTC := time.Now().UTC()
 	var sessionActivatedAt *time.Time
 	var lastStatusChangedAt *time.Time
@@ -457,6 +458,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		BalanceDue:          balanceDue,
 		PaymentStatus:       paymentStatus,
 		PaymentMethod:       paymentMethod,
+		PaymentMode:         paymentMode,
 		SessionActivatedAt:  sessionActivatedAt,
 		LastStatusChangedAt: lastStatusChangedAt,
 		CreatedAt:           time.Now().UTC(),
@@ -1536,21 +1538,32 @@ func calculateDepositAmount(grandTotal float64, enabled bool, percentage float64
 	return dp
 }
 
-func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64, dpEnabled bool, dpPercentage float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
-	mode := strings.ToLower(strings.TrimSpace(req.BookingMode))
-	if isManualWalkIn && mode == "walkin" {
+func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64, paymentMode string, dpPercentage float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
+	bookingMode := strings.ToLower(strings.TrimSpace(req.BookingMode))
+	if isManualWalkIn && bookingMode == "walkin" {
 		return "active", 0, 0, grandTotal, "unpaid", ""
 	}
 
-	depositAmount = calculateDepositAmount(grandTotal, dpEnabled, dpPercentage)
-	balanceDue = grandTotal
-	if depositAmount > 0 {
-		balanceDue = grandTotal - depositAmount
-		if balanceDue < 0 {
-			balanceDue = 0
+	switch paymentMode {
+	case tenant.PaymentModeNone:
+		// Tanpa DP: booking langsung terkonfirmasi, tidak ada tagihan di muka,
+		// sisa dibayar di tempat.
+		return "confirmed", 0, 0, grandTotal, "unpaid", ""
+	case tenant.PaymentModeFull:
+		// Bayar lunas di awal: tagih penuh sebagai "deposit", sisa 0.
+		return "pending", grandTotal, 0, 0, "pending", ""
+	default:
+		// Partial (DP sebagian).
+		depositAmount = calculateDepositAmount(grandTotal, true, dpPercentage)
+		balanceDue = grandTotal
+		if depositAmount > 0 {
+			balanceDue = grandTotal - depositAmount
+			if balanceDue < 0 {
+				balanceDue = 0
+			}
 		}
+		return "pending", depositAmount, 0, balanceDue, "pending", ""
 	}
-	return "pending", depositAmount, 0, balanceDue, "pending", ""
 }
 
 func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, depositAmount float64, depositOverrideActive bool) error {

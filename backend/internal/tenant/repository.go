@@ -442,7 +442,7 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID) (*TenantDepositSetting, error) {
 	var setting TenantDepositSetting
 	err := r.db.GetContext(ctx, &setting, `
-		SELECT tenant_id, dp_enabled, dp_percentage, created_at, updated_at
+		SELECT tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at
 		FROM tenant_deposit_settings
 		WHERE tenant_id = $1
 		LIMIT 1`, tenantID)
@@ -450,14 +450,15 @@ func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID)
 		now := time.Now().UTC()
 		setting = TenantDepositSetting{
 			TenantID:     tenantID,
+			PaymentMode:  PaymentModePartial,
 			DPEnabled:    true,
 			DPPercentage: 40,
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
 		if _, insertErr := r.db.ExecContext(ctx, `
-			INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
-			VALUES ($1, $2, $3, NOW(), NOW())
+			INSERT INTO tenant_deposit_settings (tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at)
+			VALUES ($1, 'partial', $2, $3, NOW(), NOW())
 			ON CONFLICT (tenant_id) DO NOTHING`, tenantID, true, 40); insertErr != nil {
 			return nil, insertErr
 		}
@@ -468,7 +469,7 @@ func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID)
 	var overrides []ResourceDepositOverride
 	if err := r.db.SelectContext(ctx, &overrides, `
 		SELECT o.id, o.tenant_id, o.resource_id, COALESCE(r.name, '') AS resource_name,
-			o.override_dp, o.dp_enabled, o.dp_percentage, o.created_at, o.updated_at
+			o.override_dp, o.payment_mode, o.dp_enabled, o.dp_percentage, o.created_at, o.updated_at
 		FROM tenant_resource_deposit_overrides o
 		LEFT JOIN resources r ON r.id = o.resource_id AND r.tenant_id = o.tenant_id
 		WHERE o.tenant_id = $1
@@ -487,13 +488,14 @@ func (r *Repository) UpsertDepositSettings(ctx context.Context, tenantID uuid.UU
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		INSERT INTO tenant_deposit_settings (tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
 		ON CONFLICT (tenant_id) DO UPDATE
-		SET dp_enabled = EXCLUDED.dp_enabled,
+		SET payment_mode = EXCLUDED.payment_mode,
+			dp_enabled = EXCLUDED.dp_enabled,
 			dp_percentage = EXCLUDED.dp_percentage,
 			updated_at = NOW()`,
-		tenantID, req.DPEnabled, req.DPPercentage,
+		tenantID, req.PaymentMode, req.DPEnabled, req.DPPercentage,
 	); err != nil {
 		return nil, err
 	}
@@ -522,9 +524,9 @@ func (r *Repository) UpsertDepositSettings(ctx context.Context, tenantID uuid.UU
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO tenant_resource_deposit_overrides (
-				id, tenant_id, resource_id, override_dp, dp_enabled, dp_percentage, created_at, updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())`,
-			uuid.New(), tenantID, resourceID, item.OverrideDP, item.DPEnabled, item.DPPercentage,
+				id, tenant_id, resource_id, override_dp, payment_mode, dp_enabled, dp_percentage, created_at, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())`,
+			uuid.New(), tenantID, resourceID, item.OverrideDP, item.PaymentMode, item.DPEnabled, item.DPPercentage,
 		); err != nil {
 			return nil, err
 		}

@@ -2992,13 +2992,18 @@ func (s *Service) UpdateDepositSettings(ctx context.Context, id uuid.UUID, req T
 	if req.DPPercentage < 0 || req.DPPercentage > 100 {
 		return nil, errors.New("persentase DP default harus di antara 0 - 100")
 	}
-	for _, item := range req.ResourceConfigs {
+	// Turunkan mode default + jaga dp_enabled/dp_percentage tetap sinkron.
+	req.PaymentMode, req.DPEnabled, req.DPPercentage = NormalizePaymentMode(req.PaymentMode, req.DPEnabled, req.DPPercentage)
+
+	for i := range req.ResourceConfigs {
+		item := &req.ResourceConfigs[i]
 		if strings.TrimSpace(item.ResourceID) == "" {
 			return nil, errors.New("resource override tidak valid")
 		}
 		if item.DPPercentage < 0 || item.DPPercentage > 100 {
 			return nil, errors.New("persentase DP resource harus di antara 0 - 100")
 		}
+		item.PaymentMode, item.DPEnabled, item.DPPercentage = NormalizePaymentMode(item.PaymentMode, item.DPEnabled, item.DPPercentage)
 	}
 	return s.repo.UpsertDepositSettings(ctx, id, req)
 }

@@ -26,13 +26,14 @@ func TestUpsertDepositSettingsRejectsForeignResource(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(`
-		INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		INSERT INTO tenant_deposit_settings (tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
 		ON CONFLICT (tenant_id) DO UPDATE
-		SET dp_enabled = EXCLUDED.dp_enabled,
+		SET payment_mode = EXCLUDED.payment_mode,
+			dp_enabled = EXCLUDED.dp_enabled,
 			dp_percentage = EXCLUDED.dp_percentage,
 			updated_at = NOW()`)).
-		WithArgs(tenantID, true, 40.0).
+		WithArgs(tenantID, "partial", true, 40.0).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM tenant_resource_deposit_overrides WHERE tenant_id = $1`)).
 		WithArgs(tenantID).
@@ -48,12 +49,14 @@ func TestUpsertDepositSettingsRejectsForeignResource(t *testing.T) {
 	mock.ExpectRollback()
 
 	_, err = repo.UpsertDepositSettings(context.Background(), tenantID, TenantDepositSettingUpdateReq{
+		PaymentMode:  "partial",
 		DPEnabled:    true,
 		DPPercentage: 40,
 		ResourceConfigs: []ResourceDepositOverrideInput{
 			{
 				ResourceID:   resourceID.String(),
 				OverrideDP:   true,
+				PaymentMode:  "partial",
 				DPEnabled:    true,
 				DPPercentage: 50,
 			},

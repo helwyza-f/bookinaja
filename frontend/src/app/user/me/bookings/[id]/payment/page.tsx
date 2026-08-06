@@ -200,6 +200,12 @@ export default function BookingPaymentPage() {
 
   const paymentStatus = String(booking?.payment_status || "").toLowerCase();
   const sessionStatus = String(booking?.status || "").toLowerCase();
+  const paymentMode = String(booking?.payment_mode || "").toLowerCase();
+  const isFullMode = paymentMode === "full";
+  // Untuk mode "full", tahap pembayaran di muka adalah pelunasan penuh,
+  // bukan DP — sesuaikan labelnya.
+  const depositLabel = isFullMode ? "Bayar penuh" : "DP";
+  const depositStepLabel = isFullMode ? "Step Bayar Penuh" : "Step DP";
   const pendingAttemptStatus = String(pendingManualAttempt?.status || "").toLowerCase();
 
   useEffect(() => {
@@ -475,7 +481,7 @@ export default function BookingPaymentPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="border-none bg-slate-950 text-white">
-              {scope === "deposit" ? "DP" : "Pelunasan"}
+              {scope === "deposit" ? depositLabel : "Pelunasan"}
             </Badge>
             <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
               {paymentStatusLabel}
@@ -520,12 +526,14 @@ export default function BookingPaymentPage() {
                     : paymentStatus === "settled" || paymentStatus === "paid"
                       ? "Tagihan untuk tahap booking ini sudah tercatat."
                       : scope === "deposit"
-                        ? "Selesaikan DP agar booking bisa diproses tepat waktu."
+                        ? isFullMode
+                          ? "Selesaikan pembayaran penuh agar booking bisa diproses tepat waktu."
+                          : "Selesaikan DP agar booking bisa diproses tepat waktu."
                         : "Selesaikan pelunasan setelah sesi berakhir."}
                 </p>
               </div>
               <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-                {scope === "deposit" ? "Step DP" : "Step Pelunasan"}
+                {scope === "deposit" ? depositStepLabel : "Step Pelunasan"}
               </Badge>
             </div>
           </div>

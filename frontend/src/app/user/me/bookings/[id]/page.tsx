@@ -417,6 +417,7 @@ type BookingDetail = {
   resource?: string;
   status?: string;
   payment_status?: string;
+  payment_mode?: string;
   start_time?: string;
   end_time?: string;
   promo_code?: string;
@@ -535,7 +536,9 @@ function resolveNextStep(booking: BookingDetail | null) {
     return "Tunggu admin tenant menyelesaikan verifikasi pembayaran manualmu.";
   }
   if (depositAmount > 0 && paymentStatus === "pending") {
-    return "Selesaikan DP dulu dari halaman pembayaran agar sesi bisa diaktifkan tepat waktu.";
+    return String(booking.payment_mode || "").toLowerCase() === "full"
+      ? "Selesaikan pembayaran penuh dulu dari halaman pembayaran agar sesi bisa diaktifkan tepat waktu."
+      : "Selesaikan DP dulu dari halaman pembayaran agar sesi bisa diaktifkan tepat waktu.";
   }
   if (status === "pending" || status === "confirmed") {
     return "Saat sudah tiba di jadwal booking, buka live controller untuk mengaktifkan sesi.";

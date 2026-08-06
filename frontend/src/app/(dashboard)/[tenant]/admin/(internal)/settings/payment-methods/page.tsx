@@ -187,6 +187,40 @@ const normalizeOperatingMode = (mode?: string) => {
 
 const sanitizePercentInput = (value: string) => value.replace(/[^\d]/g, "");
 
+type PaymentMode = "partial" | "none" | "full";
+
+const PAYMENT_MODES: { value: PaymentMode; label: string; desc: string }[] = [
+  { value: "partial", label: "DP sebagian", desc: "Bayar sebagian di awal, sisanya nanti" },
+  { value: "full", label: "Bayar penuh", desc: "Lunas 100% di awal" },
+  { value: "none", label: "Tanpa DP", desc: "Tanpa uang muka, bayar di tempat" },
+];
+
+// Turunkan mode dari knob lama dp_enabled/dp_percentage.
+const depositMode = (enabled: boolean, pct: number): PaymentMode => {
+  if (!enabled) return "none";
+  if (pct >= 100) return "full";
+  return "partial";
+};
+
+// Ringkasan pendek untuk chip/summary.
+const depositModeShort = (enabled: boolean, pct: number): string => {
+  const mode = depositMode(enabled, pct);
+  if (mode === "partial") return `DP ${pct}%`;
+  if (mode === "full") return "Penuh";
+  return "Tanpa DP";
+};
+
+// Petakan mode ke knob dp_enabled/dp_percentage yang konsisten.
+const depositFieldsForMode = (
+  mode: PaymentMode,
+  currentPct: number,
+): { dp_enabled: boolean; dp_percentage: number } => {
+  if (mode === "none") return { dp_enabled: false, dp_percentage: currentPct };
+  if (mode === "full") return { dp_enabled: true, dp_percentage: 100 };
+  const pct = currentPct >= 100 || currentPct <= 0 ? 40 : currentPct;
+  return { dp_enabled: true, dp_percentage: pct };
+};
+
 export default function PaymentMethodsSettingsPage() {
   const { user } = useAdminSession();
   const [items, setItems] = useState<PaymentMethodItem[]>(defaults);
@@ -418,6 +452,7 @@ export default function PaymentMethodsSettingsPage() {
     try {
       const timedResourceIds = new Set(timedResources.map((resource) => resource.id));
       const payload = {
+        payment_mode: depositMode(depositSettings.dp_enabled, depositSettings.dp_percentage),
         dp_enabled: depositSettings.dp_enabled,
         dp_percentage: Number(depositSettings.dp_percentage || 0),
         resource_configs: depositSettings.resource_configs
@@ -425,6 +460,7 @@ export default function PaymentMethodsSettingsPage() {
           .map((item) => ({
             resource_id: item.resource_id,
             override_dp: item.override_dp,
+            payment_mode: depositMode(item.dp_enabled, item.dp_percentage),
             dp_enabled: item.dp_enabled,
             dp_percentage: Number(item.dp_percentage || 0),
           })),
@@ -473,7 +509,7 @@ export default function PaymentMethodsSettingsPage() {
             <SummaryStat label="Aktif" value={String(activeCount)} />
             <SummaryStat
               label="DP"
-              value={depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
+              value={depositModeShort(depositSettings.dp_enabled, depositSettings.dp_percentage)}
             />
             <SummaryStat label="Override" value={String(overrideCount)} />
           </div>
@@ -648,7 +684,7 @@ export default function PaymentMethodsSettingsPage() {
                         Default DP
                       </div>
                       <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                        {depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
+                        {depositModeShort(depositSettings.dp_enabled, depositSettings.dp_percentage)}
                       </div>
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400 sm:text-right">
@@ -665,47 +701,72 @@ export default function PaymentMethodsSettingsPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid gap-3 lg:grid-cols-[260px_180px_minmax(0,1fr)]">
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                    <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-white">
-                        Minta DP saat booking
+                <div className="space-y-3">
+                  <div>
+                    <Label className="mb-2 block">Mode pembayaran default</Label>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {PAYMENT_MODES.map((mode) => {
+                        const active =
+                          depositMode(
+                            depositSettings.dp_enabled,
+                            depositSettings.dp_percentage,
+                          ) === mode.value;
+                        return (
+                          <button
+                            key={mode.value}
+                            type="button"
+                            onClick={() =>
+                              setDepositSettings((current) => ({
+                                ...current,
+                                ...depositFieldsForMode(mode.value, current.dp_percentage),
+                              }))
+                            }
+                            className={cn(
+                              "rounded-xl border px-4 py-3 text-left transition-colors",
+                              active
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
+                                : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.04]",
+                            )}
+                          >
+                            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                              {mode.label}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {mode.desc}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {depositMode(depositSettings.dp_enabled, depositSettings.dp_percentage) === "partial" ? (
+                    <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                      <div>
+                        <Label>Persentase DP</Label>
+                        <Input
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={String(depositSettings.dp_percentage)}
+                          onChange={(event) =>
+                            setDepositSettings((current) => ({
+                              ...current,
+                              dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
+                            }))
+                          }
+                        />
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Hanya untuk resource timed
+                      <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                        {`Customer diminta bayar DP ${depositSettings.dp_percentage}% saat booking resource timed, sisanya dilunasi kemudian (kecuali ada override).`}
                       </div>
                     </div>
-                    <Switch
-                      checked={depositSettings.dp_enabled}
-                      onCheckedChange={(checked) =>
-                        setDepositSettings((current) => ({
-                          ...current,
-                          dp_enabled: checked,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Persentase default</Label>
-                    <Input
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={String(depositSettings.dp_percentage)}
-                      onChange={(event) =>
-                        setDepositSettings((current) => ({
-                          ...current,
-                          dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-                    {depositSettings.dp_enabled
-                      ? `Customer akan diminta bayar ${depositSettings.dp_percentage}% saat booking resource timed, kecuali ada override.`
-                      : "DP dimatikan. Booking resource timed tidak akan meminta uang muka secara default."}
-                  </div>
+                  ) : (
+                    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                      {depositMode(depositSettings.dp_enabled, depositSettings.dp_percentage) === "full"
+                        ? "Customer wajib membayar penuh 100% di awal sebelum booking aktif (kecuali ada override)."
+                        : "Tanpa uang muka. Booking resource timed langsung terkonfirmasi dan sisa dibayar di tempat (kecuali ada override)."}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -757,7 +818,14 @@ export default function PaymentMethodsSettingsPage() {
                         </p>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           {override?.override_dp
-                            ? `${override.dp_enabled ? "DP aktif" : "DP nonaktif"} / ${override.dp_percentage}%`
+                            ? PAYMENT_MODES.find(
+                                (m) =>
+                                  m.value ===
+                                  depositMode(override.dp_enabled, override.dp_percentage),
+                              )?.label +
+                              (depositMode(override.dp_enabled, override.dp_percentage) === "partial"
+                                ? ` ${override.dp_percentage}%`
+                                : "")
                             : "Ikut default tenant"}
                         </p>
                       </div>
@@ -778,31 +846,51 @@ export default function PaymentMethodsSettingsPage() {
                     </div>
 
                     {override?.override_dp ? (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                          <span className="text-sm text-slate-600 dark:text-slate-300">
-                            DP aktif
-                          </span>
-                          <Switch
-                            checked={override.dp_enabled}
-                            onCheckedChange={(checked) =>
-                              updateDepositOverride(resource, { dp_enabled: checked })
-                            }
-                          />
+                      <div className="mt-3 space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {PAYMENT_MODES.map((mode) => {
+                            const active =
+                              depositMode(override.dp_enabled, override.dp_percentage) ===
+                              mode.value;
+                            return (
+                              <button
+                                key={mode.value}
+                                type="button"
+                                onClick={() =>
+                                  updateDepositOverride(
+                                    resource,
+                                    depositFieldsForMode(mode.value, override.dp_percentage),
+                                  )
+                                }
+                                className={cn(
+                                  "rounded-xl border px-3 py-2.5 text-left transition-colors",
+                                  active
+                                    ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
+                                    : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.04]",
+                                )}
+                              >
+                                <div className="text-xs font-semibold text-slate-950 dark:text-white">
+                                  {mode.label}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div>
-                          <Label>Persentase</Label>
-                          <Input
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={String(override.dp_percentage)}
-                            onChange={(event) =>
-                              updateDepositOverride(resource, {
-                                dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
-                              })
-                            }
-                          />
-                        </div>
+                        {depositMode(override.dp_enabled, override.dp_percentage) === "partial" ? (
+                          <div className="max-w-[200px]">
+                            <Label>Persentase DP</Label>
+                            <Input
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={String(override.dp_percentage)}
+                              onChange={(event) =>
+                                updateDepositOverride(resource, {
+                                  dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
+                                })
+                              }
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

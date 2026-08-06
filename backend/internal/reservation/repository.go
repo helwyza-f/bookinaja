@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/helwiza/backend/internal/tenant"
 )
 
 type Repository struct {
@@ -343,13 +345,13 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 		INSERT INTO bookings (
 			id, tenant_id, customer_id, resource_id, start_time, end_time, access_token,
 			status, promo_id, promo_code, original_grand_total, discount_amount, promo_snapshot,
-			grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method,
+			grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method, payment_mode,
 			session_activated_at, last_status_changed_at, created_at
 		)
 		VALUES (
 			:id, :tenant_id, :customer_id, :resource_id, :start_time, :end_time, :access_token,
 			:status, :promo_id, :promo_code, :original_grand_total, :discount_amount, :promo_snapshot,
-			:grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method,
+			:grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method, :payment_mode,
 			:session_activated_at, :last_status_changed_at, :created_at
 		)`
 
@@ -939,46 +941,53 @@ func normalizeBookingFinancials(booking *Booking, totalResource, totalFnb float6
 	}
 }
 
-func (r *Repository) ResolveDepositPolicy(ctx context.Context, tenantID, resourceID uuid.UUID) (bool, float64, error) {
+// ResolveDepositPolicy mengembalikan mode pembayaran efektif ("partial",
+// "none", "full") beserta persentase DP (relevan hanya untuk "partial").
+// Override per-resource menang atas setting tenant, lalu default tenant.
+func (r *Repository) ResolveDepositPolicy(ctx context.Context, tenantID, resourceID uuid.UUID) (string, float64, error) {
 	type depositSetting struct {
+		PaymentMode  string  `db:"payment_mode"`
 		DPEnabled    bool    `db:"dp_enabled"`
 		DPPercentage float64 `db:"dp_percentage"`
 	}
 	var resourceOverride struct {
 		OverrideDP   bool    `db:"override_dp"`
+		PaymentMode  string  `db:"payment_mode"`
 		DPEnabled    bool    `db:"dp_enabled"`
 		DPPercentage float64 `db:"dp_percentage"`
 	}
 	if err := r.db.GetContext(ctx, &resourceOverride, `
-		SELECT override_dp, dp_enabled, dp_percentage
+		SELECT override_dp, payment_mode, dp_enabled, dp_percentage
 		FROM tenant_resource_deposit_overrides
 		WHERE tenant_id = $1 AND resource_id = $2
 		LIMIT 1`, tenantID, resourceID); err == nil {
 		if resourceOverride.OverrideDP {
-			return resourceOverride.DPEnabled, resourceOverride.DPPercentage, nil
+			mode, _, pct := tenant.NormalizePaymentMode(resourceOverride.PaymentMode, resourceOverride.DPEnabled, resourceOverride.DPPercentage)
+			return mode, pct, nil
 		}
 	} else if err != sql.ErrNoRows {
-		return false, 0, err
+		return "", 0, err
 	}
 
 	var tenantSetting depositSetting
 	if err := r.db.GetContext(ctx, &tenantSetting, `
-		SELECT dp_enabled, dp_percentage
+		SELECT payment_mode, dp_enabled, dp_percentage
 		FROM tenant_deposit_settings
 		WHERE tenant_id = $1
 		LIMIT 1`, tenantID); err == nil {
-		return tenantSetting.DPEnabled, tenantSetting.DPPercentage, nil
+		mode, _, pct := tenant.NormalizePaymentMode(tenantSetting.PaymentMode, tenantSetting.DPEnabled, tenantSetting.DPPercentage)
+		return mode, pct, nil
 	} else if err != sql.ErrNoRows {
-		return false, 0, err
+		return "", 0, err
 	}
 
 	if _, err := r.db.ExecContext(ctx, `
-		INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
-		VALUES ($1, true, 40, NOW(), NOW())
+		INSERT INTO tenant_deposit_settings (tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at)
+		VALUES ($1, 'partial', true, 40, NOW(), NOW())
 		ON CONFLICT (tenant_id) DO NOTHING`, tenantID); err != nil {
-		return false, 0, err
+		return "", 0, err
 	}
-	return true, 40, nil
+	return tenant.PaymentModePartial, 40, nil
 }
 
 func updatePromoSnapshotAmounts(snapshot JSONB, originalTotal, discountAmount, finalAmount float64) (JSONB, error) {

@@ -334,8 +334,47 @@ type TenantPaymentMethodUpdateReq struct {
 	Items []TenantPaymentMethodInput `json:"items" binding:"required"`
 }
 
+// Mode pembayaran yang tersedia untuk booking.
+const (
+	PaymentModePartial = "partial" // DP sebagian di awal
+	PaymentModeNone    = "none"    // tanpa DP, bayar di tempat
+	PaymentModeFull    = "full"    // bayar lunas di awal
+)
+
+// NormalizePaymentMode memetakan input mode + persen menjadi triple
+// (mode, dpEnabled, dpPercentage) yang konsisten. dp_enabled & dp_percentage
+// tetap dijaga sinkron demi kompatibilitas jalur lama.
+func NormalizePaymentMode(mode string, dpEnabled bool, percentage float64) (string, bool, float64) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case PaymentModeNone:
+		return PaymentModeNone, false, 0
+	case PaymentModeFull:
+		return PaymentModeFull, true, 100
+	case PaymentModePartial:
+		if percentage <= 0 {
+			percentage = 40
+		}
+		if percentage >= 100 {
+			percentage = 100
+		}
+		return PaymentModePartial, true, percentage
+	}
+	// Fallback: turunkan dari knob lama bila mode kosong/tidak dikenal.
+	if !dpEnabled {
+		return PaymentModeNone, false, 0
+	}
+	if percentage >= 100 {
+		return PaymentModeFull, true, 100
+	}
+	if percentage <= 0 {
+		percentage = 40
+	}
+	return PaymentModePartial, true, percentage
+}
+
 type TenantDepositSetting struct {
 	TenantID        uuid.UUID                 `db:"tenant_id" json:"tenant_id"`
+	PaymentMode     string                    `db:"payment_mode" json:"payment_mode"`
 	DPEnabled       bool                      `db:"dp_enabled" json:"dp_enabled"`
 	DPPercentage    float64                   `db:"dp_percentage" json:"dp_percentage"`
 	CreatedAt       time.Time                 `db:"created_at" json:"created_at"`
@@ -349,6 +388,7 @@ type ResourceDepositOverride struct {
 	ResourceID   uuid.UUID `db:"resource_id" json:"resource_id"`
 	ResourceName string    `db:"resource_name" json:"resource_name"`
 	OverrideDP   bool      `db:"override_dp" json:"override_dp"`
+	PaymentMode  string    `db:"payment_mode" json:"payment_mode"`
 	DPEnabled    bool      `db:"dp_enabled" json:"dp_enabled"`
 	DPPercentage float64   `db:"dp_percentage" json:"dp_percentage"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
@@ -358,11 +398,13 @@ type ResourceDepositOverride struct {
 type ResourceDepositOverrideInput struct {
 	ResourceID   string  `json:"resource_id"`
 	OverrideDP   bool    `json:"override_dp"`
+	PaymentMode  string  `json:"payment_mode"`
 	DPEnabled    bool    `json:"dp_enabled"`
 	DPPercentage float64 `json:"dp_percentage"`
 }
 
 type TenantDepositSettingUpdateReq struct {
+	PaymentMode     string                         `json:"payment_mode"`
 	DPEnabled       bool                           `json:"dp_enabled"`
 	DPPercentage    float64                        `json:"dp_percentage"`
 	ResourceConfigs []ResourceDepositOverrideInput `json:"resource_configs"`
