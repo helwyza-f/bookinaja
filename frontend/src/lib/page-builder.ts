@@ -293,49 +293,52 @@ export function normalizePageBuilderConfig(input?: Partial<LandingPageConfig> | 
   }
 
   const defaultsByID = new Map(defaults.map((section) => [section.id, section]));
-  const mergedKnown: BuilderSection[] = [];
   const usedIncomingIDs = new Set<string>();
 
-  for (const defaultSection of defaults) {
-    const matched = incoming.find((section) => section?.id === defaultSection.id);
-    if (!matched) {
-      mergedKnown.push(defaultSection);
-      continue;
-    }
+  // Ikuti urutan tersimpan (incoming) supaya hasil drag/reorder milik owner
+  // tetap dipertahankan. Default hanya dipakai untuk mengisi field yang hilang,
+  // bukan untuk memaksa urutan.
+  const mergedKnown: BuilderSection[] = incoming
+    .filter((section): section is BuilderSection => Boolean(section?.id))
+    .map((matched) => {
+      usedIncomingIDs.add(matched.id);
+      const defaultSection = defaultsByID.get(matched.id);
+      if (!defaultSection) {
+        // Section custom milik tenant (tidak ada di defaults).
+        return {
+          ...matched,
+          enabled: matched.enabled !== false,
+          props: matched.props ? structuredClone(matched.props) : {},
+        };
+      }
 
-    usedIncomingIDs.add(matched.id);
-    const normalizedVariant =
-      defaultSection.type === "catalog" && matched.variant === "showcase"
-        ? defaultSection.variant
-        : matched.variant || defaultSection.variant;
-    mergedKnown.push({
-      ...defaultSection,
-      ...matched,
-      type: matched.type || defaultSection.type,
-      label: matched.label || defaultSection.label,
-      variant: normalizedVariant,
-      enabled: matched.enabled !== false,
-      props: {
-        ...(defaultSection.props ? structuredClone(defaultSection.props) : {}),
-        ...((matched.props as Record<string, unknown> | undefined) || {}),
-      },
+      const normalizedVariant =
+        defaultSection.type === "catalog" && matched.variant === "showcase"
+          ? defaultSection.variant
+          : matched.variant || defaultSection.variant;
+      return {
+        ...defaultSection,
+        ...matched,
+        type: matched.type || defaultSection.type,
+        label: matched.label || defaultSection.label,
+        variant: normalizedVariant,
+        enabled: matched.enabled !== false,
+        props: {
+          ...(defaultSection.props ? structuredClone(defaultSection.props) : {}),
+          ...((matched.props as Record<string, unknown> | undefined) || {}),
+        },
+      };
     });
-  }
 
-  const customSections = incoming
-    .filter((section): section is BuilderSection => Boolean(section?.id) && !usedIncomingIDs.has(section.id))
-    .map((section) => ({
-      ...section,
-      enabled: section.enabled !== false,
-      props: section.props ? structuredClone(section.props) : {},
-    }));
+  // Default section yang belum pernah tersimpan (mis. section baru yang kita
+  // tambahkan setelah tenant terakhir menyimpan) ditempel di akhir.
+  const missingDefaults = defaults.filter(
+    (section) => !usedIncomingIDs.has(section.id),
+  );
 
   return {
     version: input?.version || DEFAULT_PAGE_BUILDER_CONFIG.version,
-    sections: [
-      ...mergedKnown,
-      ...customSections.filter((section) => !defaultsByID.has(section.id)),
-    ],
+    sections: [...mergedKnown, ...missingDefaults],
   } satisfies LandingPageConfig;
 }
 

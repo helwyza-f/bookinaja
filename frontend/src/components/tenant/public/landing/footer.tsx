@@ -209,17 +209,6 @@ export function TenantFooter({
                     ) : null}
                   </div>
                 </div>
-                {mapSrc ? (
-                  <div className="mt-4 overflow-hidden rounded-2xl border border-black/5 dark:border-white/10">
-                    <iframe
-                      src={mapSrc}
-                      className="h-44 w-full"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="Lokasi"
-                    />
-                  </div>
-                ) : null}
               </div>
 
               <div className={cn("p-5", footerCardClass, iconPanelClass)}>
@@ -243,6 +232,18 @@ export function TenantFooter({
                 </div>
               </div>
             </div>
+
+            {mapSrc ? (
+              <div className="overflow-hidden rounded-2xl border border-black/5 dark:border-white/10">
+                <iframe
+                  src={mapSrc}
+                  className="h-64 w-full"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Lokasi"
+                />
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap gap-3">
               <a href="#catalog">

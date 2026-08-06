@@ -84,8 +84,7 @@ type ContentPanelKey =
   | "media"
   | "testimonials"
   | "faq"
-  | "contact"
-  | "booking";
+  | "contact";
 
 const THEME_PRESETS = [
   {
@@ -386,7 +385,6 @@ export default function PageBuilderPage() {
   const testimonialsPanelOpen = activeContentPanel === "testimonials";
   const faqPanelOpen = activeContentPanel === "faq";
   const contactPanelOpen = activeContentPanel === "contact";
-  const bookingPanelOpen = activeContentPanel === "booking";
 
   const fetchBuilder = useCallback(async () => {
     setLoading(true);
@@ -929,8 +927,6 @@ export default function PageBuilderPage() {
                 faqPanelEditing={editingContentPanel === "faq"}
                 contactPanelOpen={contactPanelOpen}
                 contactPanelEditing={editingContentPanel === "contact"}
-                bookingPanelOpen={bookingPanelOpen}
-                bookingPanelEditing={editingContentPanel === "booking"}
                 onToggleIdentity={() => toggleContentPanel("identity")}
                 onToggleIdentityEdit={() => toggleContentEditMode("identity")}
                 onToggleStory={() => toggleContentPanel("story")}
@@ -949,8 +945,6 @@ export default function PageBuilderPage() {
                 onToggleFaqEdit={() => toggleContentEditMode("faq")}
                 onToggleContact={() => toggleContentPanel("contact")}
                 onToggleContactEdit={() => toggleContentEditMode("contact")}
-                onToggleBooking={() => toggleContentPanel("booking")}
-                onToggleBookingEdit={() => toggleContentEditMode("booking")}
                 onCancelEdit={cancelContentEditMode}
                 onProfilePatch={updateProfilePatch}
                 onProfileArrayItemChange={updateProfileArrayItem}
@@ -1259,8 +1253,6 @@ function BusinessStudioPanel({
   faqPanelEditing,
   contactPanelOpen,
   contactPanelEditing,
-  bookingPanelOpen,
-  bookingPanelEditing,
   onToggleIdentity,
   onToggleIdentityEdit,
   onToggleStory,
@@ -1277,8 +1269,6 @@ function BusinessStudioPanel({
   onToggleFaqEdit,
   onToggleContact,
   onToggleContactEdit,
-  onToggleBooking,
-  onToggleBookingEdit,
   onProfilePatch,
   onProfileArrayItemChange,
   onAddProfileArrayItem,
@@ -1315,8 +1305,6 @@ function BusinessStudioPanel({
   faqPanelEditing: boolean;
   contactPanelOpen: boolean;
   contactPanelEditing: boolean;
-  bookingPanelOpen: boolean;
-  bookingPanelEditing: boolean;
   onToggleIdentity: () => void;
   onToggleIdentityEdit: () => void;
   onToggleStory: () => void;
@@ -1333,8 +1321,6 @@ function BusinessStudioPanel({
   onToggleFaqEdit: () => void;
   onToggleContact: () => void;
   onToggleContactEdit: () => void;
-  onToggleBooking: () => void;
-  onToggleBookingEdit: () => void;
   onProfilePatch: (patch: Partial<BuilderProfile>) => void;
   onProfileArrayItemChange: (
     key: "features" | "gallery",
@@ -2013,113 +1999,6 @@ function BusinessStudioPanel({
                   close_time: profile.close_time,
                   timezone: profile.timezone,
                   whatsapp_number: profile.whatsapp_number,
-                },
-                persistBuilder: true,
-              })
-            }
-          />
-        </Card>
-      </CollapsibleSidebarCard>
-
-      <CollapsibleSidebarCard
-        icon={<Phone className="h-4 w-4" />}
-        title="Booking & Bantuan"
-        description="Label CTA booking (hero + sticky) dan bantuan WhatsApp"
-        open={bookingPanelOpen}
-        onToggle={onToggleBooking}
-      >
-        <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-          <fieldset
-            disabled={!bookingPanelEditing}
-            className="space-y-4 disabled:opacity-100"
-          >
-            <Field label="Label tombol booking">
-              <Input
-                value={bookingForm.cta_button_label}
-                onChange={(event) =>
-                  onBookingFormChange((current) => ({
-                    ...current,
-                    cta_button_label: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <Field label="Label bantuan WhatsApp">
-              <Input
-                value={bookingForm.whatsapp_label}
-                onChange={(event) =>
-                  onBookingFormChange((current) => ({
-                    ...current,
-                    whatsapp_label: event.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() =>
-                  onBookingFormChange((current) => ({
-                    ...current,
-                    show_whatsapp_help: !current.show_whatsapp_help,
-                  }))
-                }
-                className={cn(
-                  "rounded-2xl border px-4 py-3 text-left transition-colors",
-                  bookingForm.show_whatsapp_help
-                    ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] dark:bg-[rgba(59,130,246,0.12)]"
-                    : "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]",
-                )}
-              >
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                  Bantuan WhatsApp
-                </div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {bookingForm.show_whatsapp_help
-                    ? "Ditampilkan di preview"
-                    : "Disembunyikan dari preview"}
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onBookingFormChange((current) => ({
-                    ...current,
-                    sticky_mobile_cta: !current.sticky_mobile_cta,
-                  }))
-                }
-                className={cn(
-                  "rounded-2xl border px-4 py-3 text-left transition-colors",
-                  bookingForm.sticky_mobile_cta
-                    ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] dark:bg-[rgba(59,130,246,0.12)]"
-                    : "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]",
-                )}
-              >
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                  Sticky mobile CTA
-                </div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {bookingForm.sticky_mobile_cta
-                    ? "Aktif untuk landing mobile"
-                    : "Nonaktif"}
-                </div>
-              </button>
-            </div>
-          </fieldset>
-          <SectionActionButton
-            editing={bookingPanelEditing}
-            saving={savingSectionKey === "booking"}
-            onEdit={onToggleBookingEdit}
-            onCancel={() => onCancelEdit("booking")}
-            onSave={() =>
-              onSaveSection({
-                sectionKey: "booking",
-                successMessage: "Section booking diperbarui",
-                bookingFormPatch: {
-                  cta_button_label: bookingForm.cta_button_label,
-                  whatsapp_label: bookingForm.whatsapp_label,
-                  show_whatsapp_help: bookingForm.show_whatsapp_help,
-                  sticky_mobile_cta: bookingForm.sticky_mobile_cta,
                 },
                 persistBuilder: true,
               })
