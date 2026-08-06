@@ -106,7 +106,7 @@ export function TenantNavbar({
     .filter(
       (section) =>
         section.enabled &&
-        ["catalog", "about", "gallery", "contact"].includes(section.type),
+        ["catalog", "about", "gallery"].includes(section.type),
     )
     .map((section) => ({
       id: section.id,
