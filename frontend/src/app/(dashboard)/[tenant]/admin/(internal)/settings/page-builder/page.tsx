@@ -549,14 +549,6 @@ export default function PageBuilderPage() {
     () => page.sections.find((section) => section.type === "faq"),
     [page.sections],
   );
-  const contactSection = useMemo(
-    () => page.sections.find((section) => section.type === "contact"),
-    [page.sections],
-  );
-  const bookingFormSection = useMemo(
-    () => page.sections.find((section) => section.type === "booking_form"),
-    [page.sections],
-  );
 
   const activeCount = useMemo(
     () => page.sections.filter((section) => section.enabled).length,
@@ -919,8 +911,6 @@ export default function PageBuilderPage() {
                 gallerySection={gallerySection}
                 testimonialsSection={testimonialsSection}
                 faqSection={faqSection}
-                contactSection={contactSection}
-                bookingFormSection={bookingFormSection}
                 bookingForm={bookingForm}
                 savingSectionKey={savingSectionKey}
                 identityPanelOpen={identityPanelOpen}
@@ -1251,8 +1241,6 @@ function BusinessStudioPanel({
   gallerySection,
   testimonialsSection,
   faqSection,
-  contactSection,
-  bookingFormSection,
   bookingForm,
   savingSectionKey,
   identityPanelOpen,
@@ -1309,8 +1297,6 @@ function BusinessStudioPanel({
   gallerySection?: BuilderSection;
   testimonialsSection?: BuilderSection;
   faqSection?: BuilderSection;
-  contactSection?: BuilderSection;
-  bookingFormSection?: BuilderSection;
   bookingForm: BookingFormConfig;
   savingSectionKey: string | null;
   identityPanelOpen: boolean;
@@ -1967,33 +1953,6 @@ function BusinessStudioPanel({
             disabled={!contactPanelEditing}
             className="space-y-4 disabled:opacity-100"
           >
-            <Field label="Judul section kontak">
-              <Input
-                value={String(contactSection?.props?.title || "Hubungi bisnis")}
-                onChange={(event) =>
-                  contactSection &&
-                  onSectionPropChange(
-                    contactSection.id,
-                    "title",
-                    event.target.value,
-                  )
-                }
-              />
-            </Field>
-            <Field label="Deskripsi section kontak">
-              <Textarea
-                value={String(contactSection?.props?.description || "")}
-                onChange={(event) =>
-                  contactSection &&
-                  onSectionPropChange(
-                    contactSection.id,
-                    "description",
-                    event.target.value,
-                  )
-                }
-                className="min-h-24"
-              />
-            </Field>
             <Field label="Alamat">
               <Textarea
                 value={profile.address || ""}
@@ -2065,7 +2024,7 @@ function BusinessStudioPanel({
       <CollapsibleSidebarCard
         icon={<Phone className="h-4 w-4" />}
         title="Booking & Bantuan"
-        description="Copy section booking, CTA, dan bantuan WhatsApp"
+        description="Label CTA booking (hero + sticky) dan bantuan WhatsApp"
         open={bookingPanelOpen}
         onToggle={onToggleBooking}
       >
@@ -2074,36 +2033,6 @@ function BusinessStudioPanel({
             disabled={!bookingPanelEditing}
             className="space-y-4 disabled:opacity-100"
           >
-            <Field label="Judul section booking">
-              <Input
-                value={String(
-                  bookingFormSection?.props?.title ||
-                    "Arahkan customer ke booking",
-                )}
-                onChange={(event) =>
-                  bookingFormSection &&
-                  onSectionPropChange(
-                    bookingFormSection.id,
-                    "title",
-                    event.target.value,
-                  )
-                }
-              />
-            </Field>
-            <Field label="Deskripsi section booking">
-              <Textarea
-                value={String(bookingFormSection?.props?.description || "")}
-                onChange={(event) =>
-                  bookingFormSection &&
-                  onSectionPropChange(
-                    bookingFormSection.id,
-                    "description",
-                    event.target.value,
-                  )
-                }
-                className="min-h-24"
-              />
-            </Field>
             <Field label="Label tombol booking">
               <Input
                 value={bookingForm.cta_button_label}

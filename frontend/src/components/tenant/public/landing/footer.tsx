@@ -7,7 +7,7 @@ import {
   Smartphone,
   ArrowUpRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, resolveMapEmbedSrc } from "@/lib/utils";
 import Link from "next/link";
 import type { BuilderProfile } from "@/lib/page-builder";
 import { getCentralAdminAuthUrl } from "@/lib/tenant";
@@ -66,6 +66,7 @@ export function TenantFooter({
   radiusStyle = "rounded",
 }: TenantFooterProps) {
   const tone = getLandingPresetTone(preset);
+  const mapSrc = resolveMapEmbedSrc(profile.map_iframe_url);
   // Mapping socials dari data profil asli
   const socialLinks = [
     {
@@ -196,10 +197,11 @@ export function TenantFooter({
                     <p className={cn("text-sm font-semibold leading-relaxed", bodyTextClass)}>
                       {profile.address || "Alamat akan tampil di sini saat bisnis sudah melengkapinya."}
                     </p>
-                    {profile.map_iframe_url ? (
+                    {mapSrc ? (
                       <a
-                        href={profile.map_iframe_url}
+                        href={mapSrc}
                         target="_blank"
+                        rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-500 hover:underline"
                       >
                         Buka peta <ArrowUpRight size={10} />
@@ -207,6 +209,17 @@ export function TenantFooter({
                     ) : null}
                   </div>
                 </div>
+                {mapSrc ? (
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-black/5 dark:border-white/10">
+                    <iframe
+                      src={mapSrc}
+                      className="h-44 w-full"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Lokasi"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className={cn("p-5", footerCardClass, iconPanelClass)}>

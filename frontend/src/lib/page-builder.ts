@@ -250,28 +250,6 @@ export const DEFAULT_PAGE_BUILDER_CONFIG: LandingPageConfig = {
         title: "Tentang bisnis ini",
       },
     },
-    {
-      id: "contact",
-      type: "contact",
-      label: "Kontak & Lokasi",
-      enabled: true,
-      variant: "panel",
-      props: {
-        title: "Hubungi bisnis",
-        description: "Tampilkan lokasi, jam operasional, dan tombol WhatsApp.",
-      },
-    },
-    {
-      id: "booking_form",
-      type: "booking_form",
-      label: "Form Booking",
-      enabled: true,
-      variant: "sticky_cta",
-      props: {
-        title: "Arahkan customer ke booking",
-        description: "Gunakan tombol ini untuk membawa customer langsung ke katalog atau kanal bantuan tercepat.",
-      },
-    },
   ],
 };
 
@@ -300,7 +278,12 @@ function cloneSection(section: BuilderSection): BuilderSection {
 
 export function normalizePageBuilderConfig(input?: Partial<LandingPageConfig> | null) {
   const defaults = DEFAULT_PAGE_BUILDER_CONFIG.sections.map(cloneSection);
-  const incoming = Array.isArray(input?.sections) ? input.sections : [];
+  // "contact" & "booking_form" sudah dipensiunkan dari landing. Buang sisa
+  // config lama milik tenant existing supaya tidak muncul sebagai card mati
+  // di editor page-builder.
+  const incoming = (Array.isArray(input?.sections) ? input.sections : []).filter(
+    (section) => section?.type !== "contact" && section?.type !== "booking_form",
+  );
 
   if (!incoming.length) {
     return {

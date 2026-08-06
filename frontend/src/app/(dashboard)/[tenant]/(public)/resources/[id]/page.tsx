@@ -23,7 +23,7 @@ import { addDays, format, isSameDay } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, resolveMapEmbedSrc } from "@/lib/utils";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -621,10 +621,10 @@ export default function ResourceDetailPage() {
                 />
               ) : null}
             </div>
-            {profile?.map_iframe_url ? (
+            {resolveMapEmbedSrc(profile?.map_iframe_url) ? (
               <div className="overflow-hidden rounded-2xl border border-white/10">
                 <iframe
-                  src={profile.map_iframe_url}
+                  src={resolveMapEmbedSrc(profile?.map_iframe_url)}
                   className="h-56 w-full"
                   loading="lazy"
                   title="Lokasi"

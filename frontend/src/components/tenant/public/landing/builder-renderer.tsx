@@ -2,10 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, MapPin, Clock3, ChevronRight } from "lucide-react";
 import { TenantNavbar } from "./navbar";
 import { TenantHero } from "./hero";
 import { GallerySection } from "./gallery-section";
@@ -139,7 +137,6 @@ export function LandingBuilderRenderer({
               bookingForm,
               getBestPrice,
               previewMode,
-              isEditorPreview,
             }),
           )}
         </main>
@@ -172,7 +169,6 @@ function renderSection({
   bookingForm,
   getBestPrice,
   previewMode,
-  isEditorPreview,
 }: {
   section: BuilderSection;
   profile: BuilderProfile;
@@ -183,7 +179,6 @@ function renderSection({
   bookingForm: BookingFormConfig;
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
   previewMode: "desktop" | "mobile";
-  isEditorPreview: boolean;
 }) {
   const sectionVariant = section.variant || "";
   const testimonials = readObjectArray(section.props?.items);
@@ -701,160 +696,10 @@ function renderSection({
           </div>
         </section>
       );
-    case "contact":
-      return sectionVariant === "split" ? (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
-          <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <Card className={cn(themeVisuals.panelClass, "p-6 md:p-8")}>
-              <div className={themeVisuals.eyebrowClass}>{section.label}</div>
-              <h3 className={cn("mt-3 text-3xl font-[1000] tracking-tight", themeVisuals.heroTitleClass)}>
-                {String(section.props?.title || "Hubungi bisnis")}
-              </h3>
-              <p className={cn("mt-3 text-sm leading-7", themeVisuals.bodyClass)}>
-                {String(section.props?.description || "Tampilkan lokasi, jam operasional, dan tombol WhatsApp.")}
-              </p>
-            </Card>
-            <div className="space-y-4">
-              <InfoRow
-                icon={MapPin}
-                label="Alamat"
-                value={profile.address || "Alamat belum diisi"}
-                themeVisuals={themeVisuals}
-              />
-              <InfoRow
-                icon={Clock3}
-                label="Jam operasional"
-                value={`${profile.open_time || "-"} - ${profile.close_time || "-"}`}
-                themeVisuals={themeVisuals}
-              />
-              {profile.whatsapp_number ? (
-                <div className="pt-2">
-                  <a href={`https://wa.me/${profile.whatsapp_number}`} target="_blank" rel="noreferrer">
-                    <Button className={themeVisuals.primaryButtonClass} style={themeVisuals.primaryButtonStyle}>
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Chat WhatsApp
-                    </Button>
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
-          <div className={cn("mx-auto max-w-6xl p-6 md:p-8", themeVisuals.panelClass)}>
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div>
-                <div className={themeVisuals.eyebrowClass}>
-                  {section.label}
-                </div>
-                <h3 className={cn("mt-3 text-3xl font-[1000] tracking-tight", themeVisuals.heroTitleClass)}>
-                  {String(section.props?.title || "Hubungi bisnis")}
-                </h3>
-                <p className={cn("mt-2 text-sm leading-7", themeVisuals.bodyClass)}>
-                  {String(
-                    section.props?.description ||
-                      "Tampilkan lokasi, jam operasional, dan tombol WhatsApp.",
-                  )}
-                </p>
-              </div>
-              <div className="space-y-4 lg:col-span-2">
-                <InfoRow
-                  icon={MapPin}
-                  label="Alamat"
-                  value={profile.address || "Alamat belum diisi"}
-                  themeVisuals={themeVisuals}
-                />
-                <InfoRow
-                  icon={Clock3}
-                  label="Jam operasional"
-                  value={`${profile.open_time || "-"} - ${profile.close_time || "-"}`}
-                  themeVisuals={themeVisuals}
-                />
-                {profile.whatsapp_number ? (
-                  <div className="pt-2">
-                    <a href={`https://wa.me/${profile.whatsapp_number}`} target="_blank" rel="noreferrer">
-                      <Button className={themeVisuals.primaryButtonClass} style={themeVisuals.primaryButtonStyle}>
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        Chat WhatsApp
-                      </Button>
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
-      );
-    case "booking_form":
-      return sectionVariant === "inline_cta" ? (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 pb-20 pt-8 md:px-8 md:pb-28">
-          <div className={cn("mx-auto flex max-w-5xl flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:p-6", themeVisuals.panelClass)}>
-            <div className="min-w-0">
-              <div className={themeVisuals.eyebrowClass}>{section.label}</div>
-              <h3 className={cn("mt-2 text-2xl font-[1000] tracking-tight md:text-3xl", themeVisuals.heroTitleClass)}>
-                {String(section.props?.title || "Arahkan customer ke booking")}
-              </h3>
-            </div>
-            <Link href="/bookings" className={cn("shrink-0", isEditorPreview ? "pointer-events-none" : "")}>
-              <Button className={themeVisuals.primaryButtonClass} style={themeVisuals.primaryButtonStyle}>
-                {bookingForm.cta_button_label}
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </section>
-      ) : (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 pb-20 pt-8 md:px-8 md:pb-28">
-          <div className={cn("mx-auto grid max-w-6xl gap-5 p-6 shadow-sm md:grid-cols-[1.1fr_0.9fr] md:p-8", themeVisuals.panelClass)}>
-            <div>
-              <div className={themeVisuals.eyebrowClass}>{section.label}</div>
-              <h3 className={cn("mt-3 text-3xl font-[1000] tracking-tight", themeVisuals.heroTitleClass)}>
-                {String(section.props?.title || "Arahkan customer ke booking")}
-              </h3>
-              <p className={cn("mt-3 max-w-2xl text-sm leading-7", themeVisuals.bodyClass)}>
-                {String(
-                  section.props?.description ||
-                    "Gunakan tombol ini untuk membawa customer langsung ke katalog atau kanal bantuan tercepat.",
-                )}
-              </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Badge className={themeVisuals.badgeClass}>Booking lebih cepat</Badge>
-                <Badge className={themeVisuals.badgeClass}>CTA mobile sticky</Badge>
-                {bookingForm.show_whatsapp_help ? <Badge className={themeVisuals.badgeClass}>WhatsApp support</Badge> : null}
-              </div>
-            </div>
-            <div className={cn("flex flex-col justify-between gap-4 p-5", themeVisuals.innerPanelClass)}>
-              <div className="space-y-2">
-                <div className={themeVisuals.eyebrowClass}>Aksi utama</div>
-                <p className={cn("text-sm leading-7", themeVisuals.bodyClass)}>
-                  Bawa visitor ke jalur konversi tercepat tanpa memenuhi landing dengan form panjang.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/bookings" className={isEditorPreview ? "pointer-events-none" : ""}>
-                  <Button className={themeVisuals.primaryButtonClass} style={themeVisuals.primaryButtonStyle}>
-                    {bookingForm.cta_button_label}
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                {bookingForm.show_whatsapp_help && profile.whatsapp_number ? (
-                  <a
-                    href={`https://wa.me/${profile.whatsapp_number}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={isEditorPreview ? "pointer-events-none" : ""}
-                  >
-                    <Button variant="outline" className={themeVisuals.secondaryButtonClass}>
-                      {bookingForm.whatsapp_label}
-                    </Button>
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
-      );
+    // NOTE: section "contact" & "booking_form" sengaja dihapus dari landing.
+    // Info kontak/lokasi/jam sudah tampil di footer, dan CTA booking sudah
+    // ada di hero + sticky mobile CTA. Data profil tetap diedit lewat
+    // Settings > Bisnis; config CTA (bookingForm) tetap dipakai hero & sticky.
     default:
       return null;
   }
@@ -885,39 +730,12 @@ function isSectionNavigable({
           String(section.props?.image_url || "").trim(),
       );
     case "contact":
-      return Boolean(
-        String(profile.address || "").trim() ||
-          String(profile.whatsapp_number || "").trim() ||
-          String(profile.open_time || "").trim() ||
-          String(profile.close_time || "").trim(),
-      );
+    case "booking_form":
+      // Section ini tidak lagi dirender di landing (lihat renderSection).
+      return false;
     default:
       return true;
   }
-}
-
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-  themeVisuals,
-}: {
-  icon: typeof MapPin;
-  label: string;
-  value: string;
-  themeVisuals?: ReturnType<typeof getThemeVisuals>;
-}) {
-  return (
-    <div className={cn("flex items-start gap-3 px-4 py-4", themeVisuals?.infoRowClass)}>
-      <Icon className={cn("mt-0.5 h-4 w-4", themeVisuals?.eyebrowMutedClass)} />
-      <div>
-        <div className={cn("text-[11px] font-black uppercase tracking-[0.2em]", themeVisuals?.eyebrowMutedClass)}>
-          {label}
-        </div>
-        <div className={cn("mt-1 text-sm leading-7", themeVisuals?.strongBodyClass)}>{value}</div>
-      </div>
-    </div>
-  );
 }
 
 function CatalogGrid({
