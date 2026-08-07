@@ -93,6 +93,29 @@ func TestResolveBookingLifecycleUsesPendingAndDepositForScheduled(t *testing.T) 
 	}
 }
 
+func TestReopenPaymentStatus(t *testing.T) {
+	cases := []struct {
+		name    string
+		current string
+		balance float64
+		want    string
+	}{
+		{"settled booking gains a balance (extend)", "settled", 45000, "partial_paid"},
+		{"paid booking gains a balance", "paid", 10000, "partial_paid"},
+		{"settled but still no balance stays settled", "settled", 0, "settled"},
+		{"partial stays partial", "partial_paid", 45000, "partial_paid"},
+		{"unpaid stays unpaid", "unpaid", 45000, "unpaid"},
+		{"pending stays pending", "pending", 45000, "pending"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := reopenPaymentStatus(tc.current, tc.balance); got != tc.want {
+				t.Fatalf("reopenPaymentStatus(%q, %.0f) = %q, want %q", tc.current, tc.balance, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestResolveBookingLifecycleNoneModeConfirmsWithoutDeposit(t *testing.T) {
 	status, deposit, paid, balance, paymentStatus, _ := resolveBookingLifecycle(
 		CreateBookingReq{BookingMode: "scheduled"},

@@ -1526,6 +1526,19 @@ func waSessionReminderMessage(name, tenantName, resourceName string, minutes int
 	)
 }
 
+// reopenPaymentStatus menurunkan status pembayaran dari lunas ke 'partial_paid'
+// ketika total booking bertambah (mis. perpanjang durasi) sehingga muncul sisa
+// tagihan. Hanya menurunkan; tidak pernah menaikkan status tanpa pembayaran.
+func reopenPaymentStatus(current string, balanceDue float64) string {
+	if balanceDue > 0 {
+		switch strings.ToLower(strings.TrimSpace(current)) {
+		case "settled", "paid":
+			return "partial_paid"
+		}
+	}
+	return current
+}
+
 func calculateDepositAmount(grandTotal float64, enabled bool, percentage float64) float64 {
 	if !enabled || grandTotal <= 0 {
 		return 0

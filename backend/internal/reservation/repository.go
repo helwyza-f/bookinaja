@@ -869,6 +869,11 @@ func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.E
 		paidAmount = math.Max(booking.PaidAmount, booking.DepositAmount)
 	}
 	balanceDue := math.Max(grandTotal-paidAmount, 0)
+	// Kalau total naik (mis. perpanjang durasi) sehingga muncul sisa tagihan,
+	// booking yang tadinya lunas ('settled'/'paid') harus turun ke
+	// 'partial_paid' — kalau tidak, guard "sudah lunas" akan memblokir
+	// pelunasan (online maupun cash) untuk tagihan tambahan itu.
+	paymentStatus := reopenPaymentStatus(booking.PaymentStatus, balanceDue)
 
 	_, err := exec.ExecContext(ctx, `
 		UPDATE bookings
@@ -876,9 +881,10 @@ func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.E
 			discount_amount = $3,
 			grand_total = $4,
 			paid_amount = $5,
-			balance_due = $6
+			balance_due = $6,
+			payment_status = $7
 		WHERE id = $1`,
-		bookingID, originalTotal, discountAmount, grandTotal, paidAmount, balanceDue,
+		bookingID, originalTotal, discountAmount, grandTotal, paidAmount, balanceDue, paymentStatus,
 	)
 	if err != nil {
 		return err
