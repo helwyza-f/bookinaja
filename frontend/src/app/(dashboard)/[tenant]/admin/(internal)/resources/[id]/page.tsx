@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -84,6 +85,7 @@ export default function ResourceDetailPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
   const [operatingMode, setOperatingMode] = useState("timed");
+  const [category, setCategory] = useState("");
 
   const fetchData = useCallback(
     async (useCache = true) => {
@@ -105,6 +107,7 @@ export default function ResourceDetailPage() {
               setImageUrl(found.image_url || "");
               setGallery(found.gallery || []);
               setOperatingMode(found.operating_mode || "timed");
+              setCategory(found.category || "");
               setLoading(false);
             }
           }
@@ -118,6 +121,7 @@ export default function ResourceDetailPage() {
         setImageUrl(data.image_url || "");
         setGallery(data.gallery || []);
         setOperatingMode(data.operating_mode || "timed");
+        setCategory(data.category || "");
       } catch (err: unknown) {
         if (
           typeof err === "object" &&
@@ -165,6 +169,7 @@ export default function ResourceDetailPage() {
         image_url: imageUrl,
         gallery,
         operating_mode: operatingMode,
+        category: category.trim().toUpperCase(),
       });
       toast.success("Tampilan resource berhasil diperbarui");
       setIsEditMode(false);
@@ -383,6 +388,22 @@ export default function ResourceDetailPage() {
                   </Select>
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                     {operatingModeMeta.description}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Kategori
+                  </div>
+                  <Input
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value.toUpperCase())}
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold dark:border-white/10 dark:bg-slate-900/50"
+                    placeholder="MISAL: BADMINTON / PADEL / PICKLEBALL"
+                  />
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    Jadi chip filter di katalog landing. Samakan penulisannya
+                    untuk unit sejenis; chip muncul otomatis kalau ada lebih
+                    dari satu kategori.
                   </p>
                 </div>
                 <div className="space-y-2">
