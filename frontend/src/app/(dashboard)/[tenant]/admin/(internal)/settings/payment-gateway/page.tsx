@@ -118,11 +118,14 @@ export default function PaymentGatewaySettingsPage() {
   }, [user]);
 
   const webhookUrl = useMemo(() => {
-    const base = API_BASE.replace("/api/v1", "");
+    // Webhook di-serve backend di /api/webhooks/... (BUKAN di bawah versi
+    // /api/v1). Ambil origin lalu tempel /api/webhooks agar cocok dengan route
+    // Go dan lolos reverse-proxy /api/* — bukan ditangani Next (yang balas 404).
+    const origin = API_BASE.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
     if (provider === "xendit" && tenantId) {
-      return `${base}/webhooks/xendit/${tenantId}`;
+      return `${origin}/api/webhooks/xendit/${tenantId}`;
     }
-    return `${base}/webhooks/midtrans`;
+    return `${origin}/api/webhooks/midtrans`;
   }, [provider, tenantId]);
 
   const fetchConfig = useCallback(async () => {
