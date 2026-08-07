@@ -16,6 +16,9 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		public.GET("/site", cfg.TenantHandler.GetPublicProfile)
 		public.GET("/profile", cfg.TenantHandler.GetPublicProfile)
 		public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
+		if cfg.PaymentGatewayHandler != nil {
+			public.GET("/payment-gateway/:tenantId", cfg.PaymentGatewayHandler.PublicConfig)
+		}
 		public.GET("/resources", cfg.ResourceHandler.ListPublic)
 		public.GET("/resources/:id", cfg.ResourceHandler.GetPublicDetail)
 		public.GET("/fnb", cfg.FnbHandler.GetMenu)

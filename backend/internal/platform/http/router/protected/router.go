@@ -168,6 +168,12 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.PUT("/payment-methods", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdatePaymentMethods)
 					ownerAdmin.GET("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.GetDepositSettings)
 					ownerAdmin.PUT("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdateDepositSettings)
+					if cfg.PaymentGatewayHandler != nil {
+						ownerAdmin.GET("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Get)
+						ownerAdmin.PUT("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Save)
+						ownerAdmin.POST("/payment-gateway/test", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Test)
+						ownerAdmin.DELETE("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Delete)
+					}
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})

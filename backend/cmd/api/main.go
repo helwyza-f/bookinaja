@@ -17,6 +17,7 @@ import (
 	"github.com/helwiza/backend/internal/customer"
 	"github.com/helwiza/backend/internal/expense"
 	"github.com/helwiza/backend/internal/fnb"
+	"github.com/helwiza/backend/internal/paymentgateway"
 	"github.com/helwiza/backend/internal/platform/database"
 	"github.com/helwiza/backend/internal/platform/http"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
@@ -173,24 +174,26 @@ func main() {
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 	smartDeviceHdl := smartdevice.NewHandler(smartDeviceSvc)
 	realtimeHdl := platformrealtime.NewHandler(realtimeHub)
+	paymentGatewayHdl := paymentgateway.NewHandler(paymentgateway.NewService(paymentgateway.NewRepository(db)))
 
 	routerConfig := routecfg.Config{
-		DB:                 db,
-		AccountHandler:     accountHdl,
-		TenantHandler:      tenantHdl,
-		ResourceHandler:    resourceHdl,
-		ReservationHandler: reservationHdl,
-		CustomerHandler:    customerHdl,
-		AuthHandler:        authHdl,
-		FnbHandler:         fnbHdl,
-		PromoHandler:       promoHdl,
-		ExpenseHandler:     expenseHdl,
-		SalesHandler:       salesHdl,
-		BillingHandler:     billingHdl,
-		PlatformHandler:    platformHdl,
-		MidtransHandler:    midtransHdl,
-		SmartDeviceHandler: smartDeviceHdl,
-		RealtimeHandler:    realtimeHdl,
+		DB:                    db,
+		AccountHandler:        accountHdl,
+		TenantHandler:         tenantHdl,
+		ResourceHandler:       resourceHdl,
+		ReservationHandler:    reservationHdl,
+		CustomerHandler:       customerHdl,
+		AuthHandler:           authHdl,
+		FnbHandler:            fnbHdl,
+		PromoHandler:          promoHdl,
+		ExpenseHandler:        expenseHdl,
+		SalesHandler:          salesHdl,
+		BillingHandler:        billingHdl,
+		PlatformHandler:       platformHdl,
+		MidtransHandler:       midtransHdl,
+		SmartDeviceHandler:    smartDeviceHdl,
+		RealtimeHandler:       realtimeHdl,
+		PaymentGatewayHandler: paymentGatewayHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)

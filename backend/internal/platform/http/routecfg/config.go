@@ -7,6 +7,7 @@ import (
 	"github.com/helwiza/backend/internal/customer"
 	"github.com/helwiza/backend/internal/expense"
 	"github.com/helwiza/backend/internal/fnb"
+	"github.com/helwiza/backend/internal/paymentgateway"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
 	"github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/platformadmin"
@@ -20,20 +21,21 @@ import (
 )
 
 type Config struct {
-	DB                 *sqlx.DB
-	AccountHandler     *account.Handler
-	TenantHandler      *tenant.Handler
-	ResourceHandler    *resource.Handler
-	ReservationHandler *reservation.Handler
-	CustomerHandler    *customer.Handler
-	AuthHandler        *auth.Handler
-	FnbHandler         *fnb.Handler
-	ExpenseHandler     *expense.Handler
-	SalesHandler       *sales.Handler
-	BillingHandler     *billing.Handler
-	PlatformHandler    *platformadmin.Handler
-	MidtransHandler    *midtranssvc.Handler
-	SmartDeviceHandler *smartdevice.Handler
-	RealtimeHandler    *realtime.Handler
-	PromoHandler       *promo.Handler
+	DB                    *sqlx.DB
+	AccountHandler        *account.Handler
+	TenantHandler         *tenant.Handler
+	ResourceHandler       *resource.Handler
+	ReservationHandler    *reservation.Handler
+	CustomerHandler       *customer.Handler
+	AuthHandler           *auth.Handler
+	FnbHandler            *fnb.Handler
+	ExpenseHandler        *expense.Handler
+	SalesHandler          *sales.Handler
+	BillingHandler        *billing.Handler
+	PlatformHandler       *platformadmin.Handler
+	MidtransHandler       *midtranssvc.Handler
+	SmartDeviceHandler    *smartdevice.Handler
+	RealtimeHandler       *realtime.Handler
+	PromoHandler          *promo.Handler
+	PaymentGatewayHandler *paymentgateway.Handler
 }
