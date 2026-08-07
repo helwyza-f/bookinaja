@@ -95,7 +95,10 @@ export function LandingBuilderRenderer({
   };
 
   const containerClass = embedded
-    ? "w-full overflow-hidden bg-white dark:bg-[#050505]"
+    // overflow-x-clip (bukan overflow-hidden) agar scroll horizontal tetap
+    // tercegah tanpa membuat scroll-container yang mematahkan position:sticky
+    // pada filter chip katalog.
+    ? "w-full overflow-x-clip bg-white dark:bg-[#050505]"
     : previewMode === "mobile"
       ? "mx-auto w-[390px] overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#050505]"
       : "w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#050505]";
@@ -796,7 +799,7 @@ function CatalogGrid({
   const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
 
   const categoryChips = showCategoryChips ? (
-    <div className="mb-6 flex flex-wrap justify-center gap-2">
+    <div className="mb-6 -mx-6 flex snap-x gap-2 overflow-x-auto px-6 [scrollbar-width:none] max-md:sticky max-md:top-[96px] max-md:z-30 max-md:py-3 max-md:bg-white/80 max-md:backdrop-blur-md max-md:dark:bg-neutral-900/80 md:mx-0 md:flex-wrap md:justify-center md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
       {[null, ...categories].map((cat) => {
         const active =
           (cat === null && activeCategory === null) ||
@@ -807,7 +810,7 @@ function CatalogGrid({
             type="button"
             onClick={() => setActiveCategory(cat)}
             className={cn(
-              "rounded-full px-4 py-2 text-xs font-bold uppercase italic tracking-wide transition-colors",
+              "shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold uppercase italic tracking-wide transition-colors",
               active ? "text-white" : themeVisuals.secondaryButtonClass,
             )}
             style={active ? { backgroundColor: primaryColor } : undefined}
