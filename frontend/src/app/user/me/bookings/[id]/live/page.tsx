@@ -579,14 +579,18 @@ export default function CustomerBookingDetail() {
   const shouldShowActivation =
     !isActiveStatus && sessionStatus !== "completed" && sessionStatus !== "cancelled";
 
+  const isFullMode = String(booking?.payment_mode || "").toLowerCase() === "full";
+  const depositLabel = isFullMode ? "Bayar Penuh" : "Bayar DP";
+  const depositText = isFullMode ? "Pembayaran" : "DP";
+  
   const paymentGuidance =
     depositAmount > 0
       ? paymentStatus === "awaiting_verification"
-        ? `DP menunggu verifikasi. Ref ${pendingManualDpAttempt?.reference_code || "-"}.`
+        ? `${depositText} menunggu verifikasi. Ref ${pendingManualDpAttempt?.reference_code || "-"}.`
         : paymentStatus === "pending"
-          ? `DP Rp ${depositAmount.toLocaleString("id-ID")} belum dibayar.`
-          : "DP sudah masuk."
-      : "Tanpa DP.";
+          ? `${depositText} Rp ${depositAmount.toLocaleString("id-ID")} belum dibayar.`
+          : `${depositText} sudah masuk.`
+      : `Tanpa ${depositText}.`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-3">
@@ -726,7 +730,7 @@ export default function CustomerBookingDetail() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
                   {!hasPaidDp
-                    ? "Bayar DP dulu."
+                    ? `${depositLabel} dulu.`
                     : !isTimeReached
                       ? "Belum masuk jam mulai."
                       : "Siap diaktifkan."}
@@ -832,15 +836,15 @@ export default function CustomerBookingDetail() {
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Button
               onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=deposit`)}
-              disabled={depositAmount <= 0 || paymentStatus !== "pending"}
+              disabled={depositAmount <= 0 || paymentStatus !== "pending" || searchParams.get("notice") === "deposit_methods_unavailable"}
               className="h-auto min-h-[78px] flex-col items-start justify-between rounded-2xl bg-blue-600 px-4 py-3 text-left text-white hover:bg-blue-500"
             >
               <Wallet className="h-4 w-4" />
-              <span className="text-sm font-semibold">Bayar DP</span>
+              <span className="text-sm font-semibold">{depositLabel}</span>
             </Button>
             <Button
               onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=settlement`)}
-              disabled={sessionStatus !== "completed" || balanceDue <= 0}
+              disabled={sessionStatus !== "completed" || balanceDue <= 0 || searchParams.get("notice") === "settlement_methods_unavailable"}
               variant="outline"
               className="h-auto min-h-[78px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left"
             >
