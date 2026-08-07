@@ -799,7 +799,7 @@ function CatalogGrid({
   const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
 
   const categoryChips = showCategoryChips ? (
-    <div className="mb-6 -mx-6 flex snap-x gap-2 overflow-x-auto px-6 [scrollbar-width:none] max-md:sticky max-md:top-[96px] max-md:z-30 max-md:py-3 max-md:bg-white/80 max-md:backdrop-blur-md max-md:dark:bg-neutral-900/80 md:mx-0 md:flex-wrap md:justify-center md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+    <div className="mb-6 -mx-6 flex snap-x gap-2 overflow-x-auto pl-8 pr-6 [scrollbar-width:none] max-md:sticky max-md:top-[82px] max-md:z-30 max-md:border-b max-md:border-black/10 max-md:bg-white/80 max-md:py-3 max-md:backdrop-blur-md max-md:dark:border-white/10 max-md:dark:bg-neutral-900/80 md:mx-0 md:flex-wrap md:justify-center md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
       {[null, ...categories].map((cat) => {
         const active =
           (cat === null && activeCategory === null) ||
