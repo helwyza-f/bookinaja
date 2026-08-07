@@ -4,6 +4,7 @@ import {
   CalendarRange,
   ClipboardList,
   CreditCard,
+  KeyRound,
   Landmark,
   ReceiptText,
   Printer,
@@ -156,6 +157,13 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/settings/payment-methods",
     icon: Landmark,
     hint: "Transfer & gateway",
+    group: "system",
+  },
+  {
+    label: "Payment Gateway",
+    href: "/admin/settings/payment-gateway",
+    icon: KeyRound,
+    hint: "Midtrans & Xendit",
     group: "system",
   },
   {

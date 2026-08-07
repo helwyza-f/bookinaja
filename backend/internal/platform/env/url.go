@@ -27,10 +27,10 @@ func AppDomain() string {
 }
 
 func IsLocal() bool {
-    env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
-    
-    // Menghapus env == "" agar jika kosong/tidak ada tetap return false
-    return env == "local" || env == "dev" || env == "development" || env == "debug"
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+
+	// Menghapus env == "" agar jika kosong/tidak ada tetap return false
+	return env == "local" || env == "dev" || env == "development" || env == "debug"
 }
 
 func TenantURL(slug, path string) string {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Script from "next/script";
+import { loadTenantSnap, waitForSnap, fetchTenantGatewayConfig } from "@/lib/snap-loader";
 import { format } from "date-fns";
 import { id as localeID } from "date-fns/locale";
 import {
@@ -139,7 +139,7 @@ export default function AdminBookingPaymentPage() {
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [midtransReady, setMidtransReady] = useState(false);
+  const [gatewayReady, setGatewayReady] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState("midtrans");
   const [processing, setProcessing] = useState(false);
   const hasLoadedRef = useRef(false);
@@ -202,12 +202,27 @@ export default function AdminBookingPaymentPage() {
   });
 
   useEffect(() => {
-    if (window.snap) setMidtransReady(true);
-  }, []);
+    const tid = String(tenantId || "");
+    if (!tid) return;
+    let cancelled = false;
+    const init = async () => {
+      const config = await fetchTenantGatewayConfig(tid);
+      if (!cancelled) setGatewayReady(Boolean(config?.configured));
+      if (config?.configured && config.provider === "midtrans") {
+        await loadTenantSnap(tid);
+      }
+    };
+    void init();
+    return () => { cancelled = true; };
+  }, [tenantId]);
 
   const paymentMethods = useMemo(
-    () => (booking?.payment_methods || []).filter((item) => item.is_active !== false),
-    [booking?.payment_methods],
+    () => (booking?.payment_methods || []).filter((item) => {
+      if (item.is_active === false) return false;
+      if (item.verification_type === "auto" && !gatewayReady) return false;
+      return true;
+    }),
+    [booking?.payment_methods, gatewayReady],
   );
 
   useEffect(() => {
@@ -278,16 +293,6 @@ export default function AdminBookingPaymentPage() {
       description: "Pilih metode yang paling sesuai untuk menyelesaikan sisa tagihan booking.",
     };
   }, [pendingAttempt, disabledReason]);
-
-  const waitForSnap = async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    return null;
-  };
 
   const handleProceed = async () => {
     if (!booking || !selectedMethodDetail) return;
@@ -369,18 +374,6 @@ export default function AdminBookingPaymentPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-3 pb-20 pt-3 md:px-4 lg:px-6">
-      <Script
-        src={
-          (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-        onLoad={() => setMidtransReady(true)}
-        onError={() => setMidtransReady(false)}
-      />
-
       <Button
         variant="ghost"
         onClick={() => router.push(`/admin/bookings/${booking.id}`)}
@@ -667,7 +660,7 @@ export default function AdminBookingPaymentPage() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button
                     onClick={handleProceed}
-                    disabled={Boolean(disabledReason || pendingAttempt || processing || (selectedMethodDetail.verification_type === "auto" && !midtransReady))}
+                    disabled={Boolean(disabledReason || pendingAttempt || processing || (selectedMethodDetail.verification_type === "auto" && !gatewayReady))}
                     className="h-11 rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
                   >
                     {selectedMethodDetail.code === "cash"

@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Script from "next/script";
+import { loadTenantSnap, waitForSnap, fetchTenantGatewayConfig } from "@/lib/snap-loader";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -73,6 +73,7 @@ type PaymentAttempt = {
 type CustomerOrderPaymentDetail = {
   id?: string;
   customer_id?: string;
+  tenant_id?: string;
   status?: string;
   payment_status?: string;
   payment_method?: string;
@@ -115,6 +116,7 @@ export default function CustomerOrderPaymentPage() {
   const [proofUploading, setProofUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [gatewayReady, setGatewayReady] = useState(false);
   const lastBackgroundRefreshRef = useRef(0);
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
@@ -141,6 +143,23 @@ export default function CustomerOrderPaymentPage() {
     void fetchDetail("initial");
   }, [fetchDetail]);
 
+  useEffect(() => {
+    const tid = String(order?.tenant_id || "");
+    if (!tid) return;
+    let cancelled = false;
+    const init = async () => {
+      const config = await fetchTenantGatewayConfig(tid);
+      if (!cancelled) setGatewayReady(Boolean(config?.configured));
+      if (config?.configured && config.provider === "midtrans") {
+        await loadTenantSnap(tid);
+      }
+    };
+    void init();
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.tenant_id]);
+
   const customerID = String(order?.customer_id || "");
   useRealtime({
     enabled: Boolean(customerID && params.id),
@@ -162,8 +181,13 @@ export default function CustomerOrderPaymentPage() {
   });
 
   const paymentMethods = useMemo(
-    () => (order?.payment_methods || []).filter((item) => item?.is_active !== false),
-    [order?.payment_methods],
+    () =>
+      (order?.payment_methods || []).filter(
+        (item) =>
+          item?.is_active !== false &&
+          (item.verification_type === "manual" || gatewayReady),
+      ),
+    [order?.payment_methods, gatewayReady],
   );
 
   useEffect(() => {
@@ -219,17 +243,6 @@ export default function CustomerOrderPaymentPage() {
     } finally {
       setProofUploading(false);
     }
-  };
-
-  const waitForSnap = async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    toast.error("Gateway pembayaran belum siap");
-    return null;
   };
 
   const handlePay = async () => {
@@ -325,16 +338,6 @@ export default function CustomerOrderPaymentPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3">
-      <Script
-        src={
-          (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-      />
-
       <Button variant="ghost" onClick={() => router.push(`/user/me/orders/${params.id}`)} className="h-10 rounded-2xl px-3">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Order

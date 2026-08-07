@@ -568,14 +568,14 @@ func (s *Service) CreateWorkspace(ctx context.Context, accountID uuid.UUID, req 
 	}
 
 	workspace := Workspace{
-		ID:                 uuid.New(),
-		TenantID:           uuid.Nil,
-		OwnerUserID:        uuid.Nil,
-		Name:               name,
-		Slug:               slug,
-		BusinessCategory:   category,
-		BusinessType:       "",
-		Status:             "onboarding",
+		ID:               uuid.New(),
+		TenantID:         uuid.Nil,
+		OwnerUserID:      uuid.Nil,
+		Name:             name,
+		Slug:             slug,
+		BusinessCategory: category,
+		BusinessType:     "",
+		Status:           "onboarding",
 		// Trial-of-Pro: tenant baru mencicipi fitur Pro selama 14 hari
 		// (subscription_current_period_end di-set +14 hari saat insert), lalu
 		// otomatis turun ke tier Free saat trial lewat (entitlement mati sendiri

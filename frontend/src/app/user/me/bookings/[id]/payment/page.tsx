@@ -4,8 +4,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Script from "next/script";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, CreditCard, ImagePlus, Landmark, QrCode, RefreshCw, Upload, Wallet } from "lucide-react";
+import { loadTenantSnap, waitForSnap, fetchTenantGatewayConfig } from "@/lib/snap-loader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export default function BookingPaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastBackgroundRefreshRef = useRef(0);
+  const [gatewayReady, setGatewayReady] = useState(false);
 
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
@@ -41,9 +42,10 @@ export default function BookingPaymentPage() {
     (method: any) => {
       if (!method || method.is_active === false) return false;
       if (scope === "deposit" && method.code === "cash") return false;
+      if (method.verification_type === "auto" && !gatewayReady) return false;
       return true;
     },
-    [scope],
+    [scope, gatewayReady],
   );
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
@@ -70,6 +72,20 @@ export default function BookingPaymentPage() {
       void fetchDetail("initial");
     }
   }, [fetchDetail, params.id]);
+
+  useEffect(() => {
+    if (!booking?.tenant_id) return;
+    let cancelled = false;
+    const init = async () => {
+      const config = await fetchTenantGatewayConfig(String(booking.tenant_id));
+      if (!cancelled) setGatewayReady(Boolean(config?.configured));
+      if (config?.configured && config.provider === "midtrans") {
+        await loadTenantSnap(String(booking.tenant_id));
+      }
+    };
+    void init();
+    return () => { cancelled = true; };
+  }, [booking?.tenant_id]);
 
   const customerID = String(booking?.customer_id || "");
   useRealtime({
@@ -371,17 +387,6 @@ export default function BookingPaymentPage() {
     }
   };
 
-  const waitForSnap = async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    toast.error("Gateway pembayaran belum siap");
-    return null;
-  };
-
   const handlePay = async () => {
     if (!booking || !selectedMethodDetail) return;
     if (paymentAccessError) {
@@ -459,15 +464,6 @@ export default function BookingPaymentPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3">
-      <Script
-        src={
-          (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-      />
       <Button
         variant="ghost"
         onClick={() => router.push(`/user/me/bookings/${params.id}/live`)}

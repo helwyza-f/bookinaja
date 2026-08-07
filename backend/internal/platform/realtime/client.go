@@ -117,9 +117,9 @@ func (c *Client) writePump() {
 
 func (c *Client) writeSystem(eventType string, payload map[string]any) {
 	body, err := json.Marshal(map[string]any{
-		"type":       eventType,
+		"type":        eventType,
 		"occurred_at": time.Now().UTC(),
-		"summary":    payload,
+		"summary":     payload,
 	})
 	if err != nil {
 		log.Printf("[REALTIME] marshal system event failed: %v", err)
@@ -130,4 +130,3 @@ func (c *Client) writeSystem(eventType string, payload map[string]any) {
 	default:
 	}
 }
-

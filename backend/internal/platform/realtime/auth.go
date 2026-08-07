@@ -79,4 +79,3 @@ func extractToken(c *gin.Context) (string, error) {
 	}
 	return strings.TrimSpace(parts[1]), nil
 }
-

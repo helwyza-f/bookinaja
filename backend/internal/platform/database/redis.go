@@ -21,17 +21,17 @@ func NewRedisClient() (*redis.Client, error) {
 
 	// 2. Konfigurasi Client dengan Pooling yang dioptimasi untuk VPS 2GB
 	rdb := redis.NewClient(&redis.Options{
-		Addr:	  addr,
+		Addr:     addr,
 		Password: password,
-		DB:		  0, // Default DB
-		
+		DB:       0, // Default DB
+
 		// Optimasi Pool agar tidak memakan RAM berlebih
-		PoolSize:		10,				  // Maksimal koneksi idle
-		MinIdleConns:	5,				   // Minimal koneksi standby
-		DialTimeout:	5 * time.Second,   // Timeout saat mencoba konek
-		ReadTimeout:	3 * time.Second,   // Timeout saat baca data
-		WriteTimeout:	3 * time.Second,   // Timeout saat tulis data
-		PoolTimeout:	4 * time.Second,   // Timeout nunggu koneksi dari pool
+		PoolSize:     10,              // Maksimal koneksi idle
+		MinIdleConns: 5,               // Minimal koneksi standby
+		DialTimeout:  5 * time.Second, // Timeout saat mencoba konek
+		ReadTimeout:  3 * time.Second, // Timeout saat baca data
+		WriteTimeout: 3 * time.Second, // Timeout saat tulis data
+		PoolTimeout:  4 * time.Second, // Timeout nunggu koneksi dari pool
 	})
 
 	// 3. Test Koneksi (Ping) dengan Retry Logic

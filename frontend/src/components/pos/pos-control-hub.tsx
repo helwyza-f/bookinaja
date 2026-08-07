@@ -65,6 +65,7 @@ import {
 } from "@/lib/receipt";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { toast } from "sonner";
+import { loadTenantSnap, waitForSnap as snapWait } from "@/lib/snap-loader";
 
 type POSLineItem = {
   id?: string;
@@ -235,58 +236,27 @@ type POSControlHubProps = {
 };
 
 function useMidtransSnap() {
+  const { user: adminUser } = useAdminSession();
   const [midtransReady, setMidtransReady] = useState(
     Boolean(typeof window !== "undefined" && window.snap),
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.snap) return;
-
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[data-midtrans-snap="bookinaja"]',
-    );
-    const onLoad = () => setMidtransReady(Boolean(window.snap));
-    const onError = () => setMidtransReady(false);
-
-    if (existing) {
-      existing.addEventListener("load", onLoad);
-      existing.addEventListener("error", onError);
-      return () => {
-        existing.removeEventListener("load", onLoad);
-        existing.removeEventListener("error", onError);
-      };
-    }
-
-    const script = document.createElement("script");
-    script.src =
-      (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
-        ? "https://app.midtrans.com/snap/snap.js"
-        : "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "");
-    script.setAttribute("data-midtrans-snap", "bookinaja");
-    script.async = true;
-    script.addEventListener("load", onLoad);
-    script.addEventListener("error", onError);
-    document.body.appendChild(script);
+    if (typeof window === "undefined" || !adminUser?.tenant_id) return;
+    
+    let mounted = true;
+    loadTenantSnap(adminUser.tenant_id).then((snap) => {
+      if (mounted) {
+        setMidtransReady(Boolean(snap));
+      }
+    });
 
     return () => {
-      script.removeEventListener("load", onLoad);
-      script.removeEventListener("error", onError);
+      mounted = false;
     };
-  }, []);
+  }, [adminUser?.tenant_id]);
 
-  const waitForSnap = useCallback(async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    return null;
-  }, []);
-
-  return { midtransReady, waitForSnap };
+  return { midtransReady, waitForSnap: snapWait };
 }
 
 function getPaymentMethodIcon(code?: string) {

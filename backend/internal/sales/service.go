@@ -1,12 +1,10 @@
 package sales
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"os"
@@ -727,75 +725,6 @@ func (s *Service) listTenantPaymentMethods(ctx context.Context, tenantID uuid.UU
 	return result, nil
 }
 
-func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amount int64, itemName string) (string, string, error) {
-	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
-	if serverKey == "" {
-		return "", "", errors.New("MIDTRANS_SERVER_KEY is required")
-	}
-
-	baseURL := "https://app.sandbox.midtrans.com"
-	if strings.ToLower(strings.TrimSpace(os.Getenv("MIDTRANS_IS_PRODUCTION"))) == "true" {
-		baseURL = "https://app.midtrans.com"
-	}
-
-	body := map[string]any{
-		"transaction_details": map[string]any{
-			"order_id":     orderID,
-			"gross_amount": amount,
-		},
-		"customer_details": map[string]any{
-			"first_name": "Bookinaja",
-		},
-		"item_details": []map[string]any{
-			{
-				"id":       "direct-sale-settlement",
-				"price":    amount,
-				"quantity": 1,
-				"name":     sanitizeMidtransItemName(itemName),
-			},
-		},
-		"credit_card": map[string]any{
-			"secure": true,
-		},
-	}
-
-	b, _ := json.Marshal(body)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/snap/v1/transactions", bytes.NewReader(b))
-	if err != nil {
-		return "", "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.SetBasicAuth(serverKey, "")
-
-	resp, err := s.http.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	defer resp.Body.Close()
-
-	var out struct {
-		Token       string `json:"token"`
-		RedirectURL string `json:"redirect_url"`
-		StatusMsg   string `json:"status_message"`
-	}
-	rawResp, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(rawResp, &out); err != nil {
-		return "", "", err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 || out.Token == "" {
-		if len(rawResp) > 0 {
-			return "", "", fmt.Errorf("midtrans snap error: http %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResp)))
-		}
-		if out.StatusMsg != "" {
-			return "", "", fmt.Errorf("midtrans snap error: %s", out.StatusMsg)
-		}
-		return "", "", fmt.Errorf("midtrans snap error: http %d", resp.StatusCode)
-	}
-
-	return out.Token, out.RedirectURL, nil
-}
-
 func mustJSON(v any) JSONB {
 	b, _ := json.Marshal(v)
 	return JSONB(b)
@@ -832,15 +761,4 @@ func getMetadataFloat(meta map[string]any, key string) float64 {
 
 func roundCurrencyAmount(value float64) int64 {
 	return int64(math.Round(value))
-}
-
-func sanitizeMidtransItemName(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "Direct Sale Settlement"
-	}
-	if len(value) > 50 {
-		return strings.TrimSpace(value[:50])
-	}
-	return value
 }

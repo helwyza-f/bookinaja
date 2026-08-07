@@ -91,7 +91,7 @@ func TestCreateWithItemsCastsPromoRedemptionStatusParameter(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO bookings`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-		mock.ExpectExec(regexp.QuoteMeta(`
+	mock.ExpectExec(regexp.QuoteMeta(`
 				INSERT INTO tenant_promo_redemptions (
 					id, promo_id, tenant_id, booking_id, customer_id, promo_code, discount_amount,
 					original_amount, final_amount, snapshot, status, redeemed_at, created_at
@@ -140,20 +140,20 @@ func TestCreateWithItemsCastsPromoRedemptionStatusParameter(t *testing.T) {
 	mock.ExpectCommit()
 
 	err = repo.CreateWithItems(context.Background(), Booking{
-		ID:              bookingID,
-		TenantID:        tenantID,
-		CustomerID:      customerID,
-		ResourceID:      resourceID,
-		AccessToken:     uuid.New(),
-		Status:          "pending",
-		PromoID:         &promoID,
-		GrandTotal:      9000,
-		DepositAmount:   2000,
-		PaidAmount:      0,
-		BalanceDue:      9000,
-		PaymentStatus:   "pending",
-		PaymentMethod:   "midtrans",
-		DiscountAmount:  1000,
+		ID:             bookingID,
+		TenantID:       tenantID,
+		CustomerID:     customerID,
+		ResourceID:     resourceID,
+		AccessToken:    uuid.New(),
+		Status:         "pending",
+		PromoID:        &promoID,
+		GrandTotal:     9000,
+		DepositAmount:  2000,
+		PaidAmount:     0,
+		BalanceDue:     9000,
+		PaymentStatus:  "pending",
+		PaymentMethod:  "midtrans",
+		DiscountAmount: 1000,
 		OriginalGrandTotal: func() *float64 {
 			v := 10000.0
 			return &v
