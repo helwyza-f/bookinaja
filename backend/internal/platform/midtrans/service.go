@@ -2,6 +2,7 @@ package midtrans
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/paymentgateway"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/jmoiron/sqlx"
@@ -78,10 +80,13 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		return errors.New("invalid midtrans payload")
 	}
 
-	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
-	if serverKey == "" {
-		logFailure("MIDTRANS_SERVER_KEY is missing", false)
-		return errors.New("midtrans server key is missing")
+	// Kunci verifikasi tergantung "siapa yang menagih":
+	// - order subscription (sub-) → akun platform (env).
+	// - order booking (bk-) / sales (so-) → akun MILIK TENANT (BYO gateway).
+	serverKey, err := s.resolveMidtransServerKey(ctx, orderID)
+	if err != nil {
+		logFailure("gagal resolve server key midtrans: "+err.Error(), false)
+		return err
 	}
 	if !VerifySignature(orderID, statusCode, grossAmount, signatureKey, serverKey) {
 		logFailure("invalid midtrans signature", false)
@@ -89,6 +94,71 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 	}
 
 	return s.processNotification(ctx, orderID, transactionStatus, fraudStatus, paymentType, transactionID, grossAmount, payload)
+}
+
+// resolveMidtransServerKey memilih server key untuk verifikasi signature
+// berdasarkan prefix order_id. Untuk pembayaran customer→tenant, key diambil
+// dari kredensial BYO milik tenant (uang tidak lewat akun platform).
+func (s *Service) resolveMidtransServerKey(ctx context.Context, orderID string) (string, error) {
+	if strings.HasPrefix(orderID, "sub-") {
+		key := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+		if key == "" {
+			return "", errors.New("MIDTRANS_SERVER_KEY is missing")
+		}
+		return key, nil
+	}
+	tenantID, err := s.resolveOrderTenant(ctx, orderID)
+	if err != nil {
+		return "", err
+	}
+	cred, err := paymentgateway.NewRepository(s.db).GetCredential(ctx, tenantID)
+	if err != nil {
+		return "", err
+	}
+	if cred == nil || cred.Provider != paymentgateway.ProviderMidtrans || strings.TrimSpace(cred.ServerKey) == "" {
+		return "", errors.New("kredensial midtrans tenant belum dikonfigurasi")
+	}
+	return cred.ServerKey, nil
+}
+
+// resolveOrderTenant memetakan order_id (id milik kita sendiri) → tenant_id.
+func (s *Service) resolveOrderTenant(ctx context.Context, orderID string) (uuid.UUID, error) {
+	switch {
+	case strings.HasPrefix(orderID, "bk-"):
+		bookingID, _, err := ParseBookingOrderID(orderID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		var tid uuid.UUID
+		if err := s.db.GetContext(ctx, &tid, `SELECT tenant_id FROM bookings WHERE id = $1 LIMIT 1`, bookingID); err != nil {
+			return uuid.Nil, err
+		}
+		return tid, nil
+	case strings.HasPrefix(orderID, "so-"):
+		att, err := s.repo.GetSalesOrderPaymentAttemptByGatewayOrderID(ctx, s.db, orderID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		return att.TenantID, nil
+	default:
+		return uuid.Nil, fmt.Errorf("order id tidak dikenal: %s", orderID)
+	}
+}
+
+// VerifyTenantXenditToken memverifikasi header x-callback-token webhook Xendit
+// terhadap callback secret milik tenant (constant-time).
+func (s *Service) VerifyTenantXenditToken(ctx context.Context, tenantID uuid.UUID, token string) error {
+	cred, err := paymentgateway.NewRepository(s.db).GetCredential(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if cred == nil || cred.Provider != paymentgateway.ProviderXendit || strings.TrimSpace(cred.CallbackSecret) == "" {
+		return errors.New("callback xendit tenant belum dikonfigurasi")
+	}
+	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(token)), []byte(strings.TrimSpace(cred.CallbackSecret))) != 1 {
+		return errors.New("invalid callback token")
+	}
+	return nil
 }
 
 // processNotification menjalankan pipeline settlement yang provider-agnostic

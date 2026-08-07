@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -55,6 +56,37 @@ func (h *Handler) XenditWebhook(c *gin.Context) {
 
 	if err := h.svc.HandleXenditNotification(c.Request.Context(), payload); err != nil {
 		log.Printf("[XENDIT WEBHOOK] failed external_id=%v status=%v error=%v", payload["external_id"], payload["status"], err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// XenditWebhookTenant menerima callback invoice Xendit untuk tenant BYO gateway.
+// URL memuat :tenantId sehingga token diverifikasi terhadap callback secret
+// milik tenant (bukan token platform). Tenant memasang URL ini di dashboard
+// Xendit mereka sendiri.
+func (h *Handler) XenditWebhookTenant(c *gin.Context) {
+	tenantID, err := uuid.Parse(strings.TrimSpace(c.Param("tenantId")))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant tidak valid"})
+		return
+	}
+	token := strings.TrimSpace(c.GetHeader("x-callback-token"))
+	if err := h.svc.VerifyTenantXenditToken(c.Request.Context(), tenantID, token); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	var payload map[string]any
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+
+	if err := h.svc.HandleXenditNotification(c.Request.Context(), payload); err != nil {
+		log.Printf("[XENDIT WEBHOOK tenant=%s] failed external_id=%v status=%v error=%v", tenantID, payload["external_id"], payload["status"], err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
