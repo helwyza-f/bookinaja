@@ -76,6 +76,16 @@ export function AddResourceDialog({
 
   const labels = getPlaceholder();
 
+  // Kategori dipakai sebagai chip filter di katalog publik, jadi contohnya
+  // diarahkan ke "jenis" unit (bukan lokasi) sesuai sektor bisnis.
+  const timedCategoryPlaceholder =
+    {
+      gaming_hub: "MISAL: PLAYSTATION / PC / VIP ROOM",
+      creative_space: "MISAL: FOTO / PODCAST / MUSIK",
+      sport_center: "MISAL: BADMINTON / PADEL / PICKLEBALL",
+      social_space: "MISAL: MEETING / COWORKING / EVENT",
+    }[category || ""] || "MISAL: KATEGORI / JENIS UNIT";
+
   const modeMeta =
     operatingMode === "direct_sale"
       ? {
@@ -89,7 +99,7 @@ export function AddResourceDialog({
             badge: "DEFAULT TIMED",
             helper: "Cocok untuk unit yang pakai jadwal dan slot.",
             nameLabel: labels.label,
-            categoryPlaceholder: "MISAL: LANTAI 2 / VIP / SMOKING",
+            categoryPlaceholder: timedCategoryPlaceholder,
           };
 
   const operatingModeOptions: Array<{
@@ -276,7 +286,7 @@ export function AddResourceDialog({
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  AREA / LANTAI / TIPE
+                  KATEGORI
                 </Label>
                 <Badge
                   variant="secondary"
@@ -295,7 +305,8 @@ export function AddResourceDialog({
               <div className="flex items-start gap-2 px-1">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed text-slate-500">
-                  Bantu pengelompokan unit di halaman booking.
+                  Jadi chip filter di katalog. Samakan penulisannya antar unit
+                  sejenis (mis. semua lapangan badminton pakai “BADMINTON”).
                 </p>
               </div>
             </div>

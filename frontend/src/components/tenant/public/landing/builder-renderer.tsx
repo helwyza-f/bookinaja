@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -757,13 +758,72 @@ function CatalogGrid({
   themeVisuals: ReturnType<typeof getThemeVisuals>;
   previewMode: "desktop" | "mobile";
 }) {
-  const timedResources = resources.filter(
+  // Kategori chip: diturunkan dari nilai category resource (free-text) yang
+  // sudah ada. Urutan mengikuti kemunculan pertama; chip hanya tampil kalau
+  // ada lebih dari satu kategori supaya tidak jadi noise untuk tenant kecil.
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const resource of resources) {
+      const label = String(resource.category || "").trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ordered.push(label);
+    }
+    return ordered;
+  }, [resources]);
+
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const showCategoryChips = categories.length > 1;
+
+  const visibleResources = useMemo(() => {
+    if (!activeCategory) return resources;
+    return resources.filter(
+      (resource) =>
+        String(resource.category || "").trim().toLowerCase() ===
+        activeCategory.toLowerCase(),
+    );
+  }, [resources, activeCategory]);
+
+  const timedResources = visibleResources.filter(
     (resource) => String(resource.operating_mode || "timed").toLowerCase() === "timed",
   );
-  const nonTimedResources = resources.filter(
+  const nonTimedResources = visibleResources.filter(
     (resource) => String(resource.operating_mode || "timed").toLowerCase() !== "timed",
   );
   const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
+
+  const categoryChips = showCategoryChips ? (
+    <div className="mb-6 flex flex-wrap gap-2">
+      {[null, ...categories].map((cat) => {
+        const active =
+          (cat === null && activeCategory === null) ||
+          (cat !== null && activeCategory === cat);
+        return (
+          <button
+            key={cat ?? "__all__"}
+            type="button"
+            onClick={() => setActiveCategory(cat)}
+            className={cn(
+              "rounded-full px-4 py-2 text-xs font-bold uppercase italic tracking-wide transition-colors",
+              active ? "text-white" : themeVisuals.secondaryButtonClass,
+            )}
+            style={active ? { backgroundColor: primaryColor } : undefined}
+          >
+            {cat ?? "Semua"}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  const emptyState = (
+    <p className={cn("py-10 text-center text-sm", themeVisuals.bodyClass)}>
+      Belum ada unit di kategori ini.
+    </p>
+  );
 
   const renderCards = (items: BuilderResource[]) => (
     <div
@@ -789,10 +849,18 @@ function CatalogGrid({
     </div>
   );
 
-  if (!showSplit) return renderCards(resources);
+  if (!showSplit) {
+    return (
+      <div className="w-full">
+        {categoryChips}
+        {visibleResources.length > 0 ? renderCards(visibleResources) : emptyState}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-10">
+      {categoryChips}
       {timedResources.length > 0 && (
         <div className="space-y-5">
           <div className="space-y-1">
