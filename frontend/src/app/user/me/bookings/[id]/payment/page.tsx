@@ -35,6 +35,10 @@ export default function BookingPaymentPage() {
   const [refreshing, setRefreshing] = useState(false);
   const lastBackgroundRefreshRef = useRef(0);
   const [gatewayReady, setGatewayReady] = useState(false);
+  // Sudah selesai cek konfigurasi gateway tenant? Sebelum ini true, jangan
+  // memutuskan "metode tidak tersedia" (mencegah redirect prematur saat
+  // gatewayReady masih false karena fetch async belum selesai).
+  const [gatewayChecked, setGatewayChecked] = useState(false);
 
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
@@ -77,10 +81,14 @@ export default function BookingPaymentPage() {
     if (!booking?.tenant_id) return;
     let cancelled = false;
     const init = async () => {
-      const config = await fetchTenantGatewayConfig(String(booking.tenant_id));
-      if (!cancelled) setGatewayReady(Boolean(config?.configured));
-      if (config?.configured && config.provider === "midtrans") {
-        await loadTenantSnap(String(booking.tenant_id));
+      try {
+        const config = await fetchTenantGatewayConfig(String(booking.tenant_id));
+        if (!cancelled) setGatewayReady(Boolean(config?.configured));
+        if (config?.configured && config.provider === "midtrans") {
+          await loadTenantSnap(String(booking.tenant_id));
+        }
+      } finally {
+        if (!cancelled) setGatewayChecked(true);
       }
     };
     void init();
@@ -225,11 +233,11 @@ export default function BookingPaymentPage() {
   const pendingAttemptStatus = String(pendingManualAttempt?.status || "").toLowerCase();
 
   useEffect(() => {
-    if (!booking || !paymentAccessError) return;
+    if (!booking || !gatewayChecked || !paymentAccessError) return;
     router.replace(
       `/user/me/bookings/${params.id}/live${paymentAccessNoticeCode ? `?notice=${paymentAccessNoticeCode}` : ""}`,
     );
-  }, [booking, params.id, paymentAccessError, paymentAccessNoticeCode, router]);
+  }, [booking, gatewayChecked, params.id, paymentAccessError, paymentAccessNoticeCode, router]);
 
   const paymentStatusLabel =
     paymentStatus === "awaiting_verification"
@@ -451,7 +459,7 @@ export default function BookingPaymentPage() {
     }
   };
 
-  if (loading || paymentAccessError) {
+  if (loading || !gatewayChecked || paymentAccessError) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
         <Skeleton className="h-20 rounded-[1.5rem]" />
