@@ -341,7 +341,7 @@ func (s *Service) CheckoutPayment(ctx context.Context, tenantID, orderID uuid.UU
 	}
 
 	orderRef := midtrans.SalesOrderPaymentOrderID(orderID, "settlement")
-	snapToken, redirectURL, err := billing.CreateGatewayCharge(ctx, s.db, s.http, env.PlatformURL("/user/me/orders/"+orderID.String()), orderRef, payAmount, "Pelunasan Direct Sale")
+	snapToken, redirectURL, err := billing.CreateTenantCharge(ctx, s.db, s.http, tenantID, env.PlatformURL("/user/me/orders/"+orderID.String()), orderRef, payAmount, "Pelunasan Direct Sale")
 	if err != nil {
 		return PaymentCheckoutRes{}, err
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	"github.com/helwiza/backend/internal/platform/midtrans"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
+	"github.com/helwiza/backend/internal/paymentgateway"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -161,7 +162,7 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 		}
 	}
 
-	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, env.PlatformURL("/user/me/bookings/"+bookingID.String()+"/live"), orderID, int64(amount), display)
+	snapToken, redirectURL, err := CreateTenantCharge(ctx, s.db, s.http, tenantID, env.PlatformURL("/user/me/bookings/"+bookingID.String()+"/live"), orderID, int64(amount), display)
 	if err != nil {
 		return BookingCheckoutRes{}, err
 	}
@@ -541,28 +542,74 @@ func InvalidateGatewayCache() {
 	gatewayCacheMu.Unlock()
 }
 
-// CreateGatewayCharge membuat tagihan pada gateway aktif dan mengembalikan
-// (token, checkoutURL). Untuk Midtrans, token = Snap token; untuk Xendit,
-// token kosong dan checkoutURL = invoice_url (murni redirect). Dipakai lintas
-// modul (billing, sales) agar pemilihan gateway konsisten di satu tempat.
-func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, redirectURL, orderID string, amount int64, itemName string) (string, string, error) {
+// gatewayCreds adalah kredensial efektif untuk satu charge.
+type gatewayCreds struct {
+	provider    string // "midtrans" | "xendit"
+	serverKey   string
+	environment string // "sandbox" | "production" (relevan untuk Midtrans)
+}
+
+// ErrTenantGatewayNotConfigured: tenant belum BYO gateway. Pemanggil harus
+// mengarahkan customer ke metode manual, bukan fallback ke akun platform.
+var ErrTenantGatewayNotConfigured = errors.New("tenant belum mengatur payment gateway sendiri")
+
+// platformGatewayCreds mengambil kredensial gateway PLATFORM (akun Bookinaja)
+// dari env. HANYA untuk penagihan subscription (tenant→Bookinaja).
+func platformGatewayCreds(ctx context.Context, db *sqlx.DB) gatewayCreds {
+	if ActiveGateway(ctx, db) == "xendit" {
+		return gatewayCreds{provider: "xendit", serverKey: strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY"))}
+	}
+	environment := "sandbox"
+	if strings.ToLower(strings.TrimSpace(os.Getenv("MIDTRANS_IS_PRODUCTION"))) == "true" {
+		environment = "production"
+	}
+	return gatewayCreds{provider: "midtrans", serverKey: strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY")), environment: environment}
+}
+
+func chargeWithCreds(ctx context.Context, client *http.Client, creds gatewayCreds, redirectURL, orderID string, amount int64, itemName string) (string, string, error) {
 	if client == nil {
 		client = http.DefaultClient
 	}
-	if ActiveGateway(ctx, db) == "xendit" {
-		url, err := createXenditInvoice(ctx, client, redirectURL, orderID, amount, itemName)
+	if creds.provider == "xendit" {
+		url, err := createXenditInvoice(ctx, client, creds.serverKey, redirectURL, orderID, amount, itemName)
 		return "", url, err
 	}
-	return createSnapTransaction(ctx, client, orderID, amount, itemName)
+	return createSnapTransaction(ctx, client, creds.serverKey, creds.environment, orderID, amount, itemName)
+}
+
+// CreateGatewayCharge membuat tagihan lewat akun gateway PLATFORM (Bookinaja).
+// HANYA untuk subscription (tenant→Bookinaja). Untuk pembayaran customer→tenant
+// gunakan CreateTenantCharge.
+func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, redirectURL, orderID string, amount int64, itemName string) (string, string, error) {
+	return chargeWithCreds(ctx, client, platformGatewayCreds(ctx, db), redirectURL, orderID, amount, itemName)
+}
+
+// CreateTenantCharge membuat tagihan customer→tenant lewat gateway MILIK TENANT
+// (BYO). Mengembalikan ErrTenantGatewayNotConfigured bila tenant belum setup —
+// dana tidak boleh jatuh ke akun platform (menghindari status PJP).
+func CreateTenantCharge(ctx context.Context, db *sqlx.DB, client *http.Client, tenantID uuid.UUID, redirectURL, orderID string, amount int64, itemName string) (string, string, error) {
+	cred, err := paymentgateway.NewRepository(db).GetCredential(ctx, tenantID)
+	if err != nil {
+		return "", "", err
+	}
+	if cred == nil || !cred.Usable() {
+		return "", "", ErrTenantGatewayNotConfigured
+	}
+	return chargeWithCreds(ctx, client, gatewayCreds{
+		provider:    cred.Provider,
+		serverKey:   cred.ServerKey,
+		environment: cred.Environment,
+	}, redirectURL, orderID, amount, itemName)
 }
 
 // createXenditInvoice membuat invoice via Xendit Invoice API dan mengembalikan
 // invoice_url untuk di-redirect. external_id = orderID kita (dipakai lagi saat
-// callback untuk memetakan ke booking/sales/subscription).
-func createXenditInvoice(ctx context.Context, client *http.Client, redirectURL, orderID string, amount int64, itemName string) (string, error) {
-	secret := strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY"))
+// callback untuk memetakan ke booking/sales/subscription). secret = server/
+// secret key milik akun yang menagih (platform atau tenant).
+func createXenditInvoice(ctx context.Context, client *http.Client, secret, redirectURL, orderID string, amount int64, itemName string) (string, error) {
+	secret = strings.TrimSpace(secret)
 	if secret == "" {
-		return "", errors.New("XENDIT_SECRET_KEY is required")
+		return "", errors.New("XENDIT secret key is required")
 	}
 
 	if strings.TrimSpace(redirectURL) == "" {
@@ -608,14 +655,14 @@ func createXenditInvoice(ctx context.Context, client *http.Client, redirectURL, 
 	return out.InvoiceURL, nil
 }
 
-func createSnapTransaction(ctx context.Context, client *http.Client, orderID string, amount int64, itemName string) (string, string, error) {
-	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+func createSnapTransaction(ctx context.Context, client *http.Client, serverKey, environment, orderID string, amount int64, itemName string) (string, string, error) {
+	serverKey = strings.TrimSpace(serverKey)
 	if serverKey == "" {
-		return "", "", errors.New("MIDTRANS_SERVER_KEY is required")
+		return "", "", errors.New("MIDTRANS server key is required")
 	}
 
 	baseURL := "https://app.sandbox.midtrans.com"
-	if strings.ToLower(strings.TrimSpace(os.Getenv("MIDTRANS_IS_PRODUCTION"))) == "true" {
+	if strings.ToLower(strings.TrimSpace(environment)) == "production" {
 		baseURL = "https://app.midtrans.com"
 	}
 

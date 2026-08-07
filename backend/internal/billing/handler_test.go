@@ -59,6 +59,8 @@ func TestBookingCheckoutResolvesTenantIDFromBookingWhenContextMissing(t *testing
 			"code", "display_name", "category", "verification_type", "provider", "instructions", "is_active", "sort_order", "metadata",
 		}).AddRow("midtrans", "Midtrans", "gateway", "auto", "midtrans", "auto", true, 1, []byte(`{}`)))
 
+	expectTenantGateway(t, mock, tenantID)
+
 	mock.ExpectExec(regexp.QuoteMeta(`
 		INSERT INTO booking_payment_attempts (
 			id, booking_id, tenant_id, customer_id, method_code, method_label, category, verification_type, payment_scope,

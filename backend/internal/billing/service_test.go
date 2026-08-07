@@ -2,7 +2,11 @@ package billing
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"regexp"
@@ -19,6 +23,59 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return fn(req)
+}
+
+// --- Helpers untuk kredensial BYO gateway di test ---
+
+var testGatewayKey = func() []byte {
+	b := make([]byte, 32)
+	for i := range b {
+		b[i] = 7
+	}
+	return b
+}()
+
+var testGatewayKeyB64 = base64.StdEncoding.EncodeToString(testGatewayKey)
+
+// sealGatewayKey mengenkripsi plaintext dengan AES-256-GCM memakai kunci test
+// yang sama dengan yang dipakai paymentgateway (via PAYMENT_SECRET_KEY).
+func sealGatewayKey(t *testing.T, plain string) []byte {
+	t.Helper()
+	block, err := aes.NewCipher(testGatewayKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	return gcm.Seal(nonce, nonce, []byte(plain), nil)
+}
+
+// expectTenantGateway memasang ekspektasi query kredensial BYO gateway yang
+// dipanggil CreateTenantCharge, mengembalikan satu baris verified (Midtrans).
+func expectTenantGateway(t *testing.T, mock sqlmock.Sqlmock, tenantID uuid.UUID) {
+	t.Helper()
+	t.Setenv("PAYMENT_SECRET_KEY", testGatewayKeyB64)
+	cols := []string{
+		"id", "tenant_id", "provider", "environment", "server_key_enc", "client_key",
+		"callback_secret_enc", "status", "last_error", "verified_at", "created_at", "updated_at",
+	}
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, tenant_id, provider, environment, server_key_enc, client_key,
+			callback_secret_enc, status, last_error, verified_at, created_at, updated_at
+		FROM tenant_payment_gateways
+		WHERE tenant_id = $1
+		LIMIT 1`)).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows(cols).AddRow(
+			uuid.New(), tenantID, "midtrans", "sandbox", sealGatewayKey(t, "server-key"), "",
+			[]byte(nil), "verified", "", nil, time.Now(), time.Now(),
+		))
 }
 
 func newBillingTestService(t *testing.T) (*Service, sqlmock.Sqlmock) {
@@ -256,6 +313,8 @@ func TestCheckoutBookingPaymentCreatesDepositTransaction(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"code", "display_name", "category", "verification_type", "provider", "instructions", "is_active", "sort_order", "metadata",
 		}).AddRow("midtrans", "Midtrans", "gateway", "auto", "midtrans", "auto", true, 1, []byte(`{}`)))
+
+	expectTenantGateway(t, mock, tenantID)
 
 	mock.ExpectExec(regexp.QuoteMeta(`
 		INSERT INTO booking_payment_attempts (
