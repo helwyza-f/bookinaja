@@ -353,6 +353,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	if err := validatePackageTimeWindow(mainItemMetadata, localStart, localEnd); err != nil {
 		return nil, nil, err
 	}
+	// Penguncian hari paket (opsional): tolak kalau paket dikunci ke hari
+	// tertentu (mis. weekday/weekend) dan booking jatuh di luar hari itu.
+	if err := validatePackageDayWindow(mainItemMetadata, localStart); err != nil {
+		return nil, nil, err
+	}
 
 	// 4. SILENT REGISTER / UPSERT PELANGGAN (CRM INTEGRATION)
 	cust, err := s.customerService.Register(ctx, customer.RegisterReq{

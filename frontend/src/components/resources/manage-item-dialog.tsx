@@ -75,8 +75,20 @@ export type ResourceItemConfig = {
   item_type?: string;
   metadata?: {
     time_lock?: { enabled?: boolean; from?: string; to?: string };
+    day_lock?: { enabled?: boolean; days?: number[] };
   } | null;
 };
+
+// Hari dalam penomoran ISO (1=Senin ... 7=Minggu), konsisten dengan backend.
+const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "Sen" },
+  { value: 2, label: "Sel" },
+  { value: 3, label: "Rab" },
+  { value: 4, label: "Kam" },
+  { value: 5, label: "Jum" },
+  { value: 6, label: "Sab" },
+  { value: 7, label: "Min" },
+];
 
 export function ManageItemDialog({
   open,
@@ -102,6 +114,9 @@ export function ManageItemDialog({
   const [lockEnabled, setLockEnabled] = useState(false);
   const [lockFrom, setLockFrom] = useState("08:00");
   const [lockTo, setLockTo] = useState("17:00");
+  // Penguncian hari paket (opsional). Default: tersedia semua hari.
+  const [dayLockEnabled, setDayLockEnabled] = useState(false);
+  const [lockDays, setLockDays] = useState<number[]>([]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
   const resetForm = useCallback(() => {
@@ -116,6 +131,8 @@ export function ManageItemDialog({
     setLockEnabled(false);
     setLockFrom("08:00");
     setLockTo("17:00");
+    setDayLockEnabled(false);
+    setLockDays([]);
   }, [operatingMode]);
 
   useEffect(() => {
@@ -142,6 +159,10 @@ export function ManageItemDialog({
       setLockFrom(lock?.from || "08:00");
       // "24:00" (akhir hari) dipetakan ke 00:00 untuk input type=time.
       setLockTo(lock?.to === "24:00" ? "00:00" : lock?.to || "17:00");
+      // Muat konfigurasi penguncian hari kalau ada.
+      const dayLock = editingItem.metadata?.day_lock;
+      setDayLockEnabled(Boolean(dayLock?.enabled));
+      setLockDays(Array.isArray(dayLock?.days) ? dayLock!.days! : []);
     } else {
       resetForm();
     }
@@ -183,6 +204,26 @@ export function ManageItemDialog({
         : { enabled: false }
       : undefined;
 
+    // Penguncian hari mengikuti syarat yang sama dengan penguncian jam.
+    if (supportsLock && dayLockEnabled && lockDays.length === 0) {
+      toast.error("Pilih minimal satu hari untuk penguncian paket.");
+      return;
+    }
+    const dayLock = supportsLock
+      ? dayLockEnabled
+        ? { enabled: true, days: [...lockDays].sort((a, b) => a - b) }
+        : { enabled: false }
+      : undefined;
+
+    // Gabung kedua konfigurasi ke satu objek metadata agar tidak saling timpa.
+    const metadata =
+      timeLock || dayLock
+        ? {
+            ...(timeLock ? { time_lock: timeLock } : {}),
+            ...(dayLock ? { day_lock: dayLock } : {}),
+          }
+        : undefined;
+
     setLoading(true);
 
     const payload = {
@@ -193,7 +234,7 @@ export function ManageItemDialog({
       is_default: itemType === "addon" ? false : isDefault,
       // Universal mapping: console_option diganti menjadi main_option
       item_type: itemType === "main" ? "main_option" : "add_on",
-      ...(timeLock ? { metadata: { time_lock: timeLock } } : {}),
+      ...(metadata ? { metadata } : {}),
     };
 
     try {
@@ -534,6 +575,58 @@ export function ManageItemDialog({
                       Pilih 00:00 untuk “sampai tutup / tengah malam”.
                     </span>
                   </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* PENGUNCIAN HARI (opsional, main + timed) */}
+          {itemType === "main" && operatingMode !== "direct_sale" ? (
+            <div className="space-y-3 rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-900/40">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={dayLockEnabled}
+                  onChange={(e) => setDayLockEnabled(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase italic leading-none tracking-widest text-slate-700 dark:text-slate-200">
+                    Batasi hari paket ini
+                  </span>
+                  <span className="mt-1.5 block text-[10px] font-medium leading-tight text-slate-400">
+                    Default paket tersedia semua hari. Aktifkan untuk membedakan
+                    harga weekday vs weekend — mis. paket ini khusus Sabtu–Minggu.
+                  </span>
+                </span>
+              </label>
+
+              {dayLockEnabled ? (
+                <div className="flex flex-wrap gap-1.5 animate-in slide-in-from-top-2">
+                  {WEEKDAY_OPTIONS.map((day) => {
+                    const active = lockDays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() =>
+                          setLockDays((prev) =>
+                            active
+                              ? prev.filter((d) => d !== day.value)
+                              : [...prev, day.value],
+                          )
+                        }
+                        className={
+                          "h-10 min-w-[44px] rounded-xl px-2 text-[11px] font-black uppercase italic tracking-wider transition-colors " +
+                          (active
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-slate-500 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800")
+                        }
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
