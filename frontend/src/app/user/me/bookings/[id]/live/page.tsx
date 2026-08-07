@@ -809,6 +809,14 @@ export default function CustomerBookingDetail() {
             {paymentGuidance}
           </div>
 
+          {isFullMode && balanceDue > 0 ? (
+            <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+              Perpanjangan durasi menambah tagihan{" "}
+              <span className="font-semibold">Rp {balanceDue.toLocaleString("id-ID")}</span>. Dibayar
+              di lokasi, atau lewat pelunasan setelah sesi selesai.
+            </div>
+          ) : null}
+
           {hasPromo ? (
             <div className="mt-3 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
               <div className="flex items-center justify-between gap-3">
