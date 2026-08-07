@@ -796,7 +796,7 @@ function CatalogGrid({
   const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
 
   const categoryChips = showCategoryChips ? (
-    <div className="mb-6 flex flex-wrap gap-2">
+    <div className="mb-6 flex flex-wrap justify-center gap-2">
       {[null, ...categories].map((cat) => {
         const active =
           (cat === null && activeCategory === null) ||
