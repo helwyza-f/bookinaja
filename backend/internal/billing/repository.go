@@ -388,9 +388,10 @@ func (r *Repository) GetTenantPaymentMethod(ctx context.Context, exec sqlx.ExtCo
 
 func defaultTenantPaymentMethodOptions() []PaymentMethodOption {
 	return []PaymentMethodOption{
-		// Gateway online default NONAKTIF (isu PJP): tenant mengaktifkannya
-		// dengan menghubungkan payment gateway sendiri (Midtrans/Xendit).
-		{Code: "midtrans", DisplayName: "Pembayaran Online (QRIS, VA, E-wallet)", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh payment gateway tenant.", IsActive: false, SortOrder: 10, Metadata: []byte(`{}`)},
+		// Metode gateway online (identifier internal "midtrans"; routing sudah
+		// netral ke Midtrans/Xendit lewat CreateTenantCharge). Ketersediaan online
+		// di-gate oleh konfigurasi BYO gateway tenant, bukan flag ini.
+		{Code: "midtrans", DisplayName: "Pembayaran Online (QRIS, VA, E-wallet)", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh payment gateway tenant.", IsActive: true, SortOrder: 10, Metadata: []byte(`{}`)},
 		{Code: "bank_transfer", DisplayName: "Transfer Bank", Category: "manual", VerificationType: "manual", Provider: "bank_transfer", Instructions: "Transfer ke rekening tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 20, Metadata: []byte(`{}`)},
 		{Code: "qris_static", DisplayName: "QRIS Static", Category: "manual", VerificationType: "manual", Provider: "qris_static", Instructions: "Scan QRIS tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 30, Metadata: []byte(`{}`)},
 		{Code: "cash", DisplayName: "Cash / Bayar di Tempat", Category: "manual", VerificationType: "manual", Provider: "cash", Instructions: "Pembayaran diterima langsung oleh admin atau kasir tenant.", IsActive: true, SortOrder: 40, Metadata: []byte(`{}`)},
