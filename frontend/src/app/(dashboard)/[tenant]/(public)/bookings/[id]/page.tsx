@@ -84,6 +84,33 @@ function durationCountLabel(value?: string) {
   }
 }
 
+// Penguncian paket (opsional): baca metadata.time_lock / day_lock supaya slot
+// di luar rentang jam / hari yang diizinkan tidak bisa dipilih customer.
+// Selaras dengan enforcement backend (reservation/timewindow.go).
+function parseLockClock(hhmm?: string): number | null {
+  if (!hhmm) return null;
+  if (hhmm === "24:00") return 24 * 60;
+  const [h, m] = String(hhmm).split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+// Penomoran ISO: 1=Senin ... 7=Minggu (konsisten dengan backend).
+function isoWeekdayOf(d: Date): number {
+  const wd = d.getDay();
+  return wd === 0 ? 7 : wd;
+}
+
+const INDO_WEEKDAY_NAMES: Record<number, string> = {
+  1: "Senin",
+  2: "Selasa",
+  3: "Rabu",
+  4: "Kamis",
+  5: "Jumat",
+  6: "Sabtu",
+  7: "Minggu",
+};
+
 // Mirrors backend calculateDepositAmount (reservation/service.go) so the
 // customer sees the exact "pay now" amount before committing to the booking.
 function calculateDepositPreview(
@@ -190,6 +217,42 @@ export default function ResourceBookingDetail() {
     if (!selectedItem) return false;
     return ["day", "week", "month", "year"].includes(selectedItem.price_unit);
   }, [selectedItem]);
+
+  // Rentang jam paket (kalau dikunci). null = tersedia semua jam.
+  const packageTimeWindow = useMemo(() => {
+    const tl = selectedItem?.metadata?.time_lock;
+    if (!tl?.enabled) return null;
+    const from = parseLockClock(tl.from);
+    const to = parseLockClock(tl.to);
+    if (from == null || to == null || from >= to) return null;
+    return { from, to, fromLabel: tl.from as string, toLabel: tl.to as string };
+  }, [selectedItem]);
+
+  // Hari yang diizinkan paket (kalau dikunci). null = tersedia semua hari.
+  const packageDayLock = useMemo(() => {
+    const dl = selectedItem?.metadata?.day_lock;
+    if (!dl?.enabled || !Array.isArray(dl.days) || dl.days.length === 0) return null;
+    const days = (dl.days as number[]).filter((d) => d >= 1 && d <= 7);
+    if (days.length === 0) return null;
+    return { days };
+  }, [selectedItem]);
+
+  // Apakah tanggal terpilih diizinkan oleh penguncian hari paket.
+  const dayLockAllowed = useMemo(() => {
+    if (!packageDayLock || !date) return true;
+    return packageDayLock.days.includes(isoWeekdayOf(date));
+  }, [packageDayLock, date]);
+
+  const packageDayLabels = useMemo(
+    () =>
+      packageDayLock
+        ? [...packageDayLock.days]
+            .sort((a, b) => a - b)
+            .map((d) => INDO_WEEKDAY_NAMES[d])
+            .join(", ")
+        : "",
+    [packageDayLock],
+  );
 
   const tenantTimezone = profile?.timezone || "Asia/Jakarta";
   const tenantNow = useMemo(
@@ -325,21 +388,30 @@ export default function ResourceBookingDetail() {
 
   const availableSlots = useMemo(() => {
     if (!selectedItem || !profile || isInterday) return [];
+    // Paket dikunci ke hari tertentu dan tanggal ini tidak termasuk → tanpa slot.
+    if (!dayLockAllowed) return [];
     const step =
       selectedItem.unit_duration > 0 ? selectedItem.unit_duration : 60;
     const operatingWindow = getOperatingWindow(
       profile.open_time || "08:00",
       profile.close_time || "22:00",
     );
+    // Persempit grid ke rentang jam paket kalau dikunci.
+    const startMinutes = packageTimeWindow
+      ? Math.max(operatingWindow.openMinutes, packageTimeWindow.from)
+      : operatingWindow.openMinutes;
+    const endMinutes = packageTimeWindow
+      ? Math.min(operatingWindow.closeMinutes, packageTimeWindow.to)
+      : operatingWindow.closeMinutes;
     const slots = [];
-    let currentMinutes = operatingWindow.openMinutes;
+    let currentMinutes = startMinutes;
 
-    while (currentMinutes + step <= operatingWindow.closeMinutes) {
+    while (currentMinutes + step <= endMinutes) {
       slots.push(minutesToClock(currentMinutes));
       currentMinutes += step;
     }
     return slots;
-  }, [selectedItem, profile, isInterday]);
+  }, [selectedItem, profile, isInterday, packageTimeWindow, dayLockAllowed]);
 
   const formattedSelectedDate = useMemo(() => {
     if (!date) return "";
@@ -361,14 +433,18 @@ export default function ResourceBookingDetail() {
     const nextBusy = busySlots
       .filter((s) => s.start_min > startMin)
       .sort((a, b) => a.start_min - b.start_min)[0];
-    let availableMin = operatingWindow.closeMinutes - startMin;
+    // Batasi durasi agar tidak melewati akhir rentang jam paket (kalau dikunci).
+    const closeCap = packageTimeWindow
+      ? Math.min(operatingWindow.closeMinutes, packageTimeWindow.to)
+      : operatingWindow.closeMinutes;
+    let availableMin = closeCap - startMin;
     if (nextBusy) {
       availableMin = Math.min(availableMin, nextBusy.start_min - startMin);
     }
 
     const max = Math.floor(availableMin / unitMin);
     return max > 0 ? max : 1;
-  }, [selectedTime, busySlots, selectedItem, profile, isInterday]);
+  }, [selectedTime, busySlots, selectedItem, profile, isInterday, packageTimeWindow]);
 
   useEffect(() => {
     if (durationValue > maxAvailableSessions) setDurationValue(1);
@@ -758,12 +834,26 @@ export default function ResourceBookingDetail() {
 
             {date && selectedMainId && !isInterday && (
               <div className="space-y-3">
-                <div className={cn("px-1 text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.eyebrowMutedClass)}>
-                  Zona waktu {tenantTimezone}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <div className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.eyebrowMutedClass)}>
+                    Zona waktu {tenantTimezone}
+                  </div>
+                  {packageTimeWindow || packageDayLock ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                      Paket ini berlaku
+                      {packageTimeWindow
+                        ? ` jam ${packageTimeWindow.fromLabel}–${packageTimeWindow.toLabel}`
+                        : ""}
+                      {packageTimeWindow && packageDayLock ? " ·" : ""}
+                      {packageDayLock ? ` hari ${packageDayLabels}` : ""}
+                    </div>
+                  ) : null}
                 </div>
                 {availableSlots.length === 0 ? (
                   <div className={cn("rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm dark:border-white/10", themeVisuals.mutedClass)}>
-                    Slot tidak tersedia untuk tanggal ini.
+                    {!dayLockAllowed
+                      ? `Paket ini hanya tersedia hari ${packageDayLabels}. Pilih tanggal lain atau paket berbeda.`
+                      : "Slot tidak tersedia untuk tanggal ini."}
                   </div>
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5 rounded-2xl border border-slate-100 bg-slate-50/40 p-2.5 animate-in fade-in duration-500 dark:border-white/5 dark:bg-white/[0.02]">
