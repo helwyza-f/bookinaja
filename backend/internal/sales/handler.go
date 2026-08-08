@@ -86,6 +86,28 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, order)
 }
 
+// CreateMenuOrder membuat order kasir Menu standalone (F&B tanpa booking).
+func (h *Handler) CreateMenuOrder(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+
+	var req CreateMenuOrderInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+
+	order, err := h.service.CreateMenuOrder(c.Request.Context(), tenantID, userIDFromContext(c), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, order)
+}
+
 func (h *Handler) PublicCreate(c *gin.Context) {
 	var req CreatePublicOrderInput
 	if err := c.ShouldBindJSON(&req); err != nil {

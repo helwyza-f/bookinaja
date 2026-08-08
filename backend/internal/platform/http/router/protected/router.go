@@ -312,6 +312,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				salesOrders.GET("/open", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ListOpen)
 				salesOrders.GET("/:id", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.GetByID)
 				salesOrders.POST("", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.Create)
+				salesOrders.POST("/menu", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.CreateMenuOrder)
 				salesOrders.POST("/:id/items", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.AddItem)
 				salesOrders.PUT("/:id/items/:item_id", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.UpdateItem)
 				salesOrders.DELETE("/:id/items/:item_id", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.DeleteItem)

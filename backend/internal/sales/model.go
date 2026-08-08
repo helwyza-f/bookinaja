@@ -13,7 +13,8 @@ type Order struct {
 	ID              uuid.UUID             `db:"id" json:"id"`
 	TenantID        uuid.UUID             `db:"tenant_id" json:"tenant_id"`
 	CustomerID      *uuid.UUID            `db:"customer_id" json:"customer_id,omitempty"`
-	ResourceID      uuid.UUID             `db:"resource_id" json:"resource_id"`
+	ResourceID      *uuid.UUID            `db:"resource_id" json:"resource_id,omitempty"`
+	OrderKind       string                `db:"order_kind" json:"order_kind"`
 	AccessToken     uuid.UUID             `db:"access_token" json:"access_token,omitempty"`
 	ResourceName    string                `db:"resource_name" json:"resource_name,omitempty"`
 	OrderNumber     string                `db:"order_number" json:"order_number"`
@@ -79,6 +80,19 @@ type AddItemInput struct {
 }
 
 type UpdateItemInput = AddItemInput
+
+// MenuOrderItemInput adalah baris keranjang kasir Menu (F&B standalone).
+type MenuOrderItemInput struct {
+	FnbItemID string `json:"fnb_item_id"`
+	Quantity  int    `json:"quantity"`
+}
+
+// CreateMenuOrderInput membuat sales order jenis "menu" tanpa resource.
+type CreateMenuOrderInput struct {
+	CustomerID string               `json:"customer_id"`
+	Notes      string               `json:"notes"`
+	Items      []MenuOrderItemInput `json:"items"`
+}
 
 type CheckoutInput struct {
 	PaymentMethod string `json:"payment_method"`
@@ -181,7 +195,7 @@ type POSActionFeedItem struct {
 	Kind          string     `db:"kind" json:"kind"`
 	ID            uuid.UUID  `db:"id" json:"id"`
 	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ResourceID    uuid.UUID  `db:"resource_id" json:"resource_id"`
+	ResourceID    *uuid.UUID `db:"resource_id" json:"resource_id,omitempty"`
 	ResourceName  string     `db:"resource_name" json:"resource_name"`
 	CustomerID    *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`
 	CustomerName  string     `db:"customer_name" json:"customer_name,omitempty"`

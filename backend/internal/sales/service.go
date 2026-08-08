@@ -85,7 +85,8 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, createdBy
 		ID:              uuid.New(),
 		TenantID:        tenantID,
 		CustomerID:      customerID,
-		ResourceID:      resourceID,
+		ResourceID:      &resourceID,
+		OrderKind:       "direct_sale",
 		AccessToken:     uuid.New(),
 		OrderNumber:     generateOrderNumber(now),
 		Status:          "open",
@@ -103,6 +104,73 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, createdBy
 	}
 
 	return s.repo.CreateOrder(ctx, order)
+}
+
+// CreateMenuOrder membuat sales order jenis "menu" (kasir F&B standalone) tanpa
+// resource. Item diambil dari katalog fnb tenant; harga di-snapshot dari server.
+// Order ini masuk buku terpisah (source sales_order), lepas dari booking.
+func (s *Service) CreateMenuOrder(ctx context.Context, tenantID uuid.UUID, createdByUserID *uuid.UUID, input CreateMenuOrderInput) (*Order, error) {
+	if len(input.Items) == 0 {
+		return nil, errors.New("keranjang menu masih kosong")
+	}
+
+	var customerID *uuid.UUID
+	if raw := strings.TrimSpace(input.CustomerID); raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, errors.New("customer_id invalid")
+		}
+		customerID = &parsed
+	}
+
+	now := time.Now()
+	order := Order{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		CustomerID:      customerID,
+		ResourceID:      nil,
+		OrderKind:       "menu",
+		AccessToken:     uuid.New(),
+		OrderNumber:     generateOrderNumber(now),
+		Status:          "open",
+		PaymentStatus:   "unpaid",
+		Notes:           strings.TrimSpace(input.Notes),
+		CreatedByUserID: createdByUserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if _, err := s.repo.CreateOrder(ctx, order); err != nil {
+		return nil, err
+	}
+
+	for _, line := range input.Items {
+		itemID, err := uuid.Parse(strings.TrimSpace(line.FnbItemID))
+		if err != nil {
+			return nil, errors.New("fnb_item_id invalid")
+		}
+		snap, err := s.repo.GetTenantFnbItem(ctx, tenantID, itemID)
+		if err != nil {
+			return nil, errors.New("item menu tidak ditemukan")
+		}
+		if !snap.IsAvailable {
+			return nil, fmt.Errorf("menu %q sedang tidak tersedia", snap.Name)
+		}
+		qty := line.Quantity
+		if qty <= 0 {
+			qty = 1
+		}
+		if _, err := s.AddItem(ctx, tenantID, order.ID, AddItemInput{
+			ItemName:  snap.Name,
+			ItemType:  "fnb",
+			Quantity:  qty,
+			UnitPrice: snap.Price,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	s.notifyOrderChange(ctx, tenantID, order.ID, "order.menu.created", nil)
+	return s.repo.GetByID(ctx, tenantID, order.ID)
 }
 
 func (s *Service) CreatePublicOrder(ctx context.Context, input CreatePublicOrderInput) (*Order, *customer.Customer, error) {

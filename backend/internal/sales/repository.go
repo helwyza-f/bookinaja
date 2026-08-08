@@ -22,18 +22,41 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) CreateOrder(ctx context.Context, order Order) (*Order, error) {
 	query := `
 		INSERT INTO sales_orders (
-			id, tenant_id, customer_id, resource_id, access_token, order_number,
+			id, tenant_id, customer_id, resource_id, order_kind, access_token, order_number,
 			status, subtotal, discount_amount, grand_total, paid_amount,
 			balance_due, payment_status, payment_method, notes,
 			created_by_user_id, completed_at, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :customer_id, :resource_id, :access_token, :order_number,
+			:id, :tenant_id, :customer_id, :resource_id, :order_kind, :access_token, :order_number,
 			:status, :subtotal, :discount_amount, :grand_total, :paid_amount,
 			:balance_due, :payment_status, :payment_method, :notes,
 			:created_by_user_id, :completed_at, :created_at, :updated_at
 		)`
 	_, err := r.db.NamedExecContext(ctx, query, order)
 	return &order, err
+}
+
+// FnbItemSnapshot adalah data menu F&B yang dipakai kasir Menu standalone.
+type FnbItemSnapshot struct {
+	ID          uuid.UUID `db:"id"`
+	Name        string    `db:"name"`
+	Price       float64   `db:"price"`
+	IsAvailable bool      `db:"is_available"`
+}
+
+// GetTenantFnbItem mengambil satu item menu milik tenant (untuk snapshot harga
+// saat membuat order menu — harga dari server, bukan dari client).
+func (r *Repository) GetTenantFnbItem(ctx context.Context, tenantID, itemID uuid.UUID) (*FnbItemSnapshot, error) {
+	var item FnbItemSnapshot
+	err := r.db.GetContext(ctx, &item, `
+		SELECT id, name, price, is_available
+		FROM fnb_items
+		WHERE id = $1 AND tenant_id = $2
+		LIMIT 1`, itemID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Order, error) {
@@ -43,7 +66,7 @@ func (r *Repository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Orde
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.id = $1 AND so.tenant_id = $2
 		LIMIT 1`, id, tenantID)
 	if err != nil {
@@ -65,7 +88,7 @@ func (r *Repository) GetByCustomer(ctx context.Context, tenantID, customerID, id
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.id = $1
 		  AND so.tenant_id = $2
 		  AND so.customer_id = $3
@@ -89,7 +112,7 @@ func (r *Repository) GetByCustomerGlobal(ctx context.Context, customerID, id uui
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.id = $1
 		  AND so.customer_id = $2
 		LIMIT 1`, id, customerID)
@@ -112,7 +135,7 @@ func (r *Repository) GetByToken(ctx context.Context, accessToken uuid.UUID) (*Or
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.access_token = $1
 		LIMIT 1`, accessToken)
 	if err != nil {
@@ -165,7 +188,7 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.tenant_id = $1`
 	args := []any{tenantID}
 	argIndex := 2
@@ -211,7 +234,7 @@ func (r *Repository) ListOpenByTenant(ctx context.Context, tenantID uuid.UUID, l
 			so.*,
 			COALESCE(r.name, '') AS resource_name
 		FROM sales_orders so
-		JOIN resources r ON r.id = so.resource_id
+		LEFT JOIN resources r ON r.id = so.resource_id
 		WHERE so.tenant_id = $1
 		  AND so.status IN ('open', 'pending_payment', 'paid')
 		ORDER BY so.updated_at DESC, so.created_at DESC
@@ -684,7 +707,7 @@ func (r *Repository) ListPOSActionFeed(ctx context.Context, tenantID uuid.UUID, 
 				COALESCE(r.operating_mode, 'direct_sale') AS operating_mode,
 				COALESCE(so.updated_at, so.created_at) AS sort_at
 			FROM sales_orders so
-			JOIN resources r ON r.id = so.resource_id
+			LEFT JOIN resources r ON r.id = so.resource_id
 			LEFT JOIN customers c ON c.id = so.customer_id
 			WHERE so.tenant_id = $1
 			  AND COALESCE(so.status, '') IN ('open', 'pending_payment', 'paid')
