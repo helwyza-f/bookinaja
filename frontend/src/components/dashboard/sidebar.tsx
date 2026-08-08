@@ -57,12 +57,15 @@ export function Sidebar({
     tenantName,
     currentWorkspace,
     trialInfo,
+    fnbMode,
   } = useAdminSession();
   const userData = (user as SidebarUser | null) ?? null;
   const simpleOwnerMode = userData?.role === "owner";
 
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
   const visibleOperationalItems = operationalNavItems.filter((item) => {
+    // Kasir Menu hanya muncul saat mode F&B = standalone (buku terpisah).
+    if (item.href === "/admin/pos/menu" && fnbMode !== "standalone") return false;
     if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
     return hasAccess(item.href);
   });

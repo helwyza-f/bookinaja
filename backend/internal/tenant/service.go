@@ -2782,6 +2782,14 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}
+	// Mode F&B untuk gating nav "Kasir Menu" (hanya standalone).
+	item.Features.FnbMode = "integrated"
+	if mode, mErr := s.repo.GetTenantFnbMode(ctx, tenantID); mErr == nil {
+		switch mode {
+		case "standalone", "off", "integrated":
+			item.Features.FnbMode = mode
+		}
+	}
 	return item, nil
 }
 

@@ -40,6 +40,7 @@ type AdminBootstrapResponse = {
     enable_discovery_posts?: boolean;
     plan_features?: string[];
     plan_feature_matrix?: Record<string, string[]>;
+    fnb_mode?: "integrated" | "standalone" | "off";
   };
 };
 
@@ -51,6 +52,7 @@ type AdminBootstrapState = {
   tenantCategory: string;
   tenantSlug: string;
   growthVisible: boolean;
+  fnbMode: "integrated" | "standalone" | "off";
   currentWorkspace: WorkspaceSummary | null;
   workspaces: WorkspaceSummary[];
   trialInfo: TrialInfo | null;
@@ -64,6 +66,7 @@ const initialState: AdminBootstrapState = {
   tenantCategory: "",
   tenantSlug: "",
   growthVisible: false,
+  fnbMode: "integrated",
   currentWorkspace: null,
   workspaces: [],
   trialInfo: null,
@@ -118,6 +121,11 @@ export function useAdminBootstrap() {
         tenantCategory: bootstrap.tenant?.business_category || "",
         tenantSlug: resolvedTenantSlug,
         growthVisible: Boolean(bootstrap.features?.enable_discovery_posts),
+        fnbMode:
+          bootstrap.features?.fnb_mode === "standalone" ||
+          bootstrap.features?.fnb_mode === "off"
+            ? bootstrap.features.fnb_mode
+            : "integrated",
         currentWorkspace: {
           id: bootstrap.tenant?.id || "",
           name: bootstrap.tenant?.name || tenantParam || "HUB",

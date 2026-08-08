@@ -24,6 +24,7 @@ type AdminSessionContextValue = {
   tenantSlug?: string;
   tenantCategory?: string;
   growthVisible: boolean;
+  fnbMode?: "integrated" | "standalone" | "off";
   planFeatures: string[];
   planFeatureMatrix: Record<string, string[]>;
   currentWorkspace?: WorkspaceSummary | null;

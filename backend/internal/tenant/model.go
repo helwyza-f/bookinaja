@@ -444,6 +444,7 @@ type AdminBootstrapFeatures struct {
 	EnableDiscoveryPosts bool                `json:"enable_discovery_posts"`
 	PlanFeatures         []string            `json:"plan_features,omitempty"`
 	PlanFeatureMatrix    map[string][]string `json:"plan_feature_matrix,omitempty"`
+	FnbMode              string              `json:"fnb_mode"`
 }
 
 type AdminBootstrapResponse struct {

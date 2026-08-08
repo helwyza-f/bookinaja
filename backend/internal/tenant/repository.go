@@ -1195,6 +1195,16 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	return &t, nil
 }
 
+// GetTenantFnbMode mengambil mode F&B (integrated/standalone/off) dari
+// booking_form_config JSONB tenant. Kosong berarti belum di-set.
+func (r *Repository) GetTenantFnbMode(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var mode string
+	err := r.db.GetContext(ctx, &mode,
+		`SELECT COALESCE(booking_form_config->>'fnb_mode', '') FROM tenants WHERE id = $1`,
+		tenantID)
+	return mode, err
+}
+
 func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {
 	type row struct {
 		UserID               uuid.UUID      `db:"user_id"`

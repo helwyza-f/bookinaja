@@ -69,6 +69,7 @@ export function MobileNav({
     tenantName,
     currentWorkspace,
     trialInfo,
+    fnbMode,
   } = useAdminSession();
   const userData = (user as MobileUser | null) ?? null;
   const simpleOwnerMode = userData?.role === "owner";
@@ -76,10 +77,11 @@ export function MobileNav({
   const items = useMemo<AdminNavItem[]>(() => {
     const source = mode === "settings" ? [] : operationalNavItems;
     return source.filter((item) => {
+      if (item.href === "/admin/pos/menu" && fnbMode !== "standalone") return false;
       if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
       return canAccessAdminRoute(item.href, userData);
     });
-  }, [mode, simpleOwnerMode, userData]);
+  }, [fnbMode, mode, simpleOwnerMode, userData]);
   const operationalHrefs = useMemo(
     () => operationalNavItems.map((item) => item.href),
     [],

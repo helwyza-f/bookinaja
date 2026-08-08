@@ -59,6 +59,7 @@ export default function DashboardInternalLayout({
     tenantCategory,
     tenantSlug,
     growthVisible,
+    fnbMode,
     currentWorkspace,
     workspaces,
     trialInfo,
@@ -107,13 +108,14 @@ export default function DashboardInternalLayout({
       tenantSlug,
       tenantCategory,
       growthVisible,
+      fnbMode,
       planFeatures: user?.plan_features || [],
       planFeatureMatrix: user?.plan_feature_matrix || {},
       currentWorkspace,
       workspaces,
       trialInfo,
     }),
-    [currentWorkspace, growthVisible, tenantCategory, tenantName, tenantSlug, trialInfo, user, workspaces],
+    [currentWorkspace, fnbMode, growthVisible, tenantCategory, tenantName, tenantSlug, trialInfo, user, workspaces],
   );
 
   if (status === "loading") {
