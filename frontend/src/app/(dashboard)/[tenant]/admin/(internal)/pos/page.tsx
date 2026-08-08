@@ -27,6 +27,7 @@ import {
   ShoppingCart,
   Minus,
   Package2,
+  UtensilsCrossed,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ import {
   type POSSessionDetail,
 } from "@/components/pos/pos-control-hub";
 import type { FnBMenuItem } from "@/components/pos/fnb-catalog-dialog";
+import { PosMenuCashier } from "@/components/pos/pos-menu-cashier";
 import { format, differenceInMinutes } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
@@ -579,6 +581,8 @@ export default function POSPage() {
   const [draftResourceId, setDraftResourceId] = useState<string>("");
   const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
   const [directSaleSearch, setDirectSaleSearch] = useState("");
+  const [fnbMode, setFnbMode] = useState<"integrated" | "standalone" | "off">("integrated");
+  const [menuCashierOpen, setMenuCashierOpen] = useState(false);
   const lastRealtimeToastRef = useRef<string>("");
 
   const canReadPos = hasPermission(adminUser, "pos.read");
@@ -602,10 +606,11 @@ export default function POSPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [actionsRes, menuRes, catalogRes] = await Promise.allSettled([
+      const [actionsRes, menuRes, catalogRes, profileRes] = await Promise.allSettled([
         canReadPos ? api.get("/pos/action-feed", { params: { window_minutes: 360, limit: 80 } }) : Promise.resolve(null),
         canReadFnb ? api.get("/fnb") : Promise.resolve(null),
         canReadPos ? api.get("/admin/resources/pos-catalog") : Promise.resolve(null),
+        api.get("/admin/profile"),
       ]);
 
       setActions(
@@ -615,6 +620,13 @@ export default function POSPage() {
       setPosCatalog(
         catalogRes.status === "fulfilled" ? catalogRes.value?.data?.items || [] : [],
       );
+      if (profileRes.status === "fulfilled") {
+        const cfg = profileRes.value?.data?.booking_form_config;
+        const mode = cfg?.fnb_mode;
+        setFnbMode(
+          mode === "standalone" || mode === "off" ? mode : "integrated",
+        );
+      }
     } catch {
       toast.error("Gagal sinkronisasi daftar tindakan");
     } finally {
@@ -1032,6 +1044,15 @@ export default function POSPage() {
               <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", loading && "animate-spin")} />
               Refresh
             </Button>
+            {fnbMode === "standalone" && canSettleCash && canReadFnb ? (
+              <Button
+                onClick={() => setMenuCashierOpen(true)}
+                className="h-10 rounded-lg bg-amber-500 px-4 text-xs font-semibold text-white hover:bg-amber-600"
+              >
+                <UtensilsCrossed className="mr-1.5 h-3.5 w-3.5" />
+                Kasir Menu
+              </Button>
+            ) : null}
             {canCreateDirectSale && directSaleResources.length > 0 ? (
               <Button
                 onClick={() => {
@@ -1567,6 +1588,13 @@ export default function POSPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PosMenuCashier
+        open={menuCashierOpen}
+        onOpenChange={setMenuCashierOpen}
+        menuItems={menuItems}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
