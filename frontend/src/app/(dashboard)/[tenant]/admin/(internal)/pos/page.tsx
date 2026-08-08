@@ -354,6 +354,8 @@ function ActionLane({
   onOpen,
   emptyTitle,
   emptyDescription,
+  variant = "stack",
+  accent = "slate",
 }: {
   title: string;
   description: string;
@@ -364,7 +366,49 @@ function ActionLane({
   onOpen: (item: POSFeedItem) => void;
   emptyTitle: string;
   emptyDescription: string;
+  variant?: "stack" | "column";
+  accent?: "amber" | "emerald" | "blue" | "slate";
 }) {
+  const dot =
+    accent === "amber"
+      ? "bg-amber-500"
+      : accent === "emerald"
+        ? "bg-emerald-500"
+        : accent === "blue"
+          ? "bg-[var(--bookinaja-500)]"
+          : "bg-slate-400";
+
+  if (variant === "column") {
+    return (
+      <section className="flex min-h-[120px] flex-col rounded-2xl border border-slate-200 bg-slate-50/60 dark:border-white/10 dark:bg-white/[0.02]">
+        <div className="flex items-center gap-2 border-b border-slate-200/70 px-3.5 py-3 dark:border-white/10">
+          <span className={cn("h-2 w-2 shrink-0 rounded-full", dot)} />
+          <h2 className="text-sm font-semibold text-slate-950 dark:text-white">{title}</h2>
+          <span className="ml-auto rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            {items.length}
+          </span>
+        </div>
+        <div className="flex flex-1 flex-col gap-2.5 p-3">
+          {items.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 px-3 py-8 text-center text-xs text-slate-400 dark:border-white/10">
+              {emptyTitle || "Kosong"}
+            </div>
+          ) : (
+            items.map((item) => (
+              <ActionCard
+                key={`${item.kind}:${item.id}`}
+                item={item}
+                now={now}
+                isSelected={selectedKey === `${item.kind}:${item.id}`}
+                onOpen={() => onOpen(item)}
+              />
+            ))
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -1111,40 +1155,48 @@ export default function POSPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          <ActionLane
-            title="Prioritas sekarang"
-            description="Buka bagian ini dulu untuk verifikasi bayar, order langsung, dan booking yang perlu pelunasan."
-            badge={`${operationalLanes.priority.length} tindakan`}
-            items={operationalLanes.priority}
-            now={now}
-            selectedKey={selectedKey}
-            onOpen={(item) => void openActionDetail(item)}
-            emptyTitle="Tidak ada prioritas mendesak"
-            emptyDescription="Verifikasi pembayaran, direct sale terbuka, dan pelunasan booking sedang bersih."
-          />
-          <ActionLane
-            title="Sesi berjalan"
-            description="Pantau sesi yang sedang aktif, lalu masuk untuk extend, tambah order, atau tutup sesi."
-            badge={`${operationalLanes.active.length} sesi`}
-            items={operationalLanes.active}
-            now={now}
-            selectedKey={selectedKey}
-            onOpen={(item) => void openActionDetail(item)}
-            emptyTitle="Belum ada sesi aktif"
-            emptyDescription="Saat sesi mulai berjalan, kartunya akan muncul di sini."
-          />
-          <ActionLane
-            title="Siap mulai"
-            description="Booking yang sebentar lagi mulai dipisah di sini supaya operator bisa prepare lebih cepat."
-            badge={`${operationalLanes.upcoming.length} booking`}
-            items={operationalLanes.upcoming}
-            now={now}
-            selectedKey={selectedKey}
-            onOpen={(item) => void openActionDetail(item)}
-            emptyTitle="Tidak ada booking dekat waktu mulai"
-            emptyDescription="Antrian booking terdekat akan muncul di bagian ini."
-          />
+        <div className="space-y-4">
+          <div className="grid gap-3 lg:grid-cols-3">
+            <ActionLane
+              variant="column"
+              accent="amber"
+              title="Perlu tindakan"
+              description=""
+              badge={`${operationalLanes.priority.length}`}
+              items={operationalLanes.priority}
+              now={now}
+              selectedKey={selectedKey}
+              onOpen={(item) => void openActionDetail(item)}
+              emptyTitle="Tidak ada prioritas"
+              emptyDescription=""
+            />
+            <ActionLane
+              variant="column"
+              accent="emerald"
+              title="Sedang berjalan"
+              description=""
+              badge={`${operationalLanes.active.length}`}
+              items={operationalLanes.active}
+              now={now}
+              selectedKey={selectedKey}
+              onOpen={(item) => void openActionDetail(item)}
+              emptyTitle="Belum ada sesi aktif"
+              emptyDescription=""
+            />
+            <ActionLane
+              variant="column"
+              accent="blue"
+              title="Siap mulai"
+              description=""
+              badge={`${operationalLanes.upcoming.length}`}
+              items={operationalLanes.upcoming}
+              now={now}
+              selectedKey={selectedKey}
+              onOpen={(item) => void openActionDetail(item)}
+              emptyTitle="Tidak ada booking dekat"
+              emptyDescription=""
+            />
+          </div>
           {operationalLanes.backlog.length > 0 ? (
             <ActionLane
               title="Lainnya"
