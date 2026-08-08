@@ -448,18 +448,21 @@ func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID)
 		LIMIT 1`, tenantID)
 	if err == sql.ErrNoRows {
 		now := time.Now().UTC()
+		// Default: tanpa DP (bayar di tempat / cash). DP baru diaktifkan tenant
+		// setelah menyiapkan metode pembayaran online. 40% dipakai sebagai
+		// nilai awal kalau nanti DP dinyalakan.
 		setting = TenantDepositSetting{
 			TenantID:     tenantID,
-			PaymentMode:  PaymentModePartial,
-			DPEnabled:    true,
+			PaymentMode:  PaymentModeNone,
+			DPEnabled:    false,
 			DPPercentage: 40,
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
 		if _, insertErr := r.db.ExecContext(ctx, `
 			INSERT INTO tenant_deposit_settings (tenant_id, payment_mode, dp_enabled, dp_percentage, created_at, updated_at)
-			VALUES ($1, 'partial', $2, $3, NOW(), NOW())
-			ON CONFLICT (tenant_id) DO NOTHING`, tenantID, true, 40); insertErr != nil {
+			VALUES ($1, 'none', $2, $3, NOW(), NOW())
+			ON CONFLICT (tenant_id) DO NOTHING`, tenantID, false, 40); insertErr != nil {
 			return nil, insertErr
 		}
 	} else if err != nil {
@@ -993,7 +996,7 @@ func (r *Repository) PaymentSetupSignals(ctx context.Context, tenantID uuid.UUID
 			(
 				COALESCE(
 					(SELECT ds.payment_mode FROM tenant_deposit_settings ds WHERE ds.tenant_id = $1),
-					'partial'
+					'none'
 				) IN ('partial', 'full')
 				OR EXISTS(
 					SELECT 1 FROM tenant_resource_deposit_overrides o

@@ -57,7 +57,7 @@ const stepTitles: Record<string, { title: string; subtitle: string; action: stri
   },
   payments: {
     title: "Aktifkan metode pembayaran.",
-    subtitle: "Default-nya payment gateway otomatis (QRIS, kartu, e-wallet) dan cash sudah siap. Tambahkan transfer atau QRIS static hanya kalau memang mau langsung dipakai.",
+    subtitle: "Default-nya cash / bayar di tempat sudah siap — booking langsung jalan. Pembayaran online (DP) opsional: hubungkan payment gateway sendiri atau isi transfer/QRIS kalau mau.",
     action: "Masuk dashboard",
   },
 };
@@ -948,9 +948,10 @@ function PaymentStep(props: {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
-          Payment gateway otomatis dan cash sudah aktif.
-          <span className="font-semibold text-slate-950"> Transfer manual</span> dan
-          <span className="font-semibold text-slate-950"> QRIS static</span> opsional.
+          Cash / bayar di tempat sudah aktif — kamu bisa langsung terima booking.
+          Untuk terima <span className="font-semibold text-slate-950">pembayaran online (DP)</span>,
+          hubungkan <span className="font-semibold text-slate-950">payment gateway</span> sendiri
+          atau isi <span className="font-semibold text-slate-950">transfer / QRIS</span>.
         </div>
 
         <div className="lg:hidden">
@@ -981,15 +982,15 @@ function PaymentStep(props: {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <PaymentMethodCard
-              title="Payment Gateway"
-              description="QRIS, kartu & e-wallet · default"
+              title="Cash / Bayar di tempat"
+              description="Aktif · default"
               status="active"
               locked
             />
             <PaymentMethodCard
-              title="Cash / Bayar di tempat"
-              description="Default"
-              status="active"
+              title="Payment Gateway"
+              description="Hubungkan gateway sendiri · opsional"
+              status="off"
               locked
             />
             <PaymentMethodCard
@@ -1131,8 +1132,8 @@ function PaymentStep(props: {
               </div>
             </div>
             <div className="space-y-2 text-sm">
-              <PaymentPreviewLine label="Payment Gateway" status="active" />
-              <PaymentPreviewLine label="Cash" status="active" />
+              <PaymentPreviewLine label="Cash / Bayar di tempat" status="active" />
+              <PaymentPreviewLine label="Payment Gateway" status="off" />
               <PaymentPreviewLine label={`Transfer bank${props.bankName ? ` (${props.bankName})` : ""}`} status={bankStatus} />
               <PaymentPreviewLine label="QRIS static" status={qrisStatus} />
             </div>
