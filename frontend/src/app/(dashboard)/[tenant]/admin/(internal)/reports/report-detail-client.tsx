@@ -100,8 +100,8 @@ const configs: Record<ReportKind, ReportConfig> = {
 const formatIDR = (value?: number) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
 const sourceLabels: Record<string, string> = {
-  booking_payment: "Booking Midtrans",
-  sales_order_payment: "POS Midtrans",
+  booking_payment: "Booking",
+  sales_order_payment: "Menu / POS",
   refund: "Pengembalian dana",
   payout: "Pencairan",
   adjustment: "Penyesuaian",
@@ -223,6 +223,8 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
   const hasStatusFilter = kind === "revenue" || kind === "transactions" || kind === "ledger" || kind === "midtrans";
   const hasMethodFilter = kind !== "customers";
   const hasSourceFilter = kind === "ledger";
+  // "Buku" — pemisahan pendapatan Booking vs Menu/POS untuk laporan transaksi.
+  const hasBookFilter = kind === "transactions";
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
 
   const updateFilter = (patch: Partial<ReportFilters>) => {
@@ -333,12 +335,43 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
             className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
           >
             <option value="all">Semua sumber</option>
-            <option value="booking_payment">Booking Midtrans</option>
-            <option value="sales_order_payment">POS Midtrans</option>
+            <option value="booking_payment">Booking</option>
+            <option value="sales_order_payment">Menu / POS</option>
             <option value="refund">Pengembalian dana</option>
             <option value="payout">Pencairan</option>
             <option value="adjustment">Penyesuaian</option>
           </select>
+        ) : null}
+        {hasBookFilter ? (
+          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/[0.03]">
+            {(
+              [
+                { value: "all", label: "Semua", dot: "" },
+                { value: "booking_payment", label: "Booking", dot: "#2563eb" },
+                { value: "sales_order_payment", label: "Menu", dot: "#d97a12" },
+              ] as const
+            ).map((opt) => {
+              const active = filters.source === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => updateFilter({ source: opt.value })}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                    active
+                      ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-white",
+                  )}
+                >
+                  {opt.dot ? (
+                    <span className="h-2 w-2 rounded-full" style={{ background: opt.dot }} />
+                  ) : null}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         ) : null}
       </Card>
 
