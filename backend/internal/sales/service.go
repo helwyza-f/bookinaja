@@ -173,6 +173,32 @@ func (s *Service) CreateMenuOrder(ctx context.Context, tenantID uuid.UUID, creat
 	return s.repo.GetByID(ctx, tenantID, order.ID)
 }
 
+// CreateDirectOrder membuat order direct-sale (Produk/Rental) dalam satu panggilan
+// dari kasir general: buat order untuk resource direct-sale lalu tambahkan item.
+// Harga di-snapshot server-side lewat AddItem. Masuk buku direct_sale.
+func (s *Service) CreateDirectOrder(ctx context.Context, tenantID uuid.UUID, createdByUserID *uuid.UUID, input CreateDirectOrderInput) (*Order, error) {
+	if len(input.Items) == 0 {
+		return nil, errors.New("keranjang masih kosong")
+	}
+	order, err := s.CreateOrder(ctx, tenantID, createdByUserID, CreateOrderInput{
+		ResourceID: input.ResourceID,
+		CustomerID: input.CustomerID,
+		Notes:      strings.TrimSpace(input.Notes),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range input.Items {
+		if _, err := s.AddItem(ctx, tenantID, order.ID, AddItemInput{
+			ResourceItemID: line.ResourceItemID,
+			Quantity:       line.Quantity,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetByID(ctx, tenantID, order.ID)
+}
+
 func (s *Service) CreatePublicOrder(ctx context.Context, input CreatePublicOrderInput) (*Order, *customer.Customer, error) {
 	resourceID, err := uuid.Parse(strings.TrimSpace(input.ResourceID))
 	if err != nil {

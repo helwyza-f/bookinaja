@@ -94,6 +94,21 @@ type CreateMenuOrderInput struct {
 	Items      []MenuOrderItemInput `json:"items"`
 }
 
+// DirectOrderItemInput adalah baris keranjang kasir Produk/Rental.
+type DirectOrderItemInput struct {
+	ResourceItemID string `json:"resource_item_id"`
+	Quantity       int    `json:"quantity"`
+}
+
+// CreateDirectOrderInput membuat sales order direct-sale (Produk/Rental) dalam
+// satu panggilan dari kasir general.
+type CreateDirectOrderInput struct {
+	ResourceID string                 `json:"resource_id"`
+	CustomerID string                 `json:"customer_id"`
+	Notes      string                 `json:"notes"`
+	Items      []DirectOrderItemInput `json:"items"`
+}
+
 type CheckoutInput struct {
 	PaymentMethod string `json:"payment_method"`
 	Notes         string `json:"notes"`

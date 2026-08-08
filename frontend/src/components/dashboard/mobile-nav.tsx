@@ -77,7 +77,7 @@ export function MobileNav({
   const items = useMemo<AdminNavItem[]>(() => {
     const source = mode === "settings" ? [] : operationalNavItems;
     return source.filter((item) => {
-      if (item.href === "/admin/pos/menu" && fnbMode !== "standalone") return false;
+      if (item.href === "/admin/kasir" && fnbMode !== "standalone") return false;
       if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
       return canAccessAdminRoute(item.href, userData);
     });

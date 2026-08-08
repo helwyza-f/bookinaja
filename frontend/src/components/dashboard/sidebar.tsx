@@ -65,7 +65,7 @@ export function Sidebar({
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
   const visibleOperationalItems = operationalNavItems.filter((item) => {
     // Kasir Menu hanya muncul saat mode F&B = standalone (buku terpisah).
-    if (item.href === "/admin/pos/menu" && fnbMode !== "standalone") return false;
+    if (item.href === "/admin/kasir" && fnbMode !== "standalone") return false;
     if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
     return hasAccess(item.href);
   });

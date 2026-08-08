@@ -108,6 +108,28 @@ func (h *Handler) CreateMenuOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, order)
 }
 
+// CreateDirectOrder membuat order Produk/Rental (direct-sale) dari kasir general.
+func (h *Handler) CreateDirectOrder(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+
+	var req CreateDirectOrderInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+
+	order, err := h.service.CreateDirectOrder(c.Request.Context(), tenantID, userIDFromContext(c), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, order)
+}
+
 func (h *Handler) PublicCreate(c *gin.Context) {
 	var req CreatePublicOrderInput
 	if err := c.ShouldBindJSON(&req); err != nil {
