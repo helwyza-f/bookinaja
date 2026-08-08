@@ -600,6 +600,8 @@ type Tenant struct {
 	PayoutAccountNumber string     `db:"payout_account_number" json:"payout_account_number"`
 	PayoutWhatsApp      string     `db:"payout_whatsapp" json:"payout_whatsapp"`
 
+	PaymentSetupSnoozedAt *time.Time `db:"payment_setup_snoozed_at" json:"payment_setup_snoozed_at,omitempty"`
+
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
