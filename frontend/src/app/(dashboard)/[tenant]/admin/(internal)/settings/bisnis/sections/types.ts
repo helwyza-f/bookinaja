@@ -39,6 +39,7 @@ export type TenantProfile = {
     sticky_mobile_cta?: boolean;
     show_whatsapp_help?: boolean;
     whatsapp_label?: string;
+    fnb_mode?: "integrated" | "standalone" | "off";
     controller_features?: {
       enable_fnb?: boolean;
       enable_addons?: boolean;
@@ -81,6 +82,7 @@ export const defaultTenantProfile: TenantProfile = {
   promo_starts_at: null,
   promo_ends_at: null,
   booking_form_config: {
+    fnb_mode: "integrated",
     controller_features: {
       enable_fnb: true,
       enable_addons: true,

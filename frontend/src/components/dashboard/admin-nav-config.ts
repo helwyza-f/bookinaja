@@ -146,6 +146,13 @@ export const settingsNavItems: AdminNavItem[] = [
     group: "growth",
   },
   {
+    label: "Mode F&B",
+    href: "/admin/settings/menu",
+    icon: Utensils,
+    hint: "Nyatu / terpisah / off",
+    group: "ops",
+  },
+  {
     label: "Smart Point",
     href: "/admin/settings/smart-point",
     icon: Radio,

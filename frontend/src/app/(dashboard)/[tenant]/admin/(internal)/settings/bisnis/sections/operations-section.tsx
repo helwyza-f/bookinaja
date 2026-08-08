@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Palette } from "lucide-react";
+import Link from "next/link";
+import { Clock, Palette, UtensilsCrossed, ArrowUpRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { SectionShell } from "./section-shell";
 import type { SectionProps } from "./types";
 
@@ -14,14 +14,10 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
     close_time: profile.close_time || "21:00",
     timezone: profile.timezone || "Asia/Jakarta",
     primary_color: profile.primary_color || "#3b82f6",
+    // Pertahankan config (fnb_mode & controller_features) apa adanya — dikelola
+    // di Settings → Mode F&B, jangan sampai tertimpa saat simpan bagian ini.
     booking_form_config: {
       ...(profile.booking_form_config || {}),
-      controller_features: {
-        enable_fnb:
-          profile.booking_form_config?.controller_features?.enable_fnb ?? true,
-        enable_addons:
-          profile.booking_form_config?.controller_features?.enable_addons ?? true,
-      },
     },
   });
   const [editing, setEditing] = useState(false);
@@ -34,20 +30,14 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
       primary_color: profile.primary_color || "#3b82f6",
       booking_form_config: {
         ...(profile.booking_form_config || {}),
-        controller_features: {
-          enable_fnb:
-            profile.booking_form_config?.controller_features?.enable_fnb ?? true,
-          enable_addons:
-            profile.booking_form_config?.controller_features?.enable_addons ?? true,
-        },
       },
     });
   };
 
   return (
     <SectionShell
-      title="Controller, Jam Operasional, & Brand"
-      description="Atur fitur controller, jam operasional, timezone, dan warna utama tenant."
+      title="Jam Operasional & Brand"
+      description="Atur jam operasional, timezone, dan warna utama tenant."
       icon={Clock}
       saving={saving}
       editing={editing}
@@ -66,8 +56,6 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
           closeTime={profile.close_time}
           timezone={profile.timezone}
           primaryColor={profile.primary_color}
-          enableFnb={profile.booking_form_config?.controller_features?.enable_fnb ?? true}
-          enableAddons={profile.booking_form_config?.controller_features?.enable_addons ?? true}
         />
       }
     >
@@ -102,42 +90,26 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
         </Field>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <ToggleRow
-          title="Fitur F&B di controller"
-          description="Kalau dimatikan, menu F&B tidak muncul di controller live, POS, atau history booking."
-          checked={draft.booking_form_config.controller_features.enable_fnb}
-          onCheckedChange={(checked) =>
-            setDraft((current) => ({
-              ...current,
-              booking_form_config: {
-                ...current.booking_form_config,
-                controller_features: {
-                  ...current.booking_form_config.controller_features,
-                  enable_fnb: checked,
-                },
-              },
-            }))
-          }
-        />
-        <ToggleRow
-          title="Fitur add-on di controller"
-          description="Kalau dimatikan, add-on tambahan tidak bisa dipesan saat sesi berjalan dan tidak muncul di history controller."
-          checked={draft.booking_form_config.controller_features.enable_addons}
-          onCheckedChange={(checked) =>
-            setDraft((current) => ({
-              ...current,
-              booking_form_config: {
-                ...current.booking_form_config,
-                controller_features: {
-                  ...current.booking_form_config.controller_features,
-                  enable_addons: checked,
-                },
-              },
-            }))
-          }
-        />
-      </div>
+      <Link
+        href="/admin/settings/menu"
+        className="mt-5 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 transition-colors hover:border-blue-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-500/40"
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+            <UtensilsCrossed className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">Fitur F&B &amp; add-on</p>
+            <p className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              Pengaturan menu (nyatu / terpisah / off) &amp; add-on sekarang ada di halaman khusus.
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-blue-600 dark:text-blue-300">
+          Mode F&B
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </span>
+      </Link>
     </SectionShell>
   );
 }
@@ -147,23 +119,17 @@ function OperationsPreview({
   closeTime,
   timezone,
   primaryColor,
-  enableFnb,
-  enableAddons,
 }: {
   openTime?: string;
   closeTime?: string;
   timezone?: string;
   primaryColor?: string;
-  enableFnb: boolean;
-  enableAddons: boolean;
 }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <PreviewChip label="Jam" ready={Boolean(openTime && closeTime)} />
         <PreviewChip label="Timezone" ready={Boolean(timezone)} />
-        <PreviewChip label="F&B" ready={enableFnb} value={enableFnb ? "Aktif" : "Nonaktif"} />
-        <PreviewChip label="Add-on" ready={enableAddons} value={enableAddons ? "Aktif" : "Nonaktif"} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-white/[0.03]">
@@ -229,26 +195,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ToggleRow({
-  title,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  title: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-950 dark:text-white">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-          {description}
-        </p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
-}
