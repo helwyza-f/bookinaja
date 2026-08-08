@@ -970,6 +970,53 @@ func (r *Repository) ListPaymentMethods(ctx context.Context, tenantID uuid.UUID)
 	return items, err
 }
 
+// PaymentSetupSignals mengumpulkan sinyal untuk nudge setup pembayaran online:
+// apakah tenant sudah punya gateway BYO yang siap pakai, apakah tenant memang
+// berniat menagih di muka (payment_mode partial/full — default atau override),
+// dan kapan terakhir owner menunda pengingatnya.
+type PaymentSetupSignals struct {
+	GatewayUsable  bool       `db:"gateway_usable"`
+	IntendsUpfront bool       `db:"intends_upfront"`
+	SnoozedAt      *time.Time `db:"snoozed_at"`
+}
+
+func (r *Repository) PaymentSetupSignals(ctx context.Context, tenantID uuid.UUID) (PaymentSetupSignals, error) {
+	var out PaymentSetupSignals
+	err := r.db.GetContext(ctx, &out, `
+		SELECT
+			EXISTS(
+				SELECT 1 FROM tenant_payment_gateways g
+				WHERE g.tenant_id = $1
+				  AND g.status = 'verified'
+				  AND g.server_key_enc IS NOT NULL
+			) AS gateway_usable,
+			(
+				COALESCE(
+					(SELECT ds.payment_mode FROM tenant_deposit_settings ds WHERE ds.tenant_id = $1),
+					'partial'
+				) IN ('partial', 'full')
+				OR EXISTS(
+					SELECT 1 FROM tenant_resource_deposit_overrides o
+					WHERE o.tenant_id = $1
+					  AND o.override_dp
+					  AND o.payment_mode IN ('partial', 'full')
+				)
+			) AS intends_upfront,
+			t.payment_setup_snoozed_at AS snoozed_at
+		FROM tenants t
+		WHERE t.id = $1`,
+		tenantID,
+	)
+	return out, err
+}
+
+// SnoozePaymentSetup mencatat waktu owner menunda nudge setup pembayaran.
+func (r *Repository) SnoozePaymentSetup(ctx context.Context, tenantID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE tenants SET payment_setup_snoozed_at = NOW() WHERE id = $1`, tenantID)
+	return err
+}
+
 func (r *Repository) ReplacePaymentMethods(ctx context.Context, tenantID uuid.UUID, items []TenantPaymentMethod) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {

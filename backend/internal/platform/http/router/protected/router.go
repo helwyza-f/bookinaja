@@ -168,6 +168,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.PUT("/payment-methods", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdatePaymentMethods)
 					ownerAdmin.GET("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.GetDepositSettings)
 					ownerAdmin.PUT("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdateDepositSettings)
+					ownerAdmin.GET("/payment-setup/status", cfg.TenantHandler.GetPaymentSetupStatus)
+					ownerAdmin.POST("/payment-setup/snooze", cfg.TenantHandler.SnoozePaymentSetup)
 					if cfg.PaymentGatewayHandler != nil {
 						ownerAdmin.GET("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Get)
 						ownerAdmin.PUT("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Save)

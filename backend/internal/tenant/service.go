@@ -2984,6 +2984,88 @@ func (s *Service) GetPaymentMethods(ctx context.Context, id uuid.UUID) ([]Tenant
 	return seed, nil
 }
 
+// paymentSetupSnoozeWindow: berapa lama modal nudge disembunyikan setelah owner
+// menekan "nanti saja". Setelah lewat, pengingat boleh muncul lagi.
+const paymentSetupSnoozeWindow = 7 * 24 * time.Hour
+
+// PaymentSetupStatus merangkum apakah tenant siap menerima pembayaran online.
+type PaymentSetupStatus struct {
+	// NeedsSetup: berniat menagih di muka tapi belum ada jalur online usable.
+	NeedsSetup bool `json:"needs_setup"`
+	// ShowModal: NeedsSetup dan belum di-snooze dalam window terakhir.
+	ShowModal      bool `json:"show_modal"`
+	IntendsUpfront bool `json:"intends_upfront"`
+	HasOnline      bool `json:"has_online"`
+	GatewayUsable  bool `json:"gateway_usable"`
+	ManualUsable   bool `json:"manual_usable"`
+}
+
+// manualMethodUsable menilai apakah sebuah metode manual benar-benar siap
+// dipakai customer (bukan sekadar aktif). Transfer bank butuh detail rekening;
+// QRIS statis butuh gambar QR. Cash tidak dihitung sebagai jalur online.
+func manualMethodUsable(m TenantPaymentMethod) bool {
+	if !m.IsActive {
+		return false
+	}
+	meta := map[string]string{}
+	if len(m.Metadata) > 0 {
+		_ = json.Unmarshal(m.Metadata, &meta)
+	}
+	filled := func(k string) bool { return strings.TrimSpace(meta[k]) != "" }
+	switch m.Code {
+	case "bank_transfer":
+		return filled("bank_name") && filled("account_name") && filled("account_number")
+	case "qris_static":
+		return filled("qr_image_url")
+	default:
+		return false
+	}
+}
+
+// PaymentSetupStatus mengecek kesiapan tenant menerima pembayaran online.
+func (s *Service) PaymentSetupStatus(ctx context.Context, id uuid.UUID) (*PaymentSetupStatus, error) {
+	methods, err := s.GetPaymentMethods(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	manualUsable := false
+	for _, m := range methods {
+		if manualMethodUsable(m) {
+			manualUsable = true
+			break
+		}
+	}
+
+	signals, err := s.repo.PaymentSetupSignals(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	hasOnline := manualUsable || signals.GatewayUsable
+	needsSetup := signals.IntendsUpfront && !hasOnline
+
+	showModal := needsSetup
+	if showModal && signals.SnoozedAt != nil {
+		if time.Since(*signals.SnoozedAt) < paymentSetupSnoozeWindow {
+			showModal = false
+		}
+	}
+
+	return &PaymentSetupStatus{
+		NeedsSetup:     needsSetup,
+		ShowModal:      showModal,
+		IntendsUpfront: signals.IntendsUpfront,
+		HasOnline:      hasOnline,
+		GatewayUsable:  signals.GatewayUsable,
+		ManualUsable:   manualUsable,
+	}, nil
+}
+
+// SnoozePaymentSetup menunda nudge setup pembayaran (tombol "nanti saja").
+func (s *Service) SnoozePaymentSetup(ctx context.Context, id uuid.UUID) error {
+	return s.repo.SnoozePaymentSetup(ctx, id)
+}
+
 func (s *Service) GetDepositSettings(ctx context.Context, id uuid.UUID) (*TenantDepositSetting, error) {
 	return s.repo.GetDepositSettings(ctx, id)
 }

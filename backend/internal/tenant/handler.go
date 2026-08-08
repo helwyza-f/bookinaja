@@ -822,6 +822,38 @@ func (h *Handler) GetPaymentMethods(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+// GetPaymentSetupStatus dipakai dashboard untuk memutuskan apakah nudge setup
+// pembayaran online perlu ditampilkan.
+func (h *Handler) GetPaymentSetupStatus(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	status, err := h.service.PaymentSetupStatus(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa kesiapan pembayaran"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": status})
+}
+
+// SnoozePaymentSetup menunda nudge ("nanti saja") dari modal dashboard.
+func (h *Handler) SnoozePaymentSetup(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	if err := h.service.SnoozePaymentSetup(c.Request.Context(), tID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menunda pengingat"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func (h *Handler) GetDepositSettings(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {

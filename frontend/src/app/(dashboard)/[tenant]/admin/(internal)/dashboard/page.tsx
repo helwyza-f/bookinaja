@@ -53,6 +53,7 @@ import {
 import { toast } from "sonner";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { PaymentSetupNudge } from "@/components/dashboard/payment-setup-nudge";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import {
   AdminSurfaceEmpty,
@@ -1271,6 +1272,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-5">
+      {ownerOnly ? <PaymentSetupNudge /> : null}
       <section className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-soft)]">
         <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2.5">
