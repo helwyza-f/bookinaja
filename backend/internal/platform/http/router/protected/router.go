@@ -90,6 +90,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			user.GET("/me/bookings/:id/context", cfg.ReservationHandler.GetCustomerLiveSnapshot)
 			user.GET("/me/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
 			user.POST("/me/bookings/:id/activate", cfg.ReservationHandler.CustomerActivate)
+			user.POST("/me/bookings/:id/cancel", cfg.ReservationHandler.CustomerCancel)
 			user.POST("/me/bookings/:id/complete", cfg.ReservationHandler.CustomerCompleteSession)
 			user.POST("/me/bookings/:id/upload-proof", func(c *gin.Context) {
 				upload.HandleSingleUpload(c, "payments/proofs")
@@ -127,6 +128,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			customerArea.POST("/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
 			customerArea.POST("/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
 			customerArea.POST("/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)
+			customerArea.POST("/bookings/:id/cancel", cfg.ReservationHandler.CustomerCancel)
 		}
 
 		adminArea := protected.Group("/")
@@ -168,6 +170,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.PUT("/payment-methods", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdatePaymentMethods)
 					ownerAdmin.GET("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.GetDepositSettings)
 					ownerAdmin.PUT("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdateDepositSettings)
+					ownerAdmin.GET("/cancellation-settings", cfg.TenantHandler.GetCancellationSettings)
+					ownerAdmin.PUT("/cancellation-settings", cfg.TenantHandler.UpdateCancellationSettings)
 					ownerAdmin.GET("/payment-setup/status", cfg.TenantHandler.GetPaymentSetupStatus)
 					ownerAdmin.POST("/payment-setup/snooze", cfg.TenantHandler.SnoozePaymentSetup)
 					if cfg.PaymentGatewayHandler != nil {

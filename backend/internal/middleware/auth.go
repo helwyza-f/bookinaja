@@ -410,6 +410,7 @@ func RequireBookingStatusPermission() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Status string `json:"status"`
+			Reason string `json:"reason"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -419,6 +420,7 @@ func RequireBookingStatusPermission() gin.HandlerFunc {
 		}
 
 		c.Set("bookingStatusRequest", strings.ToLower(strings.TrimSpace(req.Status)))
+		c.Set("bookingCancelReason", strings.TrimSpace(req.Reason))
 
 		var required []string
 		switch strings.ToLower(strings.TrimSpace(req.Status)) {

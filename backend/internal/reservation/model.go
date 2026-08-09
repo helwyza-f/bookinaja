@@ -39,6 +39,8 @@ type Booking struct {
 	SessionActivatedAt    *time.Time `db:"session_activated_at" json:"session_activated_at"`
 	CompletedAt           *time.Time `db:"completed_at" json:"completed_at"`
 	CancelledAt           *time.Time `db:"cancelled_at" json:"cancelled_at"`
+	CancellationReason    *string    `db:"cancellation_reason" json:"cancellation_reason,omitempty"`
+	CancelledBy           *string    `db:"cancelled_by" json:"cancelled_by,omitempty"`
 	SettledAt             *time.Time `db:"settled_at" json:"settled_at"`
 	LastStatusChangedAt   *time.Time `db:"last_status_changed_at" json:"last_status_changed_at"`
 	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
@@ -206,6 +208,15 @@ type ActorContext struct {
 	Name   string
 	Email  string
 	Role   string
+}
+
+// CancellationPolicy = kebijakan pembatalan tenant (dibaca saat customer cancel).
+type CancellationPolicy struct {
+	CustomerCancelEnabled bool   `db:"customer_cancel_enabled"`
+	CutoffHours           int    `db:"cutoff_hours"`
+	RefundMode            string `db:"refund_mode"`
+	RequireReason         bool   `db:"require_reason"`
+	AllowedStatuses       string `db:"allowed_statuses"`
 }
 
 func defaultControllerFeatures() ControllerFeatureFlags {

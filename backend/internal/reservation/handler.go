@@ -535,6 +535,34 @@ func (h *Handler) CustomerActivate(c *gin.Context) {
 	c.JSON(http.StatusOK, booking)
 }
 
+// CustomerCancel membatalkan booking dari sisi customer sesuai kebijakan tenant.
+func (h *Handler) CustomerCancel(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := optionalTenantID(c)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	booking, err := h.service.CancelForCustomer(c.Request.Context(), bookingID, tenantID, customerID, req.Reason)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
+}
+
 func (h *Handler) CustomerCompleteSession(c *gin.Context) {
 	bookingID := c.Param("id")
 	tenantID := optionalTenantID(c)
@@ -619,6 +647,12 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL UPDATE STATUS"})
 		return
+	}
+
+	// Audit + persist alasan khusus untuk pembatalan oleh admin.
+	if status == "cancelled" {
+		reason := c.GetString("bookingCancelReason")
+		h.service.RecordAdminCancellation(c.Request.Context(), id, tenantID, reason, h.adminActor(c))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIPERBARUI"})

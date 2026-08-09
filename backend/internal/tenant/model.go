@@ -410,6 +410,26 @@ type TenantDepositSettingUpdateReq struct {
 	ResourceConfigs []ResourceDepositOverrideInput `json:"resource_configs"`
 }
 
+// TenantCancellationSetting menyimpan kebijakan pembatalan per tenant.
+type TenantCancellationSetting struct {
+	TenantID              uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	CustomerCancelEnabled bool      `db:"customer_cancel_enabled" json:"customer_cancel_enabled"`
+	CutoffHours           int       `db:"cutoff_hours" json:"cutoff_hours"`
+	RefundMode            string    `db:"refund_mode" json:"refund_mode"` // forfeit | full
+	RequireReason         bool      `db:"require_reason" json:"require_reason"`
+	AllowedStatuses       string    `db:"allowed_statuses" json:"allowed_statuses"` // comma-separated
+	CreatedAt             time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt             time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type TenantCancellationSettingUpdateReq struct {
+	CustomerCancelEnabled bool   `json:"customer_cancel_enabled"`
+	CutoffHours           int    `json:"cutoff_hours"`
+	RefundMode            string `json:"refund_mode"`
+	RequireReason         bool   `json:"require_reason"`
+	AllowedStatuses       string `json:"allowed_statuses"`
+}
+
 type PageBuilderState struct {
 	Profile       *Tenant            `json:"profile"`
 	Page          LandingPageConfig  `json:"page"`

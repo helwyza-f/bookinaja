@@ -541,6 +541,49 @@ func (r *Repository) UpsertDepositSettings(ctx context.Context, tenantID uuid.UU
 	return r.GetDepositSettings(ctx, tenantID)
 }
 
+func (r *Repository) GetCancellationSettings(ctx context.Context, tenantID uuid.UUID) (*TenantCancellationSetting, error) {
+	var s TenantCancellationSetting
+	err := r.db.GetContext(ctx, &s, `
+		SELECT tenant_id, customer_cancel_enabled, cutoff_hours, refund_mode, require_reason, allowed_statuses, created_at, updated_at
+		FROM tenant_cancellation_settings
+		WHERE tenant_id = $1
+		LIMIT 1`, tenantID)
+	if err == sql.ErrNoRows {
+		if _, insertErr := r.db.ExecContext(ctx, `
+			INSERT INTO tenant_cancellation_settings (tenant_id)
+			VALUES ($1)
+			ON CONFLICT (tenant_id) DO NOTHING`, tenantID); insertErr != nil {
+			return nil, insertErr
+		}
+		return r.GetCancellationSettings(ctx, tenantID)
+	} else if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *Repository) UpsertCancellationSettings(ctx context.Context, tenantID uuid.UUID, req TenantCancellationSettingUpdateReq) (*TenantCancellationSetting, error) {
+	allowed := strings.TrimSpace(req.AllowedStatuses)
+	if allowed == "" {
+		allowed = "pending,confirmed"
+	}
+	if _, err := r.db.ExecContext(ctx, `
+		INSERT INTO tenant_cancellation_settings (tenant_id, customer_cancel_enabled, cutoff_hours, refund_mode, require_reason, allowed_statuses, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		ON CONFLICT (tenant_id) DO UPDATE
+		SET customer_cancel_enabled = EXCLUDED.customer_cancel_enabled,
+			cutoff_hours = EXCLUDED.cutoff_hours,
+			refund_mode = EXCLUDED.refund_mode,
+			require_reason = EXCLUDED.require_reason,
+			allowed_statuses = EXCLUDED.allowed_statuses,
+			updated_at = NOW()`,
+		tenantID, req.CustomerCancelEnabled, req.CutoffHours, req.RefundMode, req.RequireReason, allowed,
+	); err != nil {
+		return nil, err
+	}
+	return r.GetCancellationSettings(ctx, tenantID)
+}
+
 func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
 	var items []TenantDirectoryItem
 	cacheKey := r.getPublicTenantsCacheKey()

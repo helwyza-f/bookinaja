@@ -3078,6 +3078,22 @@ func (s *Service) GetDepositSettings(ctx context.Context, id uuid.UUID) (*Tenant
 	return s.repo.GetDepositSettings(ctx, id)
 }
 
+func (s *Service) GetCancellationSettings(ctx context.Context, id uuid.UUID) (*TenantCancellationSetting, error) {
+	return s.repo.GetCancellationSettings(ctx, id)
+}
+
+func (s *Service) UpdateCancellationSettings(ctx context.Context, id uuid.UUID, req TenantCancellationSettingUpdateReq) (*TenantCancellationSetting, error) {
+	mode := strings.ToLower(strings.TrimSpace(req.RefundMode))
+	if mode != "forfeit" && mode != "full" {
+		return nil, errors.New("refund_mode harus 'forfeit' atau 'full'")
+	}
+	req.RefundMode = mode
+	if req.CutoffHours < 0 {
+		return nil, errors.New("cutoff_hours tidak boleh negatif")
+	}
+	return s.repo.UpsertCancellationSettings(ctx, id, req)
+}
+
 func (s *Service) UpdateDepositSettings(ctx context.Context, id uuid.UUID, req TenantDepositSettingUpdateReq) (*TenantDepositSetting, error) {
 	if req.DPPercentage < 0 || req.DPPercentage > 100 {
 		return nil, errors.New("persentase DP default harus di antara 0 - 100")

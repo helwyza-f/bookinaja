@@ -1848,3 +1848,34 @@ func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID 
 
 	return &receipt, nil
 }
+
+// GetCancellationPolicy membaca kebijakan pembatalan tenant.
+// Kalau belum diset, kembalikan default (pembatalan mandiri nonaktif).
+func (r *Repository) GetCancellationPolicy(ctx context.Context, tenantID uuid.UUID) (CancellationPolicy, error) {
+	var p CancellationPolicy
+	err := r.db.GetContext(ctx, &p, `
+		SELECT customer_cancel_enabled, cutoff_hours, refund_mode, require_reason, allowed_statuses
+		FROM tenant_cancellation_settings
+		WHERE tenant_id = $1
+		LIMIT 1`, tenantID)
+	if err == sql.ErrNoRows {
+		return CancellationPolicy{RefundMode: "forfeit", AllowedStatuses: "pending,confirmed"}, nil
+	}
+	if err != nil {
+		return CancellationPolicy{}, err
+	}
+	return p, nil
+}
+
+// SetCancellationReason menyimpan alasan & pelaku pembatalan pada booking.
+func (r *Repository) SetCancellationReason(ctx context.Context, bookingID uuid.UUID, by, reason string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE bookings SET cancellation_reason = $2, cancelled_by = $3
+		WHERE id = $1`, bookingID, reason, by)
+	return err
+}
+
+// LogBookingEvent mencatat 1 event ke timeline (pakai koneksi utama).
+func (r *Repository) LogBookingEvent(ctx context.Context, input BookingEventInput) error {
+	return r.CreateBookingEvent(ctx, r.db, input)
+}

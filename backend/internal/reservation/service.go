@@ -757,6 +757,106 @@ func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, 
 	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
 }
 
+// RecordAdminCancellation menyimpan alasan + mencatat timeline saat admin
+// membatalkan booking. Non-fatal (best effort).
+func (s *Service) RecordAdminCancellation(ctx context.Context, bookingID, tenantID, reason string, actor ActorContext) {
+	bID, err := uuid.Parse(bookingID)
+	if err != nil {
+		return
+	}
+	tID, _ := uuid.Parse(tenantID)
+	trimmed := strings.TrimSpace(reason)
+	by := actor.Type
+	if by == "" {
+		by = "admin"
+	}
+	_ = s.repo.SetCancellationReason(ctx, bID, by, trimmed)
+	_ = s.repo.LogBookingEvent(ctx, BookingEventInput{
+		BookingID:   bID,
+		TenantID:    tID,
+		ActorUserID: actor.UserID,
+		ActorType:   by,
+		ActorName:   actor.Name,
+		ActorRole:   actor.Role,
+		EventType:   "booking_cancelled",
+		Title:       "Booking dibatalkan oleh admin",
+		Description: trimmed,
+		Metadata: map[string]any{
+			"cancelled_by": by,
+			"reason":       trimmed,
+		},
+	})
+}
+
+// CancelForCustomer membatalkan booking dari sisi customer, tunduk pada
+// kebijakan pembatalan tenant (aktif/tidak, status, cutoff, wajib alasan).
+func (s *Service) CancelForCustomer(ctx context.Context, bookingID, tenantID, customerID, reason string) (*BookingDetail, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	policy, err := s.repo.GetCancellationPolicy(ctx, detail.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !policy.CustomerCancelEnabled {
+		return nil, errors.New("PEMBATALAN MANDIRI TIDAK DIAKTIFKAN OLEH BISNIS")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(detail.Status))
+	allowed := false
+	for _, a := range strings.Split(policy.AllowedStatuses, ",") {
+		if strings.ToLower(strings.TrimSpace(a)) == status {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return nil, errors.New("BOOKING TIDAK BISA DIBATALKAN PADA STATUS INI")
+	}
+
+	if policy.RequireReason && strings.TrimSpace(reason) == "" {
+		return nil, errors.New("ALASAN PEMBATALAN WAJIB DIISI")
+	}
+
+	if policy.CutoffHours > 0 {
+		cutoff := detail.StartTime.Add(-time.Duration(policy.CutoffHours) * time.Hour)
+		if time.Now().UTC().After(cutoff) {
+			return nil, errors.New("SUDAH MELEWATI BATAS WAKTU PEMBATALAN")
+		}
+	}
+
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "cancelled", ActorContext{Type: "customer"}); err != nil {
+		return nil, err
+	}
+
+	// Persist alasan + catat ke timeline audit. Non-fatal kalau gagal.
+	trimmedReason := strings.TrimSpace(reason)
+	_ = s.repo.SetCancellationReason(ctx, detail.ID, "customer", trimmedReason)
+	var custPtr *uuid.UUID
+	if cid, perr := uuid.Parse(customerID); perr == nil {
+		custPtr = &cid
+	}
+	_ = s.repo.LogBookingEvent(ctx, BookingEventInput{
+		BookingID:   detail.ID,
+		TenantID:    detail.TenantID,
+		CustomerID:  custPtr,
+		ActorType:   "customer",
+		ActorName:   detail.CustomerName,
+		EventType:   "booking_cancelled",
+		Title:       "Booking dibatalkan oleh customer",
+		Description: trimmedReason,
+		Metadata: map[string]any{
+			"cancelled_by": "customer",
+			"refund_mode":  policy.RefundMode,
+			"reason":       trimmedReason,
+		},
+	})
+	// Refund diproses manual oleh admin sesuai refund_mode kebijakan.
+	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
+}
+
 func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
 	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
 	if err != nil {
