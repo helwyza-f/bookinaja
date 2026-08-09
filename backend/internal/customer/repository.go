@@ -966,10 +966,12 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 	return history, err
 }
 
-func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
+// GetTransactionHistory — riwayat booking customer DALAM SATU tenant (admin view).
+// Wajib difilter tenant_id agar tidak bocor lintas-workspace.
+func (r *Repository) GetTransactionHistory(ctx context.Context, customerID, tenantID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
 	var history []RecentHistoryDTO
 	query := `
-		SELECT 
+		SELECT
 			'booking' as kind, b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
 			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
@@ -980,9 +982,10 @@ func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.
 		JOIN resources res ON b.resource_id = res.id
 		JOIN tenants t ON t.id = b.tenant_id
 		WHERE b.customer_id = $1
+			AND b.tenant_id = $2
 		ORDER BY b.start_time DESC
-		LIMIT $2`
-	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
+		LIMIT $3`
+	err := r.db.SelectContext(ctx, &history, query, customerID, tenantID, limit)
 	return history, err
 }
 

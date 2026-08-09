@@ -1533,27 +1533,23 @@ func (s *Service) GetTransactionHistory(ctx context.Context, id, tenantID string
 	if err != nil {
 		return nil, fmt.Errorf("id customer tidak valid")
 	}
-	if strings.TrimSpace(tenantID) != "" {
-		tID, err := uuid.Parse(tenantID)
-		if err != nil {
-			return nil, fmt.Errorf("id tenant tidak valid")
-		}
-
-		cust, err := s.repo.FindByIDForTenant(ctx, cID, tID)
-		if err != nil || cust == nil {
-			return nil, fmt.Errorf("customer tidak ditemukan")
-		}
-	} else {
-		cust, err := s.repo.FindByID(ctx, cID)
-		if err != nil || cust == nil {
-			return nil, fmt.Errorf("customer tidak ditemukan")
-		}
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, fmt.Errorf("id tenant tidak valid")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("id tenant tidak valid")
+	}
+	cust, err := s.repo.FindByIDForTenant(ctx, cID, tID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("customer tidak ditemukan")
 	}
 
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	return s.repo.GetTransactionHistory(ctx, cID, limit)
+	// Riwayat WAJIB difilter per tenant — cegah kebocoran lintas-workspace.
+	return s.repo.GetTransactionHistory(ctx, cID, tID, limit)
 }
 
 func (s *Service) GetPointSummary(ctx context.Context, id, tenantID string, limit int) (*CustomerPointSummary, error) {
