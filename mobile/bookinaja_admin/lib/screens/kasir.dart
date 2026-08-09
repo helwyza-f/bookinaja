@@ -25,7 +25,9 @@ class _KasirScreenState extends State<KasirScreen> {
     final ok = await c.checkout();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(ok ? 'Order dibuat & nota tercetak' : 'Gagal membuat order'),
+      content: Text(ok
+          ? 'Order ${c.lastOrderNumber ?? ''} dibayar (cash)'
+          : (c.checkoutError ?? 'Gagal membuat order')),
       behavior: SnackBarBehavior.floating,
       backgroundColor: ok ? BK.live : BK.crit,
     ));

@@ -106,8 +106,11 @@ class CatalogRepository {
 
   List _asList(dynamic v) {
     if (v is List) return v;
-    if (v is Map && v['items'] is List) return v['items'] as List;
-    if (v is Map && v['data'] is List) return v['data'] as List;
+    if (v is Map) {
+      for (final k in ['resources', 'items', 'data']) {
+        if (v[k] is List) return v[k] as List;
+      }
+    }
     return const [];
   }
 

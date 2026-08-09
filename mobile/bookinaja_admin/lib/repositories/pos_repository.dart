@@ -18,14 +18,26 @@ class PosRepository {
     return list.whereType<Map>().map((e) => MenuItem.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
-  /// Buat order langsung (walk-in). Endpoint: POST /sales-orders/direct.
-  Future<void> createDirectOrder(List<CartLine> lines) async {
+  /// Kasir walk-in F&B: buat menu order lalu lunasi cash (cetak nota).
+  /// POST /sales-orders/menu {items:[{fnb_item_id, quantity}]}
+  /// → POST /sales-orders/:id/settle-cash {payment_method: cash}
+  /// Kembalikan order_number untuk nota.
+  Future<String> checkoutCash(List<CartLine> lines) async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      return;
+      return 'ORD-DEMO';
     }
-    await _api.post('/sales-orders/direct', body: {
-      'items': lines.map((l) => {'menu_item_id': l.item.id, 'qty': l.qty}).toList(),
+    final res = await _api.post('/sales-orders/menu', body: {
+      'items': lines.map((l) => {'fnb_item_id': l.item.id, 'quantity': l.qty}).toList(),
     });
+    final order = (res is Map && res['data'] is Map)
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
+    final id = '${order['id'] ?? ''}';
+    final orderNumber = '${order['order_number'] ?? id}';
+    if (id.isNotEmpty) {
+      await _api.post('/sales-orders/$id/settle-cash', body: {'payment_method': 'cash'});
+    }
+    return orderNumber;
   }
 }

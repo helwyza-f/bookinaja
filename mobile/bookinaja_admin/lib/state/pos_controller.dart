@@ -14,6 +14,8 @@ class PosController extends ChangeNotifier {
   final Map<String, CartLine> _cart = {};
   String category = 'Semua';
   bool submitting = false;
+  String? lastOrderNumber;
+  String? checkoutError;
 
   List<String> get categories {
     final set = {'Semua', ...(_menu.data ?? const []).map((m) => m.category)};
@@ -74,14 +76,16 @@ class PosController extends ChangeNotifier {
   Future<bool> checkout() async {
     if (_cart.isEmpty) return false;
     submitting = true;
+    checkoutError = null;
     notifyListeners();
     try {
-      await _repo.createDirectOrder(cart);
+      lastOrderNumber = await _repo.checkoutCash(cart);
       _cart.clear();
       submitting = false;
       notifyListeners();
       return true;
-    } catch (_) {
+    } catch (e) {
+      checkoutError = e.toString();
       submitting = false;
       notifyListeners();
       return false;

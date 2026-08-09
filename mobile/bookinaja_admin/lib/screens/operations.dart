@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/resource_status.dart';
+import '../models/booking.dart';
 import '../state/ops_controller.dart';
+import 'booking_detail.dart';
+import 'create_booking.dart';
 
 class OperationsScreen extends StatefulWidget {
   const OperationsScreen({super.key});
@@ -56,10 +59,17 @@ class _OperationsScreenState extends State<OperationsScreen> {
                   const SizedBox(height: 14),
                   const Text('Status resource', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
                   const SizedBox(height: 8),
-                  for (final r in list) Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _ResourceCard(r),
-                  ),
+                  if (list.isEmpty)
+                    BKCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                      Text('Tidak ada resource dimuat.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
+                      SizedBox(height: 4),
+                      Text('Endpoint /resources-all balik kosong untuk workspace ini, atau konteks tenant belum ke-set. Tarik untuk refresh.', style: TextStyle(fontSize: 12, color: BK.ink3)),
+                    ]))
+                  else
+                    for (final r in list) Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _ResourceCard(r),
+                    ),
                 ],
               ),
             ),
@@ -104,16 +114,52 @@ class _ResourceCard extends StatelessWidget {
         primary
             ? FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: actionColor, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
-                onPressed: () => _snack(context, '${r.name}: $actionLabel'),
+                onPressed: () => _onAction(context, r),
                 child: Text(actionLabel, style: const TextStyle(fontSize: 13)))
             : OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: actionColor, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
-                onPressed: () => _snack(context, '${r.name}: $actionLabel'),
+                onPressed: () => _onAction(context, r),
                 child: Text(actionLabel, style: const TextStyle(fontSize: 13))),
       ]),
     );
   }
-}
 
-void _snack(BuildContext c, String m) =>
-    ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating));
+  void _onAction(BuildContext context, ResourceStatus r) async {
+    switch (r.state) {
+      case ResourceState.live:
+        // Kelola → buka detail sesi aktif.
+        if (r.bookingId.isEmpty) return;
+        final b = Booking(id: r.bookingId, code: r.bookingId.length > 8 ? r.bookingId.substring(0, 8).toUpperCase() : r.bookingId,
+            customer: '', resource: r.name, time: '', status: BookingStatus.live, total: 0, paid: 0);
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => BookingDetailScreen(booking: b)));
+        if (context.mounted) context.read<OpsController>().load();
+      case ResourceState.idle:
+        // Mulai → buat booking dengan resource ini sudah terpilih.
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => CreateBookingScreen(initialResourceId: r.resourceId)));
+        if (context.mounted) context.read<OpsController>().load();
+      case ResourceState.off:
+        // Aktifkan → konfirmasi lalu set active.
+        final yes = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Aktifkan resource?'),
+            content: Text('${r.name} akan diaktifkan kembali (dari nonaktif/maintenance).'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Aktifkan')),
+            ],
+          ),
+        );
+        if (yes == true && context.mounted) {
+          final ctrl = context.read<OpsController>();
+          final ok = await ctrl.setActive(r.resourceId);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(ok ? '${r.name} diaktifkan' : (ctrl.actionError ?? 'Gagal mengaktifkan')),
+              behavior: SnackBarBehavior.floating, backgroundColor: ok ? BK.live : BK.crit,
+            ));
+          }
+        }
+    }
+  }
+}

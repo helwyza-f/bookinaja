@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/customer.dart';
+import '../repositories/customers_repository.dart';
 import 'customers.dart' show tierPill;
 
 class CustomerDetailScreen extends StatelessWidget {
@@ -62,13 +64,30 @@ class CustomerDetailScreen extends StatelessWidget {
             Expanded(child: Divider(color: BK.line)),
           ]),
           const SizedBox(height: 4),
-          BKCard(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(children: const [
-              _HistoryRow('PS5 Room B · 3 jam', 'Kemarin · lunas', 'Rp60rb'),
-              Divider(height: 1, color: BK.line),
-              _HistoryRow('Station 07 · 2 jam', '3 hari lalu · lunas', 'Rp30rb'),
-            ]),
+          FutureBuilder<List<CustomerHistoryItem>>(
+            future: context.read<CustomersRepository>().history(c.id),
+            builder: (_, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+              }
+              final items = snap.data ?? const [];
+              if (items.isEmpty) {
+                return const BKCard(child: Text('Belum ada transaksi.', style: TextStyle(fontSize: 12.5, color: BK.ink3)));
+              }
+              return BKCard(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(children: [
+                  for (int i = 0; i < items.length; i++) ...[
+                    _HistoryRow(
+                      items[i].resource,
+                      [_clock(items[i].date), items[i].status].where((s) => s.isNotEmpty).join(' · '),
+                      'Rp${_short(items[i].total)}',
+                    ),
+                    if (i < items.length - 1) const Divider(height: 1, color: BK.line),
+                  ],
+                ]),
+              );
+            },
           ),
         ],
       ),
@@ -83,6 +102,13 @@ class CustomerDetailScreen extends StatelessWidget {
           Text(v, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: BK.ink)),
         ]),
       );
+
+  static String _clock(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    final l = d.toLocal();
+    return '${l.day}/${l.month}';
+  }
 
   static String _short(int v) {
     if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}jt';

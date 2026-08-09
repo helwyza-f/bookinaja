@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../data/sample_data.dart';
 import '../state/auth_controller.dart';
+import '../state/dashboard_controller.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
 
@@ -11,8 +12,11 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dash = context.watch<DashboardController>();
     return SafeArea(
-      child: ListView(
+      child: RefreshIndicator(
+        onRefresh: () => context.read<DashboardController>().load(),
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
         children: [
           // header
@@ -53,28 +57,31 @@ class DashboardScreen extends StatelessWidget {
           }),
           const SizedBox(height: 16),
 
-          // hero
+          // hero — perlu perhatian
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [BK.accent, Color(0xFF1C47C9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(BK.radius),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-              Text('PERLU PERHATIAN SEKARANG', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
-              SizedBox(height: 4),
-              Text('3 booking', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
-              SizedBox(height: 2),
-              Text('2 nunggu konfirmasi · 1 verifikasi transfer', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('PERLU PERHATIAN SEKARANG', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
+              const SizedBox(height: 4),
+              Text(dash.loading ? '…' : '${dash.needsAction} booking', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(dash.error != null
+                  ? 'Gagal memuat — tarik untuk refresh'
+                  : (dash.needsAction == 0 ? 'Semua beres 🎉' : 'Perlu konfirmasi / verifikasi pembayaran'),
+                  style: const TextStyle(color: Colors.white, fontSize: 12.5)),
             ]),
           ),
           const SizedBox(height: 11),
 
           // stats
-          Row(children: const [
-            Expanded(child: _Stat('Omzet hari ini', 'Rp1,24jt')),
-            SizedBox(width: 10),
-            Expanded(child: _Stat('Sesi aktif', '6 / 12')),
+          Row(children: [
+            Expanded(child: _Stat('Omzet hari ini', dash.loading ? '…' : 'Rp${_shortMoney(dash.omzet)}')),
+            const SizedBox(width: 10),
+            Expanded(child: _Stat('Sesi aktif', dash.loading ? '…' : '${dash.activeCount}')),
           ]),
           const SizedBox(height: 16),
 
@@ -91,27 +98,45 @@ class DashboardScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 18),
 
-          Row(children: const [
-            Text('Sesi berjalan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
-            SizedBox(width: 9),
-            Expanded(child: Divider(color: BK.line)),
+          Row(children: [
+            const Text('Sesi berjalan', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
+            const SizedBox(width: 9),
+            Text('${dash.live.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.live)),
+            const SizedBox(width: 9),
+            const Expanded(child: Divider(color: BK.line)),
           ]),
           const SizedBox(height: 4),
-          BKCard(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(
-              children: [
-                for (int i = 0; i < sampleLive.length; i++) ...[
-                  _LiveRow(sampleLive[i]),
-                  if (i < sampleLive.length - 1) const Divider(height: 1, color: BK.line),
+          if (dash.loading)
+            const BKCard(padding: EdgeInsets.all(20), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+          else if (dash.live.isEmpty)
+            const BKCard(child: Text('Belum ada sesi berjalan.', style: TextStyle(fontSize: 12.5, color: BK.ink3)))
+          else
+            BKCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                children: [
+                  for (int i = 0; i < dash.live.length; i++) ...[
+                    _LiveRow(dash.live[i]),
+                    if (i < dash.live.length - 1) const Divider(height: 1, color: BK.line),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
         ],
+      ),
       ),
     );
   }
+}
+
+/// Format angka jadi kompak: 1.240.000 → "1,24jt".
+String _shortMoney(int v) {
+  if (v >= 1000000) {
+    final jt = v / 1000000;
+    return '${jt.toStringAsFixed(jt >= 10 ? 0 : 2).replaceAll('.', ',')}jt';
+  }
+  if (v >= 1000) return '${(v / 1000).round()}rb';
+  return '$v';
 }
 
 class _Stat extends StatelessWidget {

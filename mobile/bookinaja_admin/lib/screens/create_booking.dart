@@ -11,7 +11,8 @@ import '../state/bookings_controller.dart';
 
 /// Flow buat booking (admin): resource → paket → tanggal → slot → durasi → addon.
 class CreateBookingScreen extends StatelessWidget {
-  const CreateBookingScreen({super.key});
+  final String initialResourceId;
+  const CreateBookingScreen({super.key, this.initialResourceId = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +21,7 @@ class CreateBookingScreen extends StatelessWidget {
         ctx.read<CatalogRepository>(),
         ctx.read<BookingRepository>(),
         ctx.read<CustomersRepository>(),
+        initialResourceId: initialResourceId,
       )..load(),
       child: const _Flow(),
     );

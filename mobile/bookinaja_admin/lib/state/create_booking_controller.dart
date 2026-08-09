@@ -8,10 +8,13 @@ import 'async_value.dart';
 
 /// Flow buat booking: resource → paket → tanggal → slot → durasi → addon → submit.
 class CreateBookingController extends ChangeNotifier {
-  CreateBookingController(this._catalog, this._bookings, this._customers);
+  CreateBookingController(this._catalog, this._bookings, this._customers, {this.initialResourceId = ''});
   final CatalogRepository _catalog;
   final BookingRepository _bookings;
   final CustomersRepository _customers;
+
+  /// Resource yang langsung dipilih (dari Ops "Mulai"). Kosong = pilih manual.
+  final String initialResourceId;
 
   // Jam operasional (menit) — diisi dari profil tenant saat load(). Server tetap validasi.
   int _openMin = 8 * 60;
@@ -79,7 +82,14 @@ class CreateBookingController extends ChangeNotifier {
       final hours = r[2] as ({int openMin, int closeMin});
       _openMin = hours.openMin;
       _closeMin = hours.closeMin;
-      resources = AsyncValue.data(r[0] as List<ResourceEntry>);
+      final list = r[0] as List<ResourceEntry>;
+      resources = AsyncValue.data(list);
+      notifyListeners();
+      // Pre-select resource kalau datang dari Ops "Mulai".
+      if (initialResourceId.isNotEmpty) {
+        final match = list.where((e) => e.resourceId == initialResourceId).toList();
+        if (match.isNotEmpty) await selectResource(match.first);
+      }
     } catch (e) {
       resources = AsyncValue.error(e);
     }

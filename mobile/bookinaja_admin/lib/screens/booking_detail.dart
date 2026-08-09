@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/booking.dart';
 import '../models/booking_detail.dart';
+import '../models/menu_item.dart';
+import '../models/catalog.dart';
 import '../repositories/booking_repository.dart';
+import '../repositories/pos_repository.dart';
+import '../repositories/catalog_repository.dart';
 import '../state/booking_detail_controller.dart';
 
 class BookingDetailScreen extends StatelessWidget {
@@ -33,38 +38,28 @@ class _DetailView extends StatelessWidget {
     _snack(context, ok ? okMsg : (c.actionError ?? 'Aksi gagal'), ok ? BK.live : BK.crit);
   }
 
-  Future<void> _confirmCancel(BuildContext context) async {
-    final c = context.read<BookingDetailController>();
-    final reasonCtrl = TextEditingController();
-    final yes = await showDialog<bool>(
+  Future<String?> _askReason(BuildContext context, String title, String label, {bool required = false}) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Batalkan booking?'),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Booking ${c.detail?.customerName ?? fallback.customer} akan dibatalkan. Hanya berlaku untuk booking yang belum dimulai.', style: const TextStyle(fontSize: 13)),
-          const SizedBox(height: 14),
-          TextField(
-            controller: reasonCtrl,
-            maxLines: 2,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              labelText: 'Alasan (opsional)',
-              hintText: 'mis. Customer minta reschedule',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(11)),
-              isDense: true,
-            ),
-          ),
-        ]),
+        title: Text(title),
+        content: TextField(
+          controller: ctrl, maxLines: 2, autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(11)), isDense: true),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Kembali')),
-          FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.crit), onPressed: () => Navigator.pop(context, true), child: const Text('Ya, batalkan')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Lanjut')),
         ],
       ),
     );
-    if (yes == true && context.mounted) {
-      await _run(context, () => c.cancel(reason: reasonCtrl.text.trim()), 'Booking dibatalkan');
-    }
-    reasonCtrl.dispose();
+    final text = ctrl.text.trim();
+    ctrl.dispose();
+    if (ok != true) return null;
+    if (required && text.isEmpty) return null;
+    return text;
   }
 
   @override
@@ -96,7 +91,7 @@ class _DetailView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
-        // hero
+        // hero + dua pill status
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -104,18 +99,56 @@ class _DetailView extends StatelessWidget {
             borderRadius: BorderRadius.circular(BK.radius),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              _statusChip(d.statusRaw),
-              const Spacer(),
-              if (d.hasBalance) Text('Sisa Rp${rupiah(d.balanceDue)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5)),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _heroPill(Icons.sensors, d.sessionLabel),
+              _heroPill(Icons.payments_outlined, d.paymentLabel),
             ]),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(d.customerName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text('${d.resourceName}${d.customerPhone.isNotEmpty ? ' · ${d.customerPhone}' : ''}', style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+            if (d.isActive && d.endTime.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _SessionTimer(endIso: d.endTime),
+            ],
           ]),
         ),
         const SizedBox(height: 16),
+
+        // Verifikasi bukti transfer
+        if (d.hasPendingVerification) ...[
+          const Text('PERLU VERIFIKASI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.crit)),
+          const SizedBox(height: 8),
+          for (final a in d.pendingAttempts)
+            BKCard(
+              border: BK.pend,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.receipt_long, size: 18, color: BK.pend),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('${a.methodLabel} · Rp${rupiah(a.amount)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink))),
+                ]),
+                if (a.referenceCode.isNotEmpty || a.payerNote.isNotEmpty)
+                  Padding(padding: const EdgeInsets.only(top: 4), child: Text([if (a.referenceCode.isNotEmpty) 'Ref ${a.referenceCode}', if (a.payerNote.isNotEmpty) a.payerNote].join(' · '), style: const TextStyle(fontSize: 11.5, color: BK.ink3))),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: BK.live, padding: const EdgeInsets.symmetric(vertical: 11)),
+                    onPressed: disabled ? null : () => _run(context, () => c.verifyAttempt(a.id), 'Pembayaran diverifikasi'),
+                    child: const Text('✓ Verifikasi', style: TextStyle(fontWeight: FontWeight.w700)))),
+                  const SizedBox(width: 9),
+                  Expanded(child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: BK.critSoft, foregroundColor: BK.crit, padding: const EdgeInsets.symmetric(vertical: 11)),
+                    onPressed: disabled ? null : () async {
+                      final reason = await _askReason(context, 'Tolak bukti?', 'Alasan penolakan');
+                      if (reason != null && context.mounted) await _run(context, () => c.rejectAttempt(a.id, reason: reason), 'Bukti ditolak');
+                    },
+                    child: const Text('Tolak', style: TextStyle(fontWeight: FontWeight.w700)))),
+                ]),
+              ]),
+            ),
+          const SizedBox(height: 14),
+        ],
 
         if (d.isFinal)
           Container(
@@ -136,17 +169,36 @@ class _DetailView extends StatelessWidget {
         else ...[
           const Text('AKSI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          // Aksi utama sesuai status
           if (d.canConfirm)
             _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
-          if (d.needsDeposit)
+          if (d.canRecordDeposit)
             _primary('Catat DP (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, 'DP dicatat')),
-          if (d.canStart && !d.needsDeposit)
+          if (d.canStart)
             _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
-          if (d.canEnd)
+          if (d.canOverrideDeposit)
+            _primary('Mulai tanpa DP (override)', BK.ink, disabled ? null : () async {
+              final reason = await _askReason(context, 'Override DP', 'Alasan (opsional)');
+              if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
+            }, outline: true),
+          if (d.canComplete)
             _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
-          if (d.hasBalance && !d.needsDeposit)
+          if (d.canSettle)
             _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.ink, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas'), outline: true),
+          if (d.canSendReceipt)
+            _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
+          if (d.isActive) ...[
+            _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
+                onPressed: disabled ? null : () => _fnbSheet(context, d), icon: const Icon(Icons.ramen_dining, size: 18), label: const Text('Tambah F&B'))),
+              const SizedBox(width: 9),
+              Expanded(child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
+                onPressed: disabled ? null : () => _addonSheet(context, d), icon: const Icon(Icons.add_circle_outline, size: 18), label: const Text('Add-on'))),
+            ]),
+            const SizedBox(height: 9),
+          ],
         ],
 
         const SizedBox(height: 8),
@@ -159,6 +211,7 @@ class _DetailView extends StatelessWidget {
         BKCard(child: Column(children: [
           _line('Total tagihan', 'Rp${rupiah(d.grandTotal)}'),
           _line('Sudah dibayar', 'Rp${rupiah(d.paidAmount)}', color: BK.live),
+          if (d.depositOverrideActive) _line('Status DP', 'Di-override (tanpa DP)', color: BK.pend),
           const Divider(height: 18, color: BK.line),
           Row(children: [
             const Text('Sisa', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: BK.ink)),
@@ -166,6 +219,26 @@ class _DetailView extends StatelessWidget {
             Text('Rp${rupiah(d.balanceDue)}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: d.hasBalance ? BK.pend : BK.live)),
           ]),
         ])),
+
+        // Rincian pesanan (F&B + add-on)
+        if (d.orders.isNotEmpty || d.options.isNotEmpty) ...[
+          _sectionLabel('Rincian pesanan'),
+          BKCard(child: Column(children: [
+            for (final o in [...d.options, ...d.orders])
+              Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(children: [
+                Expanded(child: Text('${o.name}${o.quantity > 1 ? ' ×${o.quantity}' : ''}', style: const TextStyle(fontSize: 13, color: BK.ink2))),
+                Text('Rp${rupiah(o.subtotal)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
+              ])),
+          ])),
+        ],
+
+        // Timeline audit
+        if (d.events.isNotEmpty) ...[
+          _sectionLabel('Timeline'),
+          BKCard(child: Column(children: [
+            for (int i = 0; i < d.events.length; i++) _timelineRow(d.events[i], last: i == d.events.length - 1),
+          ])),
+        ],
 
         if (d.canCancel) ...[
           const SizedBox(height: 14),
@@ -178,6 +251,41 @@ class _DetailView extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _confirmCancel(BuildContext context) async {
+    final c = context.read<BookingDetailController>();
+    final reasonCtrl = TextEditingController();
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Batalkan booking?'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Booking ${c.detail?.customerName ?? fallback.customer} akan dibatalkan. Hanya berlaku untuk booking yang belum dimulai.', style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 14),
+          TextField(controller: reasonCtrl, maxLines: 2, textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(labelText: 'Alasan (opsional)', hintText: 'mis. Customer minta reschedule', border: OutlineInputBorder(borderRadius: BorderRadius.circular(11)), isDense: true)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Kembali')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.crit), onPressed: () => Navigator.pop(context, true), child: const Text('Ya, batalkan')),
+        ],
+      ),
+    );
+    if (yes == true && context.mounted) {
+      await _run(context, () => c.cancel(reason: reasonCtrl.text.trim()), 'Booking dibatalkan');
+    }
+    reasonCtrl.dispose();
+  }
+
+  Widget _heroPill(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+        ]),
+      );
 
   Widget _primary(String label, Color color, VoidCallback? onTap, {bool outline = false}) {
     return Padding(
@@ -195,21 +303,6 @@ class _DetailView extends StatelessWidget {
     );
   }
 
-  Widget _statusChip(String s) {
-    final (label, bg, fg) = switch (s) {
-      'active' || 'ongoing' => ('Sesi berjalan', Colors.white24, Colors.white),
-      'completed' => ('Selesai', Colors.white24, Colors.white),
-      'cancelled' => ('Dibatalkan', Colors.white24, Colors.white),
-      'confirmed' => ('Terkonfirmasi', Colors.white24, Colors.white),
-      _ => ('Pending', Colors.white24, Colors.white),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
-    );
-  }
-
   Widget _line(String k, String v, {Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(children: [
@@ -218,4 +311,195 @@ class _DetailView extends StatelessWidget {
           Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? BK.ink)),
         ]),
       );
+
+  Widget _sectionLabel(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 18, 2, 8),
+        child: Row(children: [
+          Text(t.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(width: 9),
+          const Expanded(child: Divider(color: BK.line)),
+        ]),
+      );
+
+  Widget _timelineRow(TimelineEvent e, {required bool last}) {
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Column(children: [
+          Container(width: 9, height: 9, margin: const EdgeInsets.only(top: 4), decoration: const BoxDecoration(color: BK.accent, shape: BoxShape.circle)),
+          if (!last) Expanded(child: Container(width: 2, color: BK.line)),
+        ]),
+        const SizedBox(width: 11),
+        Expanded(child: Padding(
+          padding: EdgeInsets.only(bottom: last ? 0 : 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(e.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: BK.ink)),
+            const SizedBox(height: 1),
+            Text([
+              if (e.actorName.isNotEmpty) e.actorName else e.actorType,
+              if (e.description.isNotEmpty) e.description,
+              _clock(e.createdAt),
+            ].where((s) => s.isNotEmpty).join(' · '), style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+          ]),
+        )),
+      ]),
+    );
+  }
+
+  static String _clock(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    final l = d.toLocal();
+    return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _extendDialog(BuildContext context) async {
+    final c = context.read<BookingDetailController>();
+    int units = 1;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(builder: (ctx, setSt) => AlertDialog(
+        title: const Text('Perpanjang sesi'),
+        content: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton(onPressed: () => setSt(() => units = (units - 1).clamp(1, 12)), icon: const Icon(Icons.remove_circle_outline)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('$units unit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+          IconButton(onPressed: () => setSt(() => units = (units + 1).clamp(1, 12)), icon: const Icon(Icons.add_circle_outline)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Perpanjang')),
+        ],
+      )),
+    );
+    if (ok == true && context.mounted) await _run(context, () => c.extend(units), 'Sesi diperpanjang $units unit');
+  }
+
+  Future<void> _fnbSheet(BuildContext context, BookingDetail d) async {
+    final c = context.read<BookingDetailController>();
+    final repo = context.read<PosRepository>();
+    await showModalBottomSheet<void>(
+      context: context, backgroundColor: BK.bg, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => _PickerSheet<MenuItem>(
+        title: 'Tambah F&B',
+        load: repo.listMenu,
+        labelOf: (m) => m.name,
+        priceOf: (m) => m.price,
+        onPick: (m) async {
+          Navigator.pop(sheetCtx);
+          await _run(context, () => c.addFnb(m.id, 1), '${m.name} ditambahkan');
+        },
+      ),
+    );
+  }
+
+  Future<void> _addonSheet(BuildContext context, BookingDetail d) async {
+    final c = context.read<BookingDetailController>();
+    final repo = context.read<CatalogRepository>();
+    await showModalBottomSheet<void>(
+      context: context, backgroundColor: BK.bg, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => _PickerSheet<Addon>(
+        title: 'Tambah add-on',
+        load: () async {
+          final all = await repo.addonsCatalog();
+          final match = all.where((a) => a.resourceId == d.resourceId).toList();
+          return match.isEmpty ? all : match;
+        },
+        labelOf: (a) => a.name,
+        priceOf: (a) => a.price,
+        onPick: (a) async {
+          Navigator.pop(sheetCtx);
+          await _run(context, () => c.addAddon(a.itemId), '${a.name} ditambahkan');
+        },
+      ),
+    );
+  }
+}
+
+/// Timer sisa waktu sesi (ticking tiap detik).
+class _SessionTimer extends StatefulWidget {
+  final String endIso;
+  const _SessionTimer({required this.endIso});
+  @override
+  State<_SessionTimer> createState() => _SessionTimerState();
+}
+
+class _SessionTimerState extends State<_SessionTimer> {
+  Timer? _t;
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final end = DateTime.tryParse(widget.endIso);
+    final diff = end == null ? Duration.zero : end.difference(DateTime.now());
+    final over = diff.isNegative;
+    final d = diff.abs();
+    final label = '${d.inHours > 0 ? '${d.inHours}:' : ''}${(d.inMinutes % 60).toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(over ? Icons.warning_amber_rounded : Icons.timer_outlined, size: 16, color: Colors.white),
+        const SizedBox(width: 7),
+        Text(over ? 'Lewat $label' : 'Sisa $label', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14, fontFeatures: [FontFeature.tabularFigures()])),
+      ]),
+    );
+  }
+}
+
+/// Bottom sheet pemilih item generik (F&B / add-on).
+class _PickerSheet<T> extends StatelessWidget {
+  final String title;
+  final Future<List<T>> Function() load;
+  final String Function(T) labelOf;
+  final int Function(T) priceOf;
+  final Future<void> Function(T) onPick;
+  const _PickerSheet({required this.title, required this.load, required this.labelOf, required this.priceOf, required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.9, expand: false,
+      builder: (_, scroll) => Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 8), child: Row(children: [
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+          const Spacer(),
+          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: BK.ink3)),
+        ])),
+        Expanded(child: FutureBuilder<List<T>>(
+          future: load(),
+          builder: (_, snap) {
+            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+            final items = snap.data!;
+            if (items.isEmpty) return const StateView(icon: Icons.inbox, color: BK.ink3, title: 'Kosong', hint: 'Belum ada item.');
+            return ListView.separated(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              itemCount: items.length,
+              separatorBuilder: (_, i) => const Divider(height: 1, color: BK.line),
+              itemBuilder: (_, i) {
+                final it = items[i];
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  title: Text(labelOf(it), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: BK.ink)),
+                  trailing: Text('Rp${rupiah(priceOf(it))}', style: const TextStyle(fontWeight: FontWeight.w700, color: BK.ink2)),
+                  onTap: () => onPick(it),
+                );
+              },
+            );
+          },
+        )),
+      ]),
+    );
+  }
 }

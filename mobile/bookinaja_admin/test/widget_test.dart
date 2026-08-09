@@ -20,7 +20,7 @@ void main() {
       bookingRepo: BookingRepository(api),
       posRepo: PosRepository(api),
       customersRepo: CustomersRepository(api),
-      opsRepo: OpsRepository(),
+      opsRepo: OpsRepository(api),
       catalogRepo: CatalogRepository(api),
       settingsRepo: SettingsRepository(api),
     ));

@@ -54,4 +54,11 @@ class BookingDetailController extends ChangeNotifier {
   Future<bool> cancel({String reason = ''}) => _act(() => _repo.updateStatus(bookingId, 'cancelled', reason: reason));
   Future<bool> recordDeposit() => _act(() => _repo.recordDeposit(bookingId));
   Future<bool> settle() => _act(() => _repo.settleCash(bookingId));
+  Future<bool> overrideDeposit({String reason = ''}) => _act(() => _repo.overrideDeposit(bookingId, reason: reason));
+  Future<bool> verifyAttempt(String attemptId) => _act(() => _repo.verifyAttempt(attemptId));
+  Future<bool> rejectAttempt(String attemptId, {String reason = ''}) => _act(() => _repo.rejectAttempt(attemptId, reason: reason));
+  Future<bool> sendReceipt() => _act(() => _repo.sendReceipt(bookingId));
+  Future<bool> extend(int units) => _act(() => _repo.extendSession(bookingId, units));
+  Future<bool> addFnb(String fnbItemId, int qty) => _act(() => _repo.addFnb(bookingId, fnbItemId, qty));
+  Future<bool> addAddon(String itemId) => _act(() => _repo.addAddon(bookingId, itemId));
 }

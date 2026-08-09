@@ -18,6 +18,20 @@ class CustomersRepository {
     return list.whereType<Map>().map((e) => Customer.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
+  /// Riwayat transaksi customer. GET /customers/:id/history → {items:[...]}.
+  Future<List<CustomerHistoryItem>> history(String id) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return const [
+        CustomerHistoryItem(kind: 'booking', resource: 'PS5 Room B · 3 jam', date: '', total: 60000, status: 'paid'),
+        CustomerHistoryItem(kind: 'booking', resource: 'Station 07 · 2 jam', date: '', total: 30000, status: 'paid'),
+      ];
+    }
+    final res = await _api.get('/customers/$id/history');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : (res is List ? res : const []);
+    return list.whereType<Map>().map((e) => CustomerHistoryItem.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
   /// Cek pelanggan by nomor (CRM). GET /public/validate-customer?phone=
   /// Balik {name, tier} kalau terdaftar, null kalau baru.
   Future<({String name, String tier})?> validate(String phone) async {

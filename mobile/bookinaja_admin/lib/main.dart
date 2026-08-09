@@ -12,6 +12,7 @@ import 'repositories/catalog_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'state/auth_controller.dart';
 import 'state/bookings_controller.dart';
+import 'state/dashboard_controller.dart';
 import 'state/pos_controller.dart';
 import 'state/customers_controller.dart';
 import 'state/ops_controller.dart';
@@ -34,7 +35,7 @@ void main() {
     bookingRepo: BookingRepository(api),
     posRepo: PosRepository(api),
     customersRepo: CustomersRepository(api),
-    opsRepo: OpsRepository(),
+    opsRepo: OpsRepository(api),
     catalogRepo: CatalogRepository(api),
     settingsRepo: SettingsRepository(api),
   ));
@@ -65,10 +66,12 @@ class BookinajaAdmin extends StatelessWidget {
       providers: [
         Provider<BookingRepository>.value(value: bookingRepo),
         Provider<CatalogRepository>.value(value: catalogRepo),
+        Provider<PosRepository>.value(value: posRepo),
         Provider<CustomersRepository>.value(value: customersRepo),
         Provider<SettingsRepository>.value(value: settingsRepo),
         ChangeNotifierProvider.value(value: authController),
         ChangeNotifierProvider(create: (_) => BookingsController(bookingRepo)),
+        ChangeNotifierProvider(create: (_) => DashboardController(bookingRepo)),
         ChangeNotifierProvider(create: (_) => PosController(posRepo)),
         ChangeNotifierProvider(create: (_) => CustomersController(customersRepo)),
         ChangeNotifierProvider(create: (_) => OpsController(opsRepo)),
@@ -113,6 +116,7 @@ class _HomeShellState extends State<HomeShell> {
     // Muat data awal setelah frame pertama.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BookingsController>().load();
+      context.read<DashboardController>().load();
     });
   }
 
