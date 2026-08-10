@@ -83,26 +83,28 @@ type ControllerFeatureFlags struct {
 
 type BookingDetail struct {
 	Booking
-	TenantName         string                         `db:"tenant_name" json:"tenant_name"`
-	TenantSlug         string                         `db:"tenant_slug" json:"tenant_slug"`
-	Timezone           string                         `db:"timezone" json:"timezone"`
-	BookingFormConfig  JSONB                          `db:"booking_form_config" json:"-"`
-	ControllerFeatures ControllerFeatureFlags         `json:"controller_features"`
-	CustomerName       string                         `db:"customer_name" json:"customer_name"`
-	CustomerPhone      string                         `db:"customer_phone" json:"customer_phone"`
-	ResourceName       string                         `db:"resource_name" json:"resource_name"`
-	UnitPrice          float64                        `db:"unit_price" json:"unit_price"`
-	UnitDuration       int                            `db:"unit_duration" json:"unit_duration"`
-	TotalResource      float64                        `db:"total_resource" json:"total_resource"`
-	TotalFnb           float64                        `db:"total_fnb" json:"total_fnb"`
-	GrandTotal         float64                        `db:"grand_total" json:"grand_total"`
-	DiscountAmount     float64                        `db:"discount_amount" json:"discount_amount"`
-	ResourceAddons     []ResourceItemSimple           `json:"resource_addons"`
-	PaymentMethods     []BookingPaymentMethod         `json:"payment_methods"`
-	PaymentAttempts    []BookingPaymentAttemptSummary `json:"payment_attempts"`
-	Options            []BookingOptionDetail          `json:"options"`
-	Orders             []OrderItem                    `json:"orders"`
-	Events             []BookingEvent                 `json:"events"`
+	TenantName          string                         `db:"tenant_name" json:"tenant_name"`
+	TenantSlug          string                         `db:"tenant_slug" json:"tenant_slug"`
+	Timezone            string                         `db:"timezone" json:"timezone"`
+	BookingFormConfig   JSONB                          `db:"booking_form_config" json:"-"`
+	ControllerFeatures  ControllerFeatureFlags         `json:"controller_features"`
+	CustomerName        string                         `db:"customer_name" json:"customer_name"`
+	CustomerPhone       string                         `db:"customer_phone" json:"customer_phone"`
+	ResourceName        string                         `db:"resource_name" json:"resource_name"`
+	UnitPrice           float64                        `db:"unit_price" json:"unit_price"`
+	UnitDuration        int                            `db:"unit_duration" json:"unit_duration"`
+	TotalResource       float64                        `db:"total_resource" json:"total_resource"`
+	TotalFnb            float64                        `db:"total_fnb" json:"total_fnb"`
+	GrandTotal          float64                        `db:"grand_total" json:"grand_total"`
+	DiscountAmount      float64                        `db:"discount_amount" json:"discount_amount"`
+	ResourceAddons      []ResourceItemSimple           `json:"resource_addons"`
+	CanCustomerCancel   bool                           `db:"-" json:"can_customer_cancel"`
+	CancelRequireReason bool                           `db:"-" json:"cancel_require_reason"`
+	PaymentMethods      []BookingPaymentMethod         `json:"payment_methods"`
+	PaymentAttempts     []BookingPaymentAttemptSummary `json:"payment_attempts"`
+	Options             []BookingOptionDetail          `json:"options"`
+	Orders              []OrderItem                    `json:"orders"`
+	Events              []BookingEvent                 `json:"events"`
 }
 
 type BookingPaymentMethod struct {

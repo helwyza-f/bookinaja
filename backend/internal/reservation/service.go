@@ -1262,7 +1262,11 @@ func (s *Service) GetDetailForCustomer(ctx context.Context, id, tenantID, custom
 		if err != nil {
 			return nil, errors.New("ID CUSTOMER TIDAK VALID")
 		}
-		return s.repo.FindByIDForCustomerGlobal(ctx, bID, cID)
+		detail, err := s.repo.FindByIDForCustomerGlobal(ctx, bID, cID)
+		if err == nil {
+			s.annotateCustomerCancel(ctx, detail)
+		}
+		return detail, err
 	}
 
 	tID, err := uuid.Parse(tenantID)
@@ -1274,7 +1278,51 @@ func (s *Service) GetDetailForCustomer(ctx context.Context, id, tenantID, custom
 		return nil, errors.New("ID CUSTOMER TIDAK VALID")
 	}
 
-	return s.repo.FindByIDForCustomer(ctx, bID, tID, cID)
+	detail, err := s.repo.FindByIDForCustomer(ctx, bID, tID, cID)
+	if err == nil {
+		s.annotateCustomerCancel(ctx, detail)
+	}
+	return detail, err
+}
+
+// annotateCustomerCancel mengisi flag apakah customer boleh membatalkan booking
+// ini (untuk gating tombol di UI), memakai kebijakan pembatalan tenant.
+func (s *Service) annotateCustomerCancel(ctx context.Context, detail *BookingDetail) {
+	if detail == nil {
+		return
+	}
+	policy, err := s.repo.GetCancellationPolicy(ctx, detail.TenantID)
+	if err != nil {
+		return
+	}
+	detail.CancelRequireReason = policy.RequireReason
+	detail.CanCustomerCancel = evaluateCustomerCancel(policy, detail.Status, detail.StartTime)
+}
+
+// evaluateCustomerCancel menentukan apakah booking boleh dibatalkan customer
+// sekarang (enabled + status termasuk + belum lewat cutoff).
+func evaluateCustomerCancel(policy CancellationPolicy, status string, startTime time.Time) bool {
+	if !policy.CustomerCancelEnabled {
+		return false
+	}
+	current := strings.ToLower(strings.TrimSpace(status))
+	allowed := false
+	for _, a := range strings.Split(policy.AllowedStatuses, ",") {
+		if strings.ToLower(strings.TrimSpace(a)) == current {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return false
+	}
+	if policy.CutoffHours > 0 {
+		cutoff := startTime.Add(-time.Duration(policy.CutoffHours) * time.Hour)
+		if time.Now().UTC().After(cutoff) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) GetCustomerResources(ctx context.Context, tenantID string) (any, error) {

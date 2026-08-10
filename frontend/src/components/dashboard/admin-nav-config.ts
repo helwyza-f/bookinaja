@@ -2,6 +2,7 @@ import {
   BarChart3,
   BriefcaseBusiness,
   CalendarRange,
+  CalendarX2,
   ClipboardList,
   CreditCard,
   KeyRound,
@@ -174,6 +175,13 @@ export const settingsNavItems: AdminNavItem[] = [
     icon: KeyRound,
     hint: "Midtrans & Xendit",
     group: "system",
+  },
+  {
+    label: "Pembatalan",
+    href: "/admin/settings/cancellation",
+    icon: CalendarX2,
+    hint: "Kebijakan cancel booking",
+    group: "ops",
   },
   {
     label: "Promo",

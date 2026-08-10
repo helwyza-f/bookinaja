@@ -13,6 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,7 +33,9 @@ import {
   ExternalLink,
   ReceiptText,
   Wallet,
+  XCircle,
 } from "lucide-react";
+import type { AxiosError } from "axios";
 
 const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
@@ -89,6 +101,9 @@ export default function UserBookingDetailPage() {
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   const lastBackgroundRefreshRef = useRef(0);
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
@@ -118,6 +133,28 @@ export default function UserBookingDetailPage() {
       void fetchDetail("initial");
     }
   }, [fetchDetail, params.id]);
+
+  const handleCancel = useCallback(async () => {
+    if (booking?.cancel_require_reason && !cancelReason.trim()) {
+      toast.error("Alasan pembatalan wajib diisi.");
+      return;
+    }
+    setCancelling(true);
+    try {
+      const res = await api.post(`/user/me/bookings/${params.id}/cancel`, {
+        reason: cancelReason.trim(),
+      });
+      setBooking(res.data);
+      setCancelOpen(false);
+      setCancelReason("");
+      toast.success("Booking dibatalkan.");
+    } catch (error) {
+      const err = error as AxiosError<{ error?: string }>;
+      toast.error(err.response?.data?.error || "Gagal membatalkan booking.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [booking?.cancel_require_reason, cancelReason, params.id]);
 
   const customerID = String(booking?.customer_id || "");
   useRealtime({
@@ -379,8 +416,54 @@ export default function UserBookingDetailPage() {
               Bayar
             </Button>
           </div>
+
+          {booking.can_customer_cancel ? (
+            <Button
+              onClick={() => setCancelOpen(true)}
+              variant="ghost"
+              className="mt-2 h-11 w-full rounded-2xl text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Batalkan booking
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
+
+      <Dialog open={cancelOpen} onOpenChange={(open) => !cancelling && setCancelOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Batalkan booking?</DialogTitle>
+            <DialogDescription>
+              Setelah dibatalkan, jadwal ini dilepas dan tidak bisa dikembalikan. Pembayaran yang
+              sudah masuk (bila ada) diproses sesuai kebijakan bisnis.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Alasan {booking.cancel_require_reason ? "(wajib)" : "(opsional)"}
+            </label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Contoh: berhalangan hadir"
+              className="min-h-24"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>
+              Kembali
+            </Button>
+            <Button
+              onClick={() => void handleCancel()}
+              disabled={cancelling}
+              className="bg-red-600 text-white hover:bg-red-500"
+            >
+              {cancelling ? "Membatalkan..." : "Ya, batalkan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -426,6 +509,9 @@ type BookingDetail = {
   grand_total?: number;
   deposit_amount?: number;
   balance_due?: number;
+  can_customer_cancel?: boolean;
+  cancel_require_reason?: boolean;
+  cancellation_reason?: string;
 };
 
 function sessionMeta(status?: string) {
