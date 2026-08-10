@@ -433,7 +433,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	var originalGrandTotalValue *float64
 	originalGrandTotalValue = &originalGrandTotal
 	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
-		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, paymentMode, dpPercentage)
+		resolveBookingLifecycle(grandTotal, paymentMode, dpPercentage)
 	nowUTC := time.Now().UTC()
 	var sessionActivatedAt *time.Time
 	var lastStatusChangedAt *time.Time
@@ -1704,12 +1704,10 @@ func calculateDepositAmount(grandTotal float64, enabled bool, percentage float64
 	return dp
 }
 
-func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64, paymentMode string, dpPercentage float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
-	bookingMode := strings.ToLower(strings.TrimSpace(req.BookingMode))
-	if isManualWalkIn && bookingMode == "walkin" {
-		return "active", 0, 0, grandTotal, "unpaid", ""
-	}
-
+func resolveBookingLifecycle(grandTotal float64, paymentMode string, dpPercentage float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
+	// Semua booking melewati lifecycle normal (pending/confirmed → aktivasi
+	// manual). Tidak ada jalur "walk-in" yang melompati state penting; customer
+	// yang datang langsung tetap dibuat sebagai booking biasa lalu diaktifkan.
 	switch paymentMode {
 	case tenant.PaymentModeNone:
 		// Tanpa DP: booking langsung terkonfirmasi, tidak ada tagihan di muka,

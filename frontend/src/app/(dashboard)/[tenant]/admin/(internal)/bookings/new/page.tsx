@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   format,
   addMinutes,
@@ -121,7 +121,6 @@ function resolveRecommendedWalkInSlot(
 
 export default function NewManualBookingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { profile } = useTenant();
   const { user } = useAdminSession();
   const packageRef = useRef<HTMLDivElement | null>(null);
@@ -152,9 +151,10 @@ export default function NewManualBookingPage() {
     final_amount?: number;
   } | null>(null);
   const [isCheckingPromo, setIsCheckingPromo] = useState(false);
-  const [bookingMode, setBookingMode] = useState<BookingMode>(
-    searchParams.get("mode") === "walkin" ? "walkin" : "scheduled",
-  );
+  // Walk-in mode dihapus — semua booking mengikuti lifecycle terjadwal
+  // (pending/DP → aktivasi manual). Tetap useState (tanpa setter) agar tipe
+  // union terjaga & percabangan lama type-check, selalu resolve ke "scheduled".
+  const [bookingMode] = useState<BookingMode>("scheduled");
   const hasBootstrappedRef = useRef(false);
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
@@ -556,38 +556,6 @@ export default function NewManualBookingPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 md:min-w-[420px]">
-              <div className="flex rounded-lg bg-slate-100 p-1 dark:bg-white/5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBookingMode("scheduled");
-                    setSelectedTime("");
-                  }}
-                  className={cn(
-                    "flex-1 rounded-md px-4 py-2.5 text-xs font-medium transition-colors",
-                    bookingMode === "scheduled"
-                      ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
-                      : "text-slate-500 dark:text-slate-300",
-                  )}
-                >
-                  Scheduled booking
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBookingMode("walkin");
-                    setSelectedTime("");
-                  }}
-                  className={cn(
-                    "flex-1 rounded-md px-4 py-2.5 text-xs font-medium transition-colors",
-                    bookingMode === "walkin"
-                      ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
-                      : "text-slate-500 dark:text-slate-300",
-                  )}
-                >
-                  Walk-in / right away
-                </button>
-              </div>
             <div className="grid grid-cols-4 gap-2 md:min-w-[420px]">
               {steps.map((step, index) => (
                 <div

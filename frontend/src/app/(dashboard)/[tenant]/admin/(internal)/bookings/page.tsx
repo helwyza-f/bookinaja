@@ -487,20 +487,12 @@ export default function BookingsPage() {
 
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=scheduled`)}
+                onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
                 disabled={!canCreateBookings}
                 className="h-8.5 rounded-lg bg-slate-950 px-3.5 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
               >
                 <Plus size={16} strokeWidth={4} className="mr-2" />
-                Jadwal
-              </Button>
-              <Button
-                onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
-                disabled={!canCreateBookings}
-                variant="outline"
-                className="h-8.5 rounded-lg border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-950 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-              >
-                Walk-in
+                Booking baru
               </Button>
             </div>
           </div>
