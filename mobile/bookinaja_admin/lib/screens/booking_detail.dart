@@ -31,6 +31,22 @@ class _DetailView extends StatelessWidget {
   void _snack(BuildContext c, String m, Color color) =>
       ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating, backgroundColor: color));
 
+  // Lihat bukti bayar penuh (bisa zoom/pan).
+  void _showProof(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(children: [
+          InteractiveViewer(minScale: 0.8, maxScale: 4, child: Center(child: Image.network(url, fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Padding(padding: EdgeInsets.all(24), child: Text('Gagal memuat bukti bayar', style: TextStyle(color: Colors.white)))))),
+          Positioned(top: 4, right: 4, child: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context))),
+        ]),
+      ),
+    );
+  }
+
   Future<void> _run(BuildContext context, Future<bool> Function() action, String okMsg) async {
     final c = context.read<BookingDetailController>();
     final ok = await action();
@@ -88,8 +104,11 @@ class _DetailView extends StatelessWidget {
   Widget _body(BuildContext context, BookingDetail d) {
     final c = context.read<BookingDetailController>();
     final disabled = c.acting;
-    return ListView(
+    // Tarik-untuk-refresh: ambil status terbaru (mis. bukti bayar baru dari
+    // customer) selama app belum punya push realtime.
+    return RefreshIndicator(onRefresh: c.load, child: ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         // hero + dua pill status
         Container(
@@ -130,6 +149,16 @@ class _DetailView extends StatelessWidget {
                 ]),
                 if (a.referenceCode.isNotEmpty || a.payerNote.isNotEmpty)
                   Padding(padding: const EdgeInsets.only(top: 4), child: Text([if (a.referenceCode.isNotEmpty) 'Ref ${a.referenceCode}', if (a.payerNote.isNotEmpty) a.payerNote].join(' · '), style: const TextStyle(fontSize: 11.5, color: BK.ink3))),
+                // Bukti bayar yang diupload customer — tap untuk lihat penuh.
+                if (a.proofUrl.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => _showProof(context, a.proofUrl),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(a.proofUrl, height: 170, width: double.infinity, fit: BoxFit.cover,
+                        loadingBuilder: (ctx, child, prog) => prog == null ? child : Container(height: 170, alignment: Alignment.center, color: BK.card2, child: const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+                        errorBuilder: (_, _, _) => Container(height: 70, alignment: Alignment.center, color: BK.card2, child: const Text('Gagal memuat bukti bayar', style: TextStyle(fontSize: 12, color: BK.ink3))))),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: FilledButton(
@@ -164,6 +193,10 @@ class _DetailView extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text('Alasan: ${d.cancellationReason}', style: const TextStyle(fontSize: 12.5, color: BK.ink2)),
               ],
+              if (d.statusRaw == 'completed' && d.hasBalance) ...[
+                const SizedBox(height: 8),
+                Text('Masih ada sisa tagihan Rp${rupiah(d.balanceDue)} — lunasi di bawah.', style: const TextStyle(fontSize: 12.5, color: BK.pend, fontWeight: FontWeight.w600)),
+              ],
             ]),
           )
         else ...[
@@ -182,10 +215,6 @@ class _DetailView extends StatelessWidget {
             }, outline: true),
           if (d.canComplete)
             _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
-          if (d.canSettle)
-            _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.ink, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas'), outline: true),
-          if (d.canSendReceipt)
-            _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
           if (d.isActive) ...[
             _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
             // F&B / Add-on hanya tampil kalau diaktifkan tenant (controller_features),
@@ -212,6 +241,13 @@ class _DetailView extends StatelessWidget {
             if (d.enableFnb || d.enableAddons) const SizedBox(height: 9),
           ],
         ],
+
+        // Pelunasan & nota — di luar gating "isFinal": canSettle justru butuh
+        // status completed (sesi selesai tapi masih ada sisa bayar).
+        if (d.canSettle)
+          Padding(padding: const EdgeInsets.only(top: 4), child: _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas'))),
+        if (d.canSendReceipt)
+          Padding(padding: const EdgeInsets.only(top: 8), child: _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true)),
 
         const SizedBox(height: 8),
         Row(children: const [
@@ -261,7 +297,7 @@ class _DetailView extends StatelessWidget {
           ),
         ],
       ],
-    );
+    ));
   }
 
   Future<void> _confirmCancel(BuildContext context) async {
