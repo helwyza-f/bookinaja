@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 import '../config.dart';
 
 /// Error terstruktur dari API — pesan siap tampil ke user.
@@ -59,7 +61,9 @@ class ApiClient {
     final req = http.MultipartRequest('POST', uri);
     if (_token != null && _token!.isNotEmpty) req.headers['Authorization'] = 'Bearer $_token';
     if (_tenantSlug != null && _tenantSlug!.isNotEmpty) req.headers['X-Tenant-Slug'] = _tenantSlug!;
-    req.files.add(await http.MultipartFile.fromPath(field, filePath));
+    final mimeType = lookupMimeType(filePath) ?? 'image/jpeg';
+    final parts = mimeType.split('/');
+    req.files.add(await http.MultipartFile.fromPath(field, filePath, contentType: MediaType(parts.first, parts.last)));
 
     if (kDebugMode) debugPrint('┌── ▶ API UPLOAD ${uri.path}  file=$filePath');
     http.Response res;
