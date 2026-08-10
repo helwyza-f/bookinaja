@@ -172,7 +172,7 @@ class _DetailView extends StatelessWidget {
           if (d.canConfirm)
             _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
           if (d.canRecordDeposit)
-            _primary('Catat DP (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, 'DP dicatat')),
+            _primary('Catat ${d.depositTerm} (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, '${d.depositTerm} dicatat')),
           if (d.canStart)
             _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
           if (d.canOverrideDeposit)
@@ -188,16 +188,28 @@ class _DetailView extends StatelessWidget {
             _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
           if (d.isActive) ...[
             _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
-            Row(children: [
-              Expanded(child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
-                onPressed: disabled ? null : () => _fnbSheet(context, d), icon: const Icon(Icons.ramen_dining, size: 18), label: const Text('Tambah F&B'))),
-              const SizedBox(width: 9),
-              Expanded(child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
-                onPressed: disabled ? null : () => _addonSheet(context, d), icon: const Icon(Icons.add_circle_outline, size: 18), label: const Text('Add-on'))),
-            ]),
-            const SizedBox(height: 9),
+            // F&B / Add-on hanya tampil kalau diaktifkan tenant (controller_features),
+            // mengikuti web. Reflow: dua → berdampingan, satu → penuh, nol → hilang.
+            Builder(builder: (_) {
+              OutlinedButton catalogBtn(IconData icon, String label, VoidCallback onTap) => OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
+                    onPressed: disabled ? null : onTap,
+                    icon: Icon(icon, size: 18),
+                    label: Text(label),
+                  );
+              final btns = <Widget>[
+                if (d.enableFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
+                if (d.enableAddons) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
+              ];
+              if (btns.isEmpty) return const SizedBox.shrink();
+              if (btns.length == 1) return SizedBox(width: double.infinity, child: btns.first);
+              return Row(children: [
+                Expanded(child: btns[0]),
+                const SizedBox(width: 9),
+                Expanded(child: btns[1]),
+              ]);
+            }),
+            if (d.enableFnb || d.enableAddons) const SizedBox(height: 9),
           ],
         ],
 

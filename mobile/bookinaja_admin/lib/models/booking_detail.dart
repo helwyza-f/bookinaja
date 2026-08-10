@@ -89,6 +89,9 @@ class BookingDetail {
   final int depositAmount;
   final bool depositOverrideActive;
   final String cancellationReason;
+  final String paymentMode; // partial | none | full
+  final bool enableFnb;
+  final bool enableAddons;
   final List<PaymentAttempt> attempts;
   final List<OrderLine> orders;
   final List<OrderLine> options;
@@ -110,6 +113,9 @@ class BookingDetail {
     required this.depositAmount,
     required this.depositOverrideActive,
     this.cancellationReason = '',
+    this.paymentMode = 'partial',
+    this.enableFnb = true,
+    this.enableAddons = true,
     this.attempts = const [],
     this.orders = const [],
     this.options = const [],
@@ -148,13 +154,23 @@ class BookingDetail {
         _ => 'Menunggu',
       };
 
+  // Mode pembayaran (mengikuti web): full = bayar penuh di awal.
+  bool get isFullMode => paymentMode == 'full';
+  bool get isNoneMode => paymentMode == 'none';
+
+  // Istilah tahap bayar di muka menyesuaikan mode (web: "Bayar Penuh" vs "DP").
+  String get depositTerm => isFullMode ? 'Pembayaran' : 'DP';
+  String get depositActionLabel => isFullMode ? 'Bayar Penuh' : 'Bayar DP';
+
   String get paymentLabel {
     if (isPaymentSettled) return 'Lunas';
-    if (paymentStatus == 'partial_paid' || paymentStatus == 'paid') return 'DP masuk';
+    if (paymentStatus == 'partial_paid' || paymentStatus == 'paid') {
+      return isFullMode ? 'Pembayaran masuk' : 'DP masuk';
+    }
     if (paymentStatus == 'awaiting_verification') return 'Menunggu verifikasi';
     if (paymentStatus == 'expired') return 'Kadaluarsa';
     if (paymentStatus == 'failed' || paymentStatus == 'denied') return 'Gagal';
-    if (depositOverrideActive) return 'Tanpa DP';
+    if (depositOverrideActive || isNoneMode) return 'Tanpa DP';
     return 'Menunggu pembayaran';
   }
 
@@ -180,6 +196,13 @@ class BookingDetail {
       depositAmount: money(j['deposit_amount']),
       depositOverrideActive: j['deposit_override_active'] == true,
       cancellationReason: '${j['cancellation_reason'] ?? ''}',
+      paymentMode: '${j['payment_mode'] ?? 'partial'}'.toLowerCase(),
+      enableFnb: (j['controller_features'] is Map)
+          ? (j['controller_features'] as Map)['enable_fnb'] != false
+          : true,
+      enableAddons: (j['controller_features'] is Map)
+          ? (j['controller_features'] as Map)['enable_addons'] != false
+          : true,
       attempts: rawAttempts.whereType<Map>().map((e) => PaymentAttempt.fromJson(Map<String, dynamic>.from(e))).toList(),
       orders: asList(j['orders']).whereType<Map>().map((e) => OrderLine.fnb(Map<String, dynamic>.from(e))).toList(),
       options: asList(j['options']).whereType<Map>().map((e) => OrderLine.option(Map<String, dynamic>.from(e))).toList(),
