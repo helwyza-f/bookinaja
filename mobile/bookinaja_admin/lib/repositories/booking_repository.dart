@@ -228,7 +228,9 @@ class BookingRepository {
 
   /// Buat booking manual (admin). POST /bookings/manual.
   /// item_ids = [mainPackageId, ...addonIds]. duration = jumlah unit.
-  Future<void> create({
+  /// Mengembalikan (id: UUID asli, code: kode tampil) supaya item baru bisa
+  /// langsung dibuka detailnya (GET /bookings/:id butuh UUID, bukan kode).
+  Future<({String id, String code})> create({
     required String resourceId,
     required String customerName,
     required String customerPhone,
@@ -240,9 +242,9 @@ class BookingRepository {
   }) async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      return;
+      return (id: '', code: '');
     }
-    await _api.post('/bookings/manual', body: {
+    final res = await _api.post('/bookings/manual', body: {
       'resource_id': resourceId,
       'customer_name': customerName.toUpperCase(),
       'customer_phone': customerPhone,
@@ -252,6 +254,11 @@ class BookingRepository {
       'booking_mode': bookingMode,
       'promo_code': promoCode,
     });
+    final map = res is Map ? res : const {};
+    final booking = map['booking'] is Map ? map['booking'] as Map : const {};
+    final id = '${map['booking_id'] ?? booking['id'] ?? ''}';
+    final code = '${booking['booking_code'] ?? booking['code'] ?? ''}';
+    return (id: id, code: code);
   }
 
   /// Backend bisa balikin array langsung atau {data:[...]} / {bookings:[...]}.

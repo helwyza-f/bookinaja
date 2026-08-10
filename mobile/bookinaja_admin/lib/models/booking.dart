@@ -40,10 +40,14 @@ class Booking {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
     final total = money(j['grand_total'] ?? j['total'] ?? j['total_price']);
     final paid = money(j['paid_amount'] ?? j['paid'] ?? j['deposit_amount']);
-    final id = '${j['id'] ?? j['booking_code'] ?? j['code'] ?? '-'}';
+    // id HARUS UUID asli (dipakai GET /bookings/:id & aksi) — jangan fallback ke
+    // kode BKN, itu bikin 404. code hanya untuk tampilan.
+    final id = '${j['id'] ?? ''}';
+    final rawCode = '${j['booking_code'] ?? j['code'] ?? ''}';
+    final code = rawCode.isNotEmpty ? rawCode : (id.length > 8 ? id.substring(0, 8).toUpperCase() : id);
     return Booking(
       id: id,
-      code: id.length > 8 ? id.substring(0, 8).toUpperCase() : id,
+      code: code,
       customer: '${j['customer_name'] ?? j['customer'] ?? j['name'] ?? 'Tanpa nama'}',
       resource: '${j['resource_name'] ?? j['resource'] ?? '-'}',
       time: _timeLabel('${j['start_time'] ?? ''}', '${j['end_time'] ?? ''}',

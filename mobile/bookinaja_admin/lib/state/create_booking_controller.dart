@@ -220,7 +220,7 @@ class CreateBookingController extends ChangeNotifier {
     }
 
     try {
-      await _bookings.create(
+      final created = await _bookings.create(
         resourceId: resource!.resourceId,
         customerName: name.trim(),
         customerPhone: phone.trim(),
@@ -233,9 +233,13 @@ class CreateBookingController extends ChangeNotifier {
       final timeLabel = isInterday
           ? '${_dmy(date)} · $duration ${pkg!.unitLabel}'
           : '$slot · $duration ${pkg!.unitLabel}';
-      final code = 'BKN-${DateTime.now().millisecondsSinceEpoch % 10000}';
+      // Pakai UUID asli dari server agar detail langsung bisa dibuka.
+      final id = created.id.isNotEmpty ? created.id : 'BKN-${DateTime.now().millisecondsSinceEpoch % 10000}';
+      final code = created.code.isNotEmpty
+          ? created.code
+          : (id.length > 8 ? id.substring(0, 8).toUpperCase() : id);
       return Booking(
-        id: code,
+        id: id,
         code: code,
         customer: name.trim(),
         resource: resource!.resourceName,
