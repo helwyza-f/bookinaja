@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Wajib agar release build bisa memanggil API (debug manifest sudah punya
+         ini otomatis, tapi release TIDAK — tanpa ini login "gagal terhubung"). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="bookinaja_admin"
         android:name="${applicationName}"
