@@ -358,6 +358,9 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.POST("/:id/override-deposit", middleware.RequirePermission(tenant.PermissionSessionsStart), cfg.ReservationHandler.OverrideDeposit)
 				bookings.POST("/:id/settle-cash", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.SettleCash)
 				bookings.POST("/:id/manual-payment", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.SubmitManualBookingPayment)
+				bookings.POST("/:id/upload-proof", middleware.RequirePermission(tenant.PermissionPosCashSettle), func(c *gin.Context) {
+					upload.HandleSingleUpload(c, "payments/proofs")
+				})
 				bookings.POST("/payment-attempts/:attempt_id/verify", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.VerifyManualBookingPayment)
 				bookings.POST("/payment-attempts/:attempt_id/reject", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.RejectManualBookingPayment)
 				bookings.POST("/:id/receipt/send", middleware.RequirePermission(tenant.PermissionReceiptsSend), cfg.ReservationHandler.SendReceiptWhatsApp)

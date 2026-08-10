@@ -34,6 +34,35 @@ class PaymentAttempt {
   }
 }
 
+/// Metode pembayaran tenant yang bisa dipilih admin saat mencatat pembayaran.
+class PaymentMethodOption {
+  final String code;
+  final String displayName;
+  final String category;
+  final String verificationType; // manual | auto
+  final bool isActive;
+
+  const PaymentMethodOption({
+    required this.code,
+    required this.displayName,
+    required this.category,
+    required this.verificationType,
+    required this.isActive,
+  });
+
+  bool get isManual => verificationType == 'manual';
+  // "cash" dilayani lewat settle-cash / record-deposit khusus, bukan attempt manual.
+  bool get isCash => code == 'cash' || category == 'cash';
+
+  factory PaymentMethodOption.fromJson(Map<String, dynamic> j) => PaymentMethodOption(
+        code: '${j['code'] ?? ''}'.toLowerCase(),
+        displayName: '${j['display_name'] ?? j['code'] ?? 'Metode'}',
+        category: '${j['category'] ?? ''}'.toLowerCase(),
+        verificationType: '${j['verification_type'] ?? ''}'.toLowerCase(),
+        isActive: j['is_active'] != false,
+      );
+}
+
 /// Item pesanan F&B / add-on yang sudah dibeli.
 class OrderLine {
   final String name;
@@ -96,6 +125,7 @@ class BookingDetail {
   final List<OrderLine> orders;
   final List<OrderLine> options;
   final List<TimelineEvent> events;
+  final List<PaymentMethodOption> paymentMethods;
 
   const BookingDetail({
     required this.id,
@@ -120,6 +150,7 @@ class BookingDetail {
     this.orders = const [],
     this.options = const [],
     this.events = const [],
+    this.paymentMethods = const [],
   });
 
   // --- turunan status ---
@@ -144,6 +175,16 @@ class BookingDetail {
   bool get canOverrideDeposit => canRecordDeposit;
   bool get canExtend => isActive;
   bool get canSendReceipt => isPaymentSettled;
+
+  // Metode manual (transfer/e-wallet dgn verifikasi manual) yang tersedia utk
+  // dicatatkan admin atas nama customer → menghasilkan attempt awaiting_verification.
+  List<PaymentMethodOption> get manualMethods =>
+      paymentMethods.where((m) => m.isActive && m.isManual && !m.isCash).toList();
+
+  // Catat DP non-tunai: sama gating dgn cash DP, tapi butuh metode manual tersedia.
+  bool get canManualDeposit => canRecordDeposit && manualMethods.isNotEmpty;
+  // Catat pelunasan non-tunai: sama gating dgn cash settle.
+  bool get canManualSettlement => canSettle && manualMethods.isNotEmpty;
 
   // --- label meta (mengikuti web) ---
   String get sessionLabel => switch (statusRaw) {
@@ -207,6 +248,7 @@ class BookingDetail {
       orders: asList(j['orders']).whereType<Map>().map((e) => OrderLine.fnb(Map<String, dynamic>.from(e))).toList(),
       options: asList(j['options']).whereType<Map>().map((e) => OrderLine.option(Map<String, dynamic>.from(e))).toList(),
       events: asList(j['events']).whereType<Map>().map((e) => TimelineEvent.fromJson(Map<String, dynamic>.from(e))).toList(),
+      paymentMethods: asList(j['payment_methods']).whereType<Map>().map((e) => PaymentMethodOption.fromJson(Map<String, dynamic>.from(e))).toList(),
     );
   }
 

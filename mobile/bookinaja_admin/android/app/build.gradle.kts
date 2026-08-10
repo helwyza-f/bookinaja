@@ -32,6 +32,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Skip native-symbol stripping: the strip task fails on libflutter.so under
+    // Windows (locked .so / NDK strip errors). Keeping symbols is fine for debug.
+    packaging {
+        jniLibs {
+            keepDebugSymbols.add("**/*.so")
+        }
+    }
 }
 
 kotlin {

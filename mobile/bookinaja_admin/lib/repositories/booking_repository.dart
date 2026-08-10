@@ -198,6 +198,34 @@ class BookingRepository {
     await _api.post('/bookings/$id/addons', body: {'item_id': itemId});
   }
 
+  /// Catat pembayaran manual (transfer/e-wallet) atas nama customer.
+  /// Menghasilkan attempt awaiting_verification yang lalu diverifikasi admin.
+  /// scope: 'deposit' (DP) | 'settlement' (pelunasan). POST /bookings/:id/manual-payment.
+  Future<void> submitManualPayment(String id, {required String scope, required String method, String proofUrl = ''}) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return;
+    }
+    await _api.post('/bookings/$id/manual-payment', body: {
+      'booking_id': id,
+      'scope': scope,
+      'method': method,
+      if (proofUrl.isNotEmpty) 'proof_url': proofUrl,
+    });
+  }
+
+  /// Upload foto bukti pembayaran (admin) → mengembalikan URL publik.
+  /// POST /bookings/:id/upload-proof (multipart).
+  Future<String> uploadPaymentProof(String id, String filePath) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return 'https://example.com/demo-proof.jpg';
+    }
+    final res = await _api.uploadFile('/bookings/$id/upload-proof', filePath);
+    if (res is Map && res['url'] is String) return res['url'] as String;
+    throw Exception('Respons upload tidak valid');
+  }
+
   /// Buat booking manual (admin). POST /bookings/manual.
   /// item_ids = [mainPackageId, ...addonIds]. duration = jumlah unit.
   Future<void> create({

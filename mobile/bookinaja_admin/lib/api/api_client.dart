@@ -51,6 +51,36 @@ class ApiClient {
   Future<dynamic> post(String path, {Object? body}) => _request('POST', path, body: body);
   Future<dynamic> put(String path, {Object? body}) => _request('PUT', path, body: body);
 
+  /// Upload satu file (multipart) — field 'image', dipakai untuk bukti pembayaran.
+  /// Mengembalikan body JSON terurai (mis. {url, mime_type, size}).
+  Future<dynamic> uploadFile(String path, String filePath, {String field = 'image'}) async {
+    final uri = _uri(path);
+    final sw = Stopwatch()..start();
+    final req = http.MultipartRequest('POST', uri);
+    if (_token != null && _token!.isNotEmpty) req.headers['Authorization'] = 'Bearer $_token';
+    if (_tenantSlug != null && _tenantSlug!.isNotEmpty) req.headers['X-Tenant-Slug'] = _tenantSlug!;
+    req.files.add(await http.MultipartFile.fromPath(field, filePath));
+
+    if (kDebugMode) debugPrint('┌── ▶ API UPLOAD ${uri.path}  file=$filePath');
+    http.Response res;
+    try {
+      final streamed = await _client.send(req).timeout(AppConfig.requestTimeout);
+      res = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      _logError('POST', uri, 'UPLOAD TIMEOUT setelah ${sw.elapsedMilliseconds}ms');
+      throw ApiException(0, 'Upload timeout. Cek jaringan lalu coba lagi.');
+    } catch (e) {
+      _logError('POST', uri, 'UPLOAD ERROR: $e');
+      throw ApiException(0, 'Gagal mengunggah file. Cek koneksi.');
+    }
+
+    _logResponse('POST', uri, res.statusCode, sw.elapsedMilliseconds, res.body);
+    final parsed = res.body.isEmpty ? null : _tryDecode(res.body);
+    if (res.statusCode >= 200 && res.statusCode < 300) return parsed;
+    final msg = (parsed is Map && parsed['error'] is String) ? parsed['error'] as String : 'Gagal upload (${res.statusCode}).';
+    throw ApiException(res.statusCode, msg);
+  }
+
   Future<dynamic> _request(String method, String path, {Object? body}) async {
     final uri = _uri(path);
     final headers = _headers();

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/booking.dart';
@@ -206,6 +208,8 @@ class _DetailView extends StatelessWidget {
             _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
           if (d.canRecordDeposit)
             _primary('Catat ${d.depositTerm} (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, '${d.depositTerm} dicatat')),
+          if (d.canManualDeposit)
+            _primary('Catat ${d.depositTerm} (transfer/e-wallet)', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'deposit'), outline: true),
           if (d.canStart)
             _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
           if (d.canOverrideDeposit)
@@ -246,6 +250,8 @@ class _DetailView extends StatelessWidget {
         // status completed (sesi selesai tapi masih ada sisa bayar).
         if (d.canSettle)
           Padding(padding: const EdgeInsets.only(top: 4), child: _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas'))),
+        if (d.canManualSettlement)
+          Padding(padding: const EdgeInsets.only(top: 8), child: _primary('Lunasi via transfer/e-wallet', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'settlement'), outline: true)),
         if (d.canSendReceipt)
           Padding(padding: const EdgeInsets.only(top: 8), child: _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true)),
 
@@ -460,6 +466,161 @@ class _DetailView extends StatelessWidget {
           await _run(context, () => c.addAddon(a.itemId), '${a.name} ditambahkan');
         },
       ),
+    );
+  }
+
+  /// Pilih metode manual (transfer/e-wallet/QRIS), lampirkan foto bukti opsional,
+  /// lalu catat pembayaran atas nama customer → attempt awaiting_verification.
+  Future<void> _manualPaySheet(BuildContext context, BookingDetail d, String scope) async {
+    final c = context.read<BookingDetailController>();
+    final amount = scope == 'settlement' ? d.balanceDue : d.depositAmount;
+    final title = scope == 'settlement' ? 'Lunasi via transfer/e-wallet' : 'Catat ${d.depositTerm} (transfer/e-wallet)';
+    final result = await showModalBottomSheet<({String method, String proofUrl})>(
+      context: context, backgroundColor: BK.bg, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => _ManualPaySheet(controller: c, title: title, amount: amount, methods: d.manualMethods),
+    );
+    if (result != null && context.mounted) {
+      await _run(context, () => c.submitManualPayment(scope: scope, method: result.method, proofUrl: result.proofUrl),
+          'Pembayaran dicatat — menunggu verifikasi');
+    }
+  }
+}
+
+/// Sheet catat pembayaran manual: pilih metode + foto bukti opsional (admin).
+class _ManualPaySheet extends StatefulWidget {
+  final BookingDetailController controller;
+  final String title;
+  final int amount;
+  final List<PaymentMethodOption> methods;
+  const _ManualPaySheet({required this.controller, required this.title, required this.amount, required this.methods});
+  @override
+  State<_ManualPaySheet> createState() => _ManualPaySheetState();
+}
+
+class _ManualPaySheetState extends State<_ManualPaySheet> {
+  final _picker = ImagePicker();
+  String? _method;
+  String? _proofPath; // path lokal foto yang dipilih
+  String? _proofUrl; // url setelah terunggah
+  bool _uploading = false;
+  String? _error;
+
+  Future<void> _pick(ImageSource source) async {
+    try {
+      final x = await _picker.pickImage(source: source, imageQuality: 70, maxWidth: 1600);
+      if (x == null) return;
+      setState(() {
+        _proofPath = x.path;
+        _proofUrl = null;
+        _uploading = true;
+        _error = null;
+      });
+      final url = await widget.controller.uploadProof(x.path);
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        if (url != null) {
+          _proofUrl = url;
+        } else {
+          _proofPath = null;
+          _error = 'Gagal mengunggah foto. Coba lagi.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _proofPath = null;
+        _error = 'Gagal mengambil foto.';
+      });
+    }
+  }
+
+  void _pickSource() {
+    showModalBottomSheet<void>(
+      context: context, backgroundColor: BK.bg,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.photo_camera_outlined, color: BK.accent), title: const Text('Ambil foto'), onTap: () {
+          Navigator.pop(ctx);
+          _pick(ImageSource.camera);
+        }),
+        ListTile(leading: const Icon(Icons.photo_library_outlined, color: BK.accent), title: const Text('Pilih dari galeri'), onTap: () {
+          Navigator.pop(ctx);
+          _pick(ImageSource.gallery);
+        }),
+      ])),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _method != null && !_uploading;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 14, 16, 20 + MediaQuery.of(context).viewInsets.bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+          const SizedBox(height: 2),
+          Text('Nominal Rp${rupiah(widget.amount)} · pilih metode. Pembayaran menunggu verifikasi.',
+              style: const TextStyle(fontSize: 12, color: BK.ink3)),
+          const SizedBox(height: 12),
+          const Text('METODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 8),
+          for (final m in widget.methods)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(BK.radius),
+                onTap: () => setState(() => _method = m.code),
+                child: BKCard(child: Row(children: [
+                  Icon(_method == m.code ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      color: _method == m.code ? BK.accent : BK.ink3, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(m.displayName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink))),
+                ])),
+              ),
+            ),
+          const SizedBox(height: 6),
+          const Text('FOTO BUKTI (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 8),
+          _proofPreview(),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
+          const SizedBox(height: 14),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: canSubmit ? () => Navigator.pop(context, (method: _method!, proofUrl: _proofUrl ?? '')) : null,
+            child: Text(_uploading ? 'Mengunggah foto…' : 'Catat pembayaran', style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _proofPreview() {
+    if (_uploading && _proofPath != null) {
+      return Row(children: [
+        SizedBox(width: 56, height: 56, child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(_proofPath!), fit: BoxFit.cover))),
+        const SizedBox(width: 12),
+        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        const SizedBox(width: 10),
+        const Text('Mengunggah…', style: TextStyle(fontSize: 12.5, color: BK.ink3)),
+      ]);
+    }
+    if (_proofUrl != null && _proofPath != null) {
+      return Row(children: [
+        SizedBox(width: 56, height: 56, child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(_proofPath!), fit: BoxFit.cover))),
+        const SizedBox(width: 12),
+        const Expanded(child: Text('Bukti terlampir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.live))),
+        IconButton(onPressed: () => setState(() { _proofPath = null; _proofUrl = null; }), icon: const Icon(Icons.close, color: BK.ink3)),
+      ]);
+    }
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
+      onPressed: _pickSource,
+      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+      label: const Text('Tambah foto bukti'),
     );
   }
 }
