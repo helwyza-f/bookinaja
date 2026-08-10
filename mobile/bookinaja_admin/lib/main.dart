@@ -80,6 +80,13 @@ class BookinajaAdmin extends StatelessWidget {
         title: 'Bookinaja Admin',
         debugShowCheckedModeBanner: false,
         theme: BK.theme(),
+        // Tutup keyboard saat tap di area kosong (penting di iOS yang tak
+        // menyediakan tombol "done" bawaan pada keyboard).
+        builder: (context, child) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: child,
+        ),
         home: const _AuthGate(),
       ),
     );

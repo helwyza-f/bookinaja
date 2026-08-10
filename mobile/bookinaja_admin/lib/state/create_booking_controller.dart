@@ -175,7 +175,26 @@ class CreateBookingController extends ChangeNotifier {
 
   void setDuration(int n) {
     duration = n.clamp(1, 30);
+    // Slot dipilih lebih dulu (seperti web); durasi baru bisa membuat slot
+    // tak muat lagi — batalkan pilihan slot yang jadi tidak tersedia.
+    if (slot != null && !slots.any((s) => s.label == slot && s.available)) {
+      slot = null;
+    }
     notifyListeners();
+  }
+
+  /// Isi customer langsung dari daftar (picker) — nomor + nama sekaligus.
+  void pickCustomer({required String name, required String phone, String tier = ''}) {
+    foundCustomer = name.isNotEmpty ? (name: name, tier: tier) : null;
+    notifyListeners();
+  }
+
+  /// Muat daftar pelanggan (untuk picker "pilih dari daftar").
+  Future<List<({String id, String name, String phone, String tier})>> customerList() async {
+    final list = await _customers.list();
+    return list
+        .map((c) => (id: c.id, name: c.name, phone: c.phone, tier: c.tier))
+        .toList();
   }
 
   void toggleAddon(String id) {

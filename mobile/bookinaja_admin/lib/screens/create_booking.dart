@@ -78,6 +78,20 @@ class _FlowState extends State<_Flow> {
   void _snack(String m, Color color) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating, backgroundColor: color));
 
+  Future<void> _pickFromList(CreateBookingController c) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final selected = await showModalBottomSheet<({String name, String phone, String tier})>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CustomerPickerSheet(load: c.customerList),
+    );
+    if (selected == null || !mounted) return;
+    _phone.text = selected.phone;
+    _name.text = selected.name;
+    c.pickCustomer(name: selected.name, phone: selected.phone, tier: selected.tier);
+  }
+
   Future<void> _submit(CreateBookingController c) async {
     if (_name.text.trim().isEmpty) return _snack('Nama customer wajib diisi', BK.crit);
     final booking = await c.submit(name: _name.text, phone: _phone.text);
@@ -212,6 +226,19 @@ class _FlowState extends State<_Flow> {
             ),
           ),
 
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: BK.accent, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+              onPressed: () => _pickFromList(c),
+              icon: const Icon(Icons.people_alt_outlined, size: 18),
+              label: const Text('Pilih dari daftar pelanggan'),
+            ),
+          ),
+        ),
+
         _label('PAKET'),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final p in r.packages)
@@ -222,14 +249,9 @@ class _FlowState extends State<_Flow> {
           _label('TANGGAL'),
           _dateStrip(c),
 
-          _label('DURASI (${c.unitLabel})'),
-          Row(children: [
-            _stepBtn(Icons.remove, () => c.setDuration(c.duration - 1)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Text('${c.duration} ${c.unitLabel}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
-            _stepBtn(Icons.add, () => c.setDuration(c.duration + 1)),
-          ]),
-
-          if (c.isInterday)
+          // Urutan mengikuti web: pilih SLOT dulu, baru DURASI (paket interday
+          // seperti hari/minggu/bulan tidak pakai slot jam).
+          if (c.isInterday) ...[
             Padding(
               padding: const EdgeInsets.only(top: 14),
               child: Container(
@@ -242,8 +264,9 @@ class _FlowState extends State<_Flow> {
                       style: const TextStyle(fontSize: 12, color: BK.accent, fontWeight: FontWeight.w600))),
                 ]),
               ),
-            )
-          else ...[
+            ),
+            _durationBlock(c),
+          ] else ...[
             _label('SLOT MULAI'),
             if (c.busyLoading)
               const Padding(padding: EdgeInsets.all(8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
@@ -251,6 +274,7 @@ class _FlowState extends State<_Flow> {
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final s in c.slots) _slotChip(s.label, available: s.available, selected: c.slot == s.label, onTap: () => c.selectSlot(s.label)),
               ]),
+            _durationBlock(c),
           ],
 
           if (c.addons.isNotEmpty) ...[
@@ -322,6 +346,36 @@ class _FlowState extends State<_Flow> {
 
   Widget _label(String t) => Padding(padding: const EdgeInsets.fromLTRB(2, 16, 2, 8), child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)));
 
+  // Menit → label manusiawi. 90 → "1j 30m", 60 → "1 jam", 45 → "45 menit".
+  String _humanMinutes(int m) {
+    if (m <= 0) return '';
+    if (m < 60) return '$m menit';
+    final h = m ~/ 60, rem = m % 60;
+    if (rem == 0) return h == 1 ? '1 jam' : '$h jam';
+    return '${h}j ${rem}m';
+  }
+
+  // Stepper durasi + hint panjang per unit (jam/sesi/hari), mengikuti label
+  // resource. Untuk paket berbasis sesi, tampilkan durasi 1 sesi berapa lama.
+  Widget _durationBlock(CreateBookingController c) {
+    final perUnit = _humanMinutes(c.unitMinutes);
+    final showPerUnit = !c.isInterday && perUnit.isNotEmpty;
+    final total = _humanMinutes(c.unitMinutes * c.duration);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _label('DURASI (${c.unitLabel})'),
+      Row(children: [
+        _stepBtn(Icons.remove, () => c.setDuration(c.duration - 1)),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Text('${c.duration} ${c.unitLabel}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
+        _stepBtn(Icons.add, () => c.setDuration(c.duration + 1)),
+      ]),
+      if (showPerUnit)
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 2),
+          child: Text('1 ${c.unitLabel} = $perUnit · total $total', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+        ),
+    ]);
+  }
+
   Widget _choice(String t, bool on, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
         child: Container(
@@ -358,4 +412,95 @@ class _FlowState extends State<_Flow> {
       );
 
   String _dow(int weekday) => const ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][weekday - 1];
+}
+
+/// Bottom sheet pemilih pelanggan dari daftar CRM (cari nama/nomor).
+class _CustomerPickerSheet extends StatefulWidget {
+  const _CustomerPickerSheet({required this.load});
+  final Future<List<({String id, String name, String phone, String tier})>> Function() load;
+
+  @override
+  State<_CustomerPickerSheet> createState() => _CustomerPickerSheetState();
+}
+
+class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
+  List<({String id, String name, String phone, String tier})>? _all;
+  String? _error;
+  String _q = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final list = await widget.load();
+      if (mounted) setState(() => _all = list);
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim().toLowerCase();
+    final items = (_all ?? [])
+        .where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || c.phone.contains(q))
+        .toList();
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scroll) => Container(
+        decoration: const BoxDecoration(color: BK.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(children: [
+          const SizedBox(height: 10),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              onChanged: (v) => setState(() => _q = v),
+              decoration: InputDecoration(
+                hintText: 'Cari nama / nomor',
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _error != null
+                ? Center(child: Text('Gagal memuat: $_error', style: const TextStyle(color: BK.crit)))
+                : _all == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : items.isEmpty
+                        ? const Center(child: Text('Tidak ada pelanggan', style: TextStyle(color: BK.ink3)))
+                        : ListView.separated(
+                            controller: scroll,
+                            itemCount: items.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1, color: BK.line),
+                            itemBuilder: (_, i) {
+                              final c = items[i];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: BK.accentSoft,
+                                  child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                                      style: const TextStyle(color: BK.accent, fontWeight: FontWeight.w700)),
+                                ),
+                                title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                subtitle: Text(c.phone),
+                                trailing: c.tier.isNotEmpty ? Pill.mut(c.tier) : null,
+                                onTap: () => Navigator.pop(context, (name: c.name, phone: c.phone, tier: c.tier)),
+                              );
+                            },
+                          ),
+          ),
+        ]),
+      ),
+    );
+  }
 }
