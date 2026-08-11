@@ -252,49 +252,50 @@ class _FlowState extends State<_Flow> {
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
       children: [
         _stepLabel('01', 'Customer'),
-        BKCard(child: Column(children: [
-          Row(children: [
-            const Icon(Icons.phone_outlined, size: 20, color: BK.ink3),
-            const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _phone, keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(hintText: 'Nomor WhatsApp', border: InputBorder.none, isDense: true))),
-            _phoneStatusIcon(c.phoneStatus),
-          ]),
-          const Divider(height: 1, color: BK.line),
-          Row(children: [
-            const Icon(Icons.person_outline, size: 20, color: BK.ink3),
-            const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _name, textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(hintText: 'Nama customer', border: InputBorder.none, isDense: true))),
-          ]),
-        ])),
-        _phoneHint(c),
-        if (c.foundCustomer != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: BK.liveSoft, borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                const Icon(Icons.verified_user_outlined, size: 16, color: BK.live),
+        BKCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: Column(children: [
+            Row(children: [
+              const Icon(Icons.phone_outlined, size: 19, color: BK.ink3),
+              const SizedBox(width: 12),
+              Expanded(child: TextField(
+                controller: _phone, keyboardType: TextInputType.phone,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: BK.ink),
+                decoration: const InputDecoration(hintText: 'Nomor WhatsApp', border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 14)),
+              )),
+              const SizedBox(width: 8),
+              _phoneStatusIcon(c.phoneStatus),
+            ]),
+            const Divider(height: 1, color: BK.line),
+            Row(children: [
+              const Icon(Icons.person_outline, size: 19, color: BK.ink3),
+              const SizedBox(width: 12),
+              Expanded(child: TextField(
+                controller: _name, textCapitalization: TextCapitalization.words,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: BK.ink),
+                decoration: const InputDecoration(hintText: 'Nama customer', border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 14)),
+              )),
+              if (c.foundCustomer != null && c.foundCustomer!.tier.isNotEmpty) ...[
                 const SizedBox(width: 8),
-                Expanded(child: Text(c.isReturning ? 'Pelanggan lama: ${c.foundCustomer!.name} — selamat datang kembali' : 'Pelanggan terdaftar: ${c.foundCustomer!.name}',
-                    style: const TextStyle(fontSize: 12, color: BK.live, fontWeight: FontWeight.w600))),
-                if (c.foundCustomer!.tier.isNotEmpty) Pill.mut(c.foundCustomer!.tier),
-              ]),
+                _tierChip(c.foundCustomer!.tier),
+              ],
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        _phoneHint(c),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: BK.accent, backgroundColor: BK.accentSoft,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-          ),
-
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: BK.accent, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-              onPressed: () => _pickFromList(c),
-              icon: const Icon(Icons.people_alt_outlined, size: 18),
-              label: const Text('Pilih dari daftar pelanggan'),
-            ),
+            onPressed: () => _pickFromList(c),
+            icon: const Icon(Icons.people_alt_outlined, size: 18),
+            label: const Text('Pilih dari daftar pelanggan', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
 
@@ -356,18 +357,26 @@ class _FlowState extends State<_Flow> {
             _label('PROMO (OPSIONAL)'),
             _promoRow(c),
 
-            const SizedBox(height: 18),
-            BKCard(child: Column(children: [
-              _row('${c.pkg!.name} · ${c.duration} ${c.unitLabel}', 'Rp${rupiah(c.pkg!.price * c.duration)}'),
+            _label('RINGKASAN'),
+            BKCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.pkg!.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+                  const SizedBox(height: 2),
+                  Text('${c.duration} ${c.unitLabel} × Rp${rupiah(c.pkg!.price)}', style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+                ])),
+                const SizedBox(width: 10),
+                Text('Rp${rupiah(c.pkg!.price * c.duration)}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+              ]),
               for (final a in c.addons.where((a) => c.selectedAddonIds.contains(a.itemId)))
-                _row(a.name, 'Rp${rupiah(a.price)}'),
+                Padding(padding: const EdgeInsets.only(top: 9), child: _row(a.name, 'Rp${rupiah(a.price)}')),
               if (c.promo?.valid ?? false)
-                _row('Promo ${c.promo!.label}', '− Rp${rupiah(c.promo!.discount)}', valueColor: BK.live),
-              const Divider(height: 18, color: BK.line),
+                Padding(padding: const EdgeInsets.only(top: 9), child: _row('Promo ${c.promo!.label}', '− Rp${rupiah(c.promo!.discount)}', valueColor: BK.live)),
+              const Divider(height: 22, color: BK.line),
               Row(children: [
-                const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: BK.ink)),
+                const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: BK.ink)),
                 const Spacer(),
-                Text('Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: BK.ink)),
+                Text('Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: BK.accent)),
               ]),
             ])),
           ],
@@ -385,18 +394,28 @@ class _FlowState extends State<_Flow> {
       };
 
   Widget _phoneHint(CreateBookingController c) {
-    final (text, color) = switch (c.phoneStatus) {
-      PhoneStatus.validating => ('Mengecek nomor WhatsApp…', BK.accent),
-      PhoneStatus.invalid => ('Nomor WhatsApp tidak valid — nota dikirim ke nomor ini.', BK.crit),
-      PhoneStatus.valid when c.isReturning => ('Nomor dikenali — pelanggan lama.', BK.live),
-      PhoneStatus.valid => ('Nomor valid. Nota & akses booking dikirim ke sini.', BK.live),
-      PhoneStatus.idle => ('Nota & akses booking dikirim ke nomor WhatsApp ini.', BK.ink3),
+    final (icon, text, color) = switch (c.phoneStatus) {
+      PhoneStatus.validating => (Icons.sync, 'Mengecek nomor WhatsApp…', BK.ink3),
+      PhoneStatus.invalid => (Icons.error_outline, 'Nomor WhatsApp tidak valid.', BK.crit),
+      PhoneStatus.valid when c.isReturning => (Icons.check_circle_outline, 'Pelanggan terdaftar.', BK.live),
+      PhoneStatus.valid => (Icons.check_circle_outline, 'Nomor terverifikasi.', BK.live),
+      PhoneStatus.idle => (Icons.info_outline, 'Nota & akses booking dikirim ke nomor ini.', BK.ink3),
     };
     return Padding(
-      padding: const EdgeInsets.only(top: 6, left: 2),
-      child: Text(text, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w500)),
+      padding: const EdgeInsets.only(left: 2),
+      child: Row(children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 5),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w500))),
+      ]),
     );
   }
+
+  Widget _tierChip(String tier) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(20)),
+        child: Text(tier.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: Color(0xFFB8860B))),
+      );
 
   // Strip 14 hari + tombol kalender untuk tanggal jauh.
   Widget _dateRow(CreateBookingController c) => Row(children: [

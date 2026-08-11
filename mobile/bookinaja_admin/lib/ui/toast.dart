@@ -254,10 +254,10 @@ class _ToastCardState extends State<_ToastCard> with SingleTickerProviderStateMi
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                          Text(it.title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+                          Text(it.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: BK.ink)),
                           if (it.subtitle != null && it.subtitle!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(it.subtitle!, style: const TextStyle(fontSize: 12, color: BK.ink2, height: 1.25)),
+                            const SizedBox(height: 1),
+                            Text(it.subtitle!, style: const TextStyle(fontSize: 11.5, color: BK.ink3, height: 1.25)),
                           ],
                         ]),
                       ),
