@@ -3,7 +3,7 @@
          ini otomatis, tapi release TIDAK — tanpa ini login "gagal terhubung"). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="bookinaja_admin"
+        android:label="Bookinaja"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
