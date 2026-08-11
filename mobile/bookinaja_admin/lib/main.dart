@@ -138,16 +138,70 @@ class _HomeShellState extends State<HomeShell> {
     ];
     return Scaffold(
       body: IndexedStack(index: _i, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _i,
-        onDestinationSelected: (v) => setState(() => _i = v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note), label: 'Booking'),
-          NavigationDestination(icon: Icon(Icons.sensors_outlined), selectedIcon: Icon(Icons.sensors), label: 'Ops'),
-          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Customer'),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Lainnya'),
-        ],
+      bottomNavigationBar: _NavBar(index: _i, onTap: (v) => setState(() => _i = v)),
+    );
+  }
+}
+
+/// Bottom nav custom: bar putih + hairline & shadow halus; ikon terpilih di
+/// dalam kotak accentSoft (senada chip/avatar app), label selalu tampil.
+class _NavBar extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onTap;
+  const _NavBar({required this.index, required this.onTap});
+
+  static const _items = <({IconData off, IconData on, String label})>[
+    (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home'),
+    (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking'),
+    (off: Icons.sensors_outlined, on: Icons.sensors, label: 'Ops'),
+    (off: Icons.people_outline, on: Icons.people, label: 'Customer'),
+    (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: BK.card,
+        border: Border(top: BorderSide(color: BK.line)),
+        boxShadow: [BoxShadow(color: Color(0x0A0D1526), blurRadius: 16, offset: Offset(0, -3))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Row(children: [
+            for (int i = 0; i < _items.length; i++) Expanded(child: _item(i)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _item(int i) {
+    final it = _items[i];
+    final on = i == index;
+    return InkWell(
+      onTap: () => onTap(i),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            width: 46, height: 30, alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: on ? BK.accentSoft : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(on ? it.on : it.off, size: 21, color: on ? BK.accent : BK.ink3),
+          ),
+          const SizedBox(height: 3),
+          Text(it.label,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? BK.accent : BK.ink3)),
+        ]),
       ),
     );
   }
