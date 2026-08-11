@@ -21,6 +21,7 @@ class Booking {
   final BookingStatus status;
   final int total;
   final int paid;
+  final DateTime? startAt; // waktu mulai (untuk urutan "akan datang")
 
   const Booking({
     required this.id,
@@ -31,6 +32,7 @@ class Booking {
     required this.status,
     required this.total,
     required this.paid,
+    this.startAt,
   });
 
   int get remaining => (total - paid).clamp(0, total);
@@ -55,6 +57,7 @@ class Booking {
       status: bookingStatusFrom('${j['status'] ?? ''}', paymentStatus: '${j['payment_status'] ?? ''}'),
       total: total,
       paid: paid,
+      startAt: DateTime.tryParse('${j['start_time'] ?? ''}')?.toLocal(),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../models/booking.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import 'booking_detail.dart';
+import 'bookings.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
 
@@ -139,6 +140,28 @@ class DashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+          // Berikutnya — beberapa booking yang akan datang (soonest first)
+          if (!dash.loading && dash.upcoming.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Row(children: [
+              const Text('Berikutnya', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
+              const SizedBox(width: 9),
+              Text('${dash.upcoming.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
+              const SizedBox(width: 9),
+              const Expanded(child: Divider(color: BK.line)),
+            ]),
+            const SizedBox(height: 4),
+            BKCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
+                for (int i = 0; i < dash.upcoming.length; i++) ...[
+                  _UpcomingRow(dash.upcoming[i]),
+                  if (i < dash.upcoming.length - 1) const Divider(height: 1, color: BK.line),
+                ],
+              ]),
+            ),
+          ],
         ],
       ),
       ),
@@ -222,6 +245,61 @@ class _QA extends StatelessWidget {
             Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BK.ink2)),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+class _UpcomingRow extends StatelessWidget {
+  final Booking b;
+  const _UpcomingRow(this.b);
+
+  // "14:00" kalau hari ini, "Sel 11 · 14:00" kalau lain hari.
+  String _when() {
+    final d = b.startAt;
+    if (d == null) return '';
+    final hm = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) return hm;
+    const dow = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    return '${dow[d.weekday - 1]} ${d.day} · $hm';
+  }
+
+  String _rel() {
+    final d = b.startAt;
+    if (d == null) return '';
+    final mins = d.difference(DateTime.now()).inMinutes;
+    if (mins < 60) return 'dalam ${mins < 1 ? 1 : mins}m';
+    if (mins < 24 * 60) return 'dalam ${mins ~/ 60}j';
+    return 'dalam ${mins ~/ (24 * 60)} hari';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(11),
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => BookingDetailScreen(booking: b)));
+        if (context.mounted) context.read<DashboardController>().load();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(children: [
+          Container(
+            width: 38, height: 38, alignment: Alignment.center,
+            decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(11)),
+            child: Text(b.resource.trim().isNotEmpty ? b.resource.trim()[0].toUpperCase() : '?',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BK.accent)),
+          ),
+          const SizedBox(width: 11),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${b.resource} · ${b.customer}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+            const SizedBox(height: 1),
+            Text('${_when()} · ${_rel()}', style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+          ])),
+          const SizedBox(width: 6),
+          statusPill(b.status),
+        ]),
       ),
     );
   }
