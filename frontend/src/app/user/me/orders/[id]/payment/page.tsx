@@ -37,6 +37,7 @@ const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 type ApiError = {
   response?: {
+    status?: number;
     data?: {
       error?: string;
     };
@@ -223,7 +224,10 @@ export default function CustomerOrderPaymentPage() {
       toast.error("Bukti bayar harus berupa gambar");
       return;
     }
-    const preparedFile = await prepareImageForUpload(file, "default").catch(() => file);
+    let preparedFile = await prepareImageForUpload(file, "default").catch(() => null);
+    if (!preparedFile) {
+      preparedFile = await prepareImageForUpload(file, "thumbnail").catch(() => file);
+    }
     if (preparedFile.size > 5 * 1024 * 1024) {
       toast.error("Bukti bayar masih terlalu besar setelah diproses, maksimal 5MB");
       return;
@@ -239,7 +243,15 @@ export default function CustomerOrderPaymentPage() {
       toast.success("Bukti bayar berhasil diupload");
     } catch (err) {
       const apiError = err as ApiError;
-      toast.error(apiError.response?.data?.error || "Gagal upload bukti bayar");
+      const status = apiError.response?.status;
+      const serverMsg = apiError.response?.data?.error;
+      console.error("[upload-proof] gagal", { status, data: apiError.response?.data });
+      toast.error(
+        serverMsg ||
+          (status
+            ? `Gagal upload bukti bayar (HTTP ${status})`
+            : "Gagal upload bukti bayar — cek koneksi lalu coba lagi"),
+      );
     } finally {
       setProofUploading(false);
     }

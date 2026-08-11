@@ -374,7 +374,13 @@ export default function BookingPaymentPage() {
       toast.error("Bukti bayar harus berupa gambar");
       return;
     }
-    const preparedFile = await prepareImageForUpload(file, "default").catch(() => file);
+    // Kompres/normalisasi ke webp. Kalau gagal (mis. Safari lama tak bisa encode
+    // webp, atau file HEIC), jangan diam-diam kirim file mentah yang mungkin
+    // ditolak server — konversi ke JPEG dulu sebagai fallback yang pasti didukung.
+    let preparedFile = await prepareImageForUpload(file, "default").catch(() => null);
+    if (!preparedFile) {
+      preparedFile = await prepareImageForUpload(file, "thumbnail").catch(() => file);
+    }
     if (preparedFile.size > 5 * 1024 * 1024) {
       toast.error("Bukti bayar masih terlalu besar setelah diproses, maksimal 5MB");
       return;
@@ -389,7 +395,17 @@ export default function BookingPaymentPage() {
       setManualProofUrl(res.data?.url || "");
       toast.success("Bukti bayar berhasil diupload");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal upload bukti bayar");
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.error;
+      // Surface penyebab sebenarnya (kode HTTP / pesan server / gangguan jaringan)
+      // supaya "gagal upload" tidak jadi buntu tanpa petunjuk.
+      console.error("[upload-proof] gagal", { status, data: err?.response?.data, message: err?.message });
+      toast.error(
+        serverMsg ||
+          (status
+            ? `Gagal upload bukti bayar (HTTP ${status})`
+            : "Gagal upload bukti bayar — cek koneksi lalu coba lagi"),
+      );
     } finally {
       setProofUploading(false);
     }

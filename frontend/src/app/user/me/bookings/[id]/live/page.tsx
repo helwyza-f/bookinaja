@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
+  Ban,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -19,6 +20,15 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format, differenceInSeconds, parseISO } from "date-fns";
@@ -50,6 +60,9 @@ export default function CustomerBookingDetail() {
   const [activating, setActivating] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   const lastRealtimeToastRef = useRef("");
   const hasLoadedRef = useRef(false);
   const detailRefreshTimerRef = useRef<number | null>(null);
@@ -566,6 +579,27 @@ export default function CustomerBookingDetail() {
     }
   };
 
+  const handleCancelBooking = async () => {
+    if (booking?.cancel_require_reason && !cancelReason.trim()) {
+      toast.error("Alasan pembatalan wajib diisi");
+      return;
+    }
+    setCancelling(true);
+    try {
+      await api.post(`/user/me/bookings/${params.id}/cancel`, {
+        reason: cancelReason.trim(),
+      });
+      toast.success("Booking dibatalkan");
+      setCancelOpen(false);
+      setCancelReason("");
+      await fetchDetail();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal membatalkan booking");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) return <TicketSkeleton />;
   if (!booking) return null;
 
@@ -748,6 +782,16 @@ export default function CustomerBookingDetail() {
               <Zap className="mr-2 h-4 w-4" />
               {activating ? "Mengaktifkan..." : "Aktifkan"}
             </Button>
+            {booking?.can_customer_cancel ? (
+              <Button
+                variant="ghost"
+                onClick={() => setCancelOpen(true)}
+                className="mt-2 h-11 w-full rounded-2xl text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
+              >
+                <Ban className="mr-2 h-4 w-4" />
+                Batalkan booking
+              </Button>
+            ) : null}
           </Card>
         ) : null}
 
@@ -991,6 +1035,47 @@ export default function CustomerBookingDetail() {
           Simpan sebagai PDF
         </Button>
       </div>
+
+      <Dialog open={cancelOpen} onOpenChange={(o) => !cancelling && setCancelOpen(o)}>
+        <DialogContent className="rounded-3xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Batalkan booking?</DialogTitle>
+            <DialogDescription>
+              Booking {bookingReference} akan dibatalkan. Tindakan ini tidak bisa
+              dibatalkan kembali.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Alasan {booking?.cancel_require_reason ? "(wajib)" : "(opsional)"}
+            </label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="mis. Berhalangan hadir, minta reschedule"
+              rows={3}
+              className="rounded-2xl"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => setCancelOpen(false)}
+              disabled={cancelling}
+            >
+              Kembali
+            </Button>
+            <Button
+              className="rounded-2xl bg-rose-600 text-white hover:bg-rose-500"
+              onClick={handleCancelBooking}
+              disabled={cancelling}
+            >
+              {cancelling ? "Membatalkan..." : "Ya, batalkan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
