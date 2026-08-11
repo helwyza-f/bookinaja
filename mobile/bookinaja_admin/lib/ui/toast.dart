@@ -249,7 +249,7 @@ class _ToastCardState extends State<_ToastCard> with SingleTickerProviderStateMi
                       border: Border.all(color: s.accent.withValues(alpha: .22)),
                       boxShadow: [BoxShadow(color: BK.ink.withValues(alpha: .10), blurRadius: 18, offset: const Offset(0, 6))],
                     ),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                       _badge(s.accent, s.icon, it.type == BkToastType.loading),
                       const SizedBox(width: 11),
                       Expanded(
