@@ -32,14 +32,7 @@ class BookingsScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: BKCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(children: const [
-                Icon(Icons.search, size: 18, color: BK.ink3),
-                SizedBox(width: 10),
-                Text('Cari nama / kode…', style: TextStyle(color: BK.ink3, fontSize: 13)),
-              ]),
-            ),
+            child: _SearchField(ctrl),
           ),
           const SizedBox(height: 11),
           SizedBox(
@@ -119,10 +112,7 @@ class _BookingRow extends StatelessWidget {
       },
       child: BKCard(
         child: Row(children: [
-          Container(width: 44, height: 44, decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFC9D6F5), Color(0xFF8AA6E6)]),
-            borderRadius: BorderRadius.circular(12),
-          )),
+          _avatar(b.customer),
           const SizedBox(width: 11),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -138,6 +128,63 @@ class _BookingRow extends StatelessWidget {
           ]),
         ]),
       ),
+    );
+  }
+}
+
+/// Avatar inisial customer (menggantikan kotak gradient generik).
+Widget _avatar(String name) {
+  final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+  return Container(
+    width: 44, height: 44, alignment: Alignment.center,
+    decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(12)),
+    child: Text(initial, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.accent)),
+  );
+}
+
+/// Kolom pencarian booking (nama / kode) — filter lokal, langsung.
+class _SearchField extends StatefulWidget {
+  final BookingsController ctrl;
+  const _SearchField(this.ctrl);
+  @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField> {
+  final _c = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _c.text = widget.ctrl.query;
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BKCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      child: Row(children: [
+        const Icon(Icons.search, size: 18, color: BK.ink3),
+        const SizedBox(width: 10),
+        Expanded(child: TextField(
+          controller: _c,
+          onChanged: widget.ctrl.setQuery,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(fontSize: 13.5, color: BK.ink),
+          decoration: const InputDecoration(hintText: 'Cari nama / kode…', border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12)),
+        )),
+        if (_c.text.isNotEmpty)
+          GestureDetector(
+            onTap: () { _c.clear(); widget.ctrl.setQuery(''); setState(() {}); },
+            child: const Icon(Icons.close, size: 17, color: BK.ink3),
+          ),
+      ]),
     );
   }
 }

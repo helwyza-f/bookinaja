@@ -230,7 +230,12 @@ class _FlowState extends State<_Flow> {
       onTap: onTap,
       child: BKCard(
         child: Row(children: [
-          Container(width: 44, height: 44, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFC9D6F5), Color(0xFF8AA6E6)]), borderRadius: BorderRadius.circular(12))),
+          Container(
+            width: 44, height: 44, alignment: Alignment.center,
+            decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(12)),
+            child: Text(r.resourceName.trim().isNotEmpty ? r.resourceName.trim()[0].toUpperCase() : '?',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.accent)),
+          ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(r.resourceName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: BK.ink)),

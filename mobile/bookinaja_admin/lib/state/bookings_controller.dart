@@ -12,26 +12,33 @@ class BookingsController extends ChangeNotifier {
   AsyncValue<List<Booking>> get state => _state;
 
   int filter = 0; // 0 semua, 1 perlu aksi, 2 aktif, 3 lunas
+  String query = ''; // cari nama / kode
 
   List<Booking> get filtered {
     final all = _state.data ?? const [];
-    switch (filter) {
-      case 1:
-        return all.where((b) =>
-            b.status == BookingStatus.review ||
-            b.status == BookingStatus.pending ||
-            b.status == BookingStatus.dp).toList();
-      case 2:
-        return all.where((b) => b.status == BookingStatus.live).toList();
-      case 3:
-        return all.where((b) => b.status == BookingStatus.paid).toList();
-      default:
-        return all;
-    }
+    final byFilter = switch (filter) {
+      1 => all.where((b) =>
+          b.status == BookingStatus.review ||
+          b.status == BookingStatus.pending ||
+          b.status == BookingStatus.dp),
+      2 => all.where((b) => b.status == BookingStatus.live),
+      3 => all.where((b) => b.status == BookingStatus.paid),
+      _ => all,
+    };
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return byFilter.toList();
+    return byFilter
+        .where((b) => b.customer.toLowerCase().contains(q) || b.code.toLowerCase().contains(q))
+        .toList();
   }
 
   void setFilter(int f) {
     filter = f;
+    notifyListeners();
+  }
+
+  void setQuery(String q) {
+    query = q;
     notifyListeners();
   }
 
