@@ -75,21 +75,23 @@ class CatalogRepository {
     return slots.whereType<Map>().map((e) => BusySlot.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
-  /// Jam operasional tenant (menit dari 00:00) dari GET /public/profile.
+  /// Jam operasional + id tenant dari GET /public/profile (menit dari 00:00).
   /// Fallback 08:00–24:00. Menangani tutup tengah malam / lintas hari.
-  Future<({int openMin, int closeMin})> operatingHours() async {
-    const fallback = (openMin: 8 * 60, closeMin: 24 * 60);
+  /// tenantId dipakai untuk preview promo.
+  Future<({int openMin, int closeMin, String tenantId})> operatingHours() async {
+    const fallback = (openMin: 8 * 60, closeMin: 24 * 60, tenantId: '');
     if (AppConfig.useDemoData) return fallback;
     try {
       final slug = _api.tenantSlug ?? '';
       final res = await _api.get('/public/profile${slug.isEmpty ? '' : '?slug=$slug'}');
       if (res is! Map) return fallback;
+      final tenantId = '${res['id'] ?? res['tenant_id'] ?? ''}';
       final open = _hhmmToMin('${res['open_time'] ?? ''}');
       var close = _hhmmToMin('${res['close_time'] ?? ''}');
-      if (open == null || close == null) return fallback;
+      if (open == null || close == null) return (openMin: fallback.openMin, closeMin: fallback.closeMin, tenantId: tenantId);
       if (close == 0) close = 24 * 60; // "00:00" = tengah malam
       if (close <= open) close = 24 * 60; // lintas hari → batasi ke tengah malam
-      return (openMin: open, closeMin: close);
+      return (openMin: open, closeMin: close, tenantId: tenantId);
     } catch (_) {
       return fallback;
     }

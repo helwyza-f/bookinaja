@@ -37,8 +37,17 @@ class _Flow extends StatefulWidget {
 class _FlowState extends State<_Flow> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _promo = TextEditingController();
+  final _scroll = ScrollController();
   String _resQuery = '';
   Timer? _crmDebounce;
+
+  // Auto-scroll ke step yang baru terungkap — hanya reveal pertama (mengikuti
+  // web), supaya mengubah pilihan lama tidak menyentak halaman.
+  final _scheduleKey = GlobalKey();
+  final _durationKey = GlobalKey();
+  bool _scrolledSchedule = false;
+  bool _scrolledDuration = false;
 
   @override
   void initState() {
@@ -48,14 +57,34 @@ class _FlowState extends State<_Flow> {
 
   void _onPhoneChanged() {
     _crmDebounce?.cancel();
-    _crmDebounce = Timer(const Duration(milliseconds: 700), () async {
+    _crmDebounce = Timer(const Duration(milliseconds: 800), () async {
       if (!mounted) return;
-      final name = await context.read<CreateBookingController>().lookupCustomer(_phone.text);
+      final name = await context.read<CreateBookingController>().validatePhoneNumber(_phone.text);
       if (!mounted) return;
       if (name != null && _name.text.trim().isEmpty) {
         _name.text = name; // auto-fill kalau nama masih kosong
       }
     });
+  }
+
+  // Dipanggil tiap build (post-frame): scroll ke section yang baru muncul.
+  void _autoScroll(CreateBookingController c) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (c.pkg != null && !_scrolledSchedule) {
+        _scrolledSchedule = true;
+        _scrollTo(_scheduleKey);
+      } else if (c.slot != null && !_scrolledDuration) {
+        _scrolledDuration = true;
+        _scrollTo(_durationKey);
+      }
+    });
+  }
+
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic, alignment: 0.02);
   }
 
   @override
@@ -64,11 +93,15 @@ class _FlowState extends State<_Flow> {
     _phone.removeListener(_onPhoneChanged);
     _name.dispose();
     _phone.dispose();
+    _promo.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   void _back(CreateBookingController c) {
     if (c.resource != null) {
+      _scrolledSchedule = false;
+      _scrolledDuration = false;
       c.clearResource();
     } else {
       Navigator.of(context).pop();
@@ -109,10 +142,15 @@ class _FlowState extends State<_Flow> {
   Widget build(BuildContext context) {
     final c = context.watch<CreateBookingController>();
     final onResourceStep = c.resource == null;
+    if (!onResourceStep) _autoScroll(c);
     return PopScope(
       canPop: onResourceStep,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) c.clearResource();
+        if (!didPop) {
+          _scrolledSchedule = false;
+          _scrolledDuration = false;
+          c.clearResource();
+        }
       },
       child: Scaffold(
         backgroundColor: BK.bg,
@@ -200,16 +238,27 @@ class _FlowState extends State<_Flow> {
   Widget _builderStep(CreateBookingController c) {
     final r = c.resource!;
     return ListView(
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
       children: [
-        _label('CUSTOMER'),
+        _stepLabel('01', 'Customer'),
         BKCard(child: Column(children: [
-          TextField(controller: _phone, keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(hintText: 'Nomor WhatsApp', border: InputBorder.none, isDense: true, prefixIcon: Icon(Icons.phone_outlined, size: 20, color: BK.ink3))),
+          Row(children: [
+            const Icon(Icons.phone_outlined, size: 20, color: BK.ink3),
+            const SizedBox(width: 12),
+            Expanded(child: TextField(controller: _phone, keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(hintText: 'Nomor WhatsApp', border: InputBorder.none, isDense: true))),
+            _phoneStatusIcon(c.phoneStatus),
+          ]),
           const Divider(height: 1, color: BK.line),
-          TextField(controller: _name, textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Nama customer', border: InputBorder.none, isDense: true, prefixIcon: Icon(Icons.person_outline, size: 20, color: BK.ink3))),
+          Row(children: [
+            const Icon(Icons.person_outline, size: 20, color: BK.ink3),
+            const SizedBox(width: 12),
+            Expanded(child: TextField(controller: _name, textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(hintText: 'Nama customer', border: InputBorder.none, isDense: true))),
+          ]),
         ])),
+        _phoneHint(c),
         if (c.foundCustomer != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -219,7 +268,7 @@ class _FlowState extends State<_Flow> {
               child: Row(children: [
                 const Icon(Icons.verified_user_outlined, size: 16, color: BK.live),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Pelanggan terdaftar: ${c.foundCustomer!.name}',
+                Expanded(child: Text(c.isReturning ? 'Pelanggan lama: ${c.foundCustomer!.name} — selamat datang kembali' : 'Pelanggan terdaftar: ${c.foundCustomer!.name}',
                     style: const TextStyle(fontSize: 12, color: BK.live, fontWeight: FontWeight.w600))),
                 if (c.foundCustomer!.tier.isNotEmpty) Pill.mut(c.foundCustomer!.tier),
               ]),
@@ -239,15 +288,20 @@ class _FlowState extends State<_Flow> {
           ),
         ),
 
-        _label('PAKET'),
+        _stepLabel('02', 'Paket'),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final p in r.packages)
             _choice('${p.name} · Rp${rupiah(p.price)}/${p.unitLabel}', c.pkg?.itemId == p.itemId, () => c.selectPackage(p)),
         ]),
 
         if (c.pkg != null) ...[
-          _label('TANGGAL'),
-          _dateStrip(c),
+          Container(key: _scheduleKey),
+          _stepLabel('03', 'Jadwal'),
+          _dateRow(c),
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 2),
+            child: Text(_fullDate(c.date), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+          ),
 
           // Urutan mengikuti web: pilih SLOT dulu, baru DURASI (paket interday
           // seperti hari/minggu/bulan tidak pakai slot jam).
@@ -265,6 +319,7 @@ class _FlowState extends State<_Flow> {
                 ]),
               ),
             ),
+            Container(key: _durationKey),
             _durationBlock(c),
           ] else ...[
             _label('SLOT MULAI'),
@@ -274,10 +329,13 @@ class _FlowState extends State<_Flow> {
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final s in c.slots) _slotChip(s.label, available: s.available, selected: c.slot == s.label, onTap: () => c.selectSlot(s.label)),
               ]),
-            _durationBlock(c),
+            if (c.slot != null) ...[
+              Container(key: _durationKey),
+              _durationBlock(c),
+            ],
           ],
 
-          if (c.addons.isNotEmpty) ...[
+          if (c.addons.isNotEmpty && (c.isInterday || c.slot != null)) ...[
             _label('ADD-ON'),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final a in c.addons)
@@ -285,47 +343,144 @@ class _FlowState extends State<_Flow> {
             ]),
           ],
 
-          const SizedBox(height: 18),
-          BKCard(child: Column(children: [
-            _row('${c.pkg!.name} · ${c.duration} ${c.unitLabel}', 'Rp${rupiah(c.pkg!.price * c.duration)}'),
-            for (final a in c.addons.where((a) => c.selectedAddonIds.contains(a.itemId)))
-              _row(a.name, 'Rp${rupiah(a.price)}'),
-            const Divider(height: 18, color: BK.line),
-            Row(children: [
-              const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: BK.ink)),
-              const Spacer(),
-              Text('Rp${rupiah(c.total)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: BK.ink)),
-            ]),
-          ])),
+          if (c.isInterday || c.slot != null) ...[
+            _label('PROMO (OPSIONAL)'),
+            _promoRow(c),
+
+            const SizedBox(height: 18),
+            BKCard(child: Column(children: [
+              _row('${c.pkg!.name} · ${c.duration} ${c.unitLabel}', 'Rp${rupiah(c.pkg!.price * c.duration)}'),
+              for (final a in c.addons.where((a) => c.selectedAddonIds.contains(a.itemId)))
+                _row(a.name, 'Rp${rupiah(a.price)}'),
+              if (c.promo?.valid ?? false)
+                _row('Promo ${c.promo!.label}', '− Rp${rupiah(c.promo!.discount)}', valueColor: BK.live),
+              const Divider(height: 18, color: BK.line),
+              Row(children: [
+                const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: BK.ink)),
+                const Spacer(),
+                Text('Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: BK.ink)),
+              ]),
+            ])),
+          ],
         ],
       ],
     );
   }
 
-  Widget _dateStrip(CreateBookingController c) => SizedBox(
-        height: 64,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: 14,
-          separatorBuilder: (_, i) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final d = DateTime.now().add(Duration(days: i));
-            final on = c.date.year == d.year && c.date.month == d.month && c.date.day == d.day;
-            return GestureDetector(
-              onTap: () => c.setDate(d),
-              child: Container(
-                width: 54,
-                decoration: BoxDecoration(color: on ? BK.accent : BK.card, borderRadius: BorderRadius.circular(13), border: Border.all(color: on ? BK.accent : BK.line)),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(_dow(d.weekday), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: on ? Colors.white70 : BK.ink3)),
-                  const SizedBox(height: 2),
-                  Text('${d.day}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: on ? Colors.white : BK.ink)),
-                ]),
-              ),
-            );
-          },
+  // Ikon status validasi nomor WA (mengikuti web: spinner/valid/invalid).
+  Widget _phoneStatusIcon(PhoneStatus s) => switch (s) {
+        PhoneStatus.validating => const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: BK.accent)),
+        PhoneStatus.valid => const Icon(Icons.verified_outlined, size: 20, color: BK.live),
+        PhoneStatus.invalid => const Icon(Icons.error_outline, size: 20, color: BK.crit),
+        PhoneStatus.idle => const Icon(Icons.smartphone_outlined, size: 20, color: BK.ink3),
+      };
+
+  Widget _phoneHint(CreateBookingController c) {
+    final (text, color) = switch (c.phoneStatus) {
+      PhoneStatus.validating => ('Mengecek nomor WhatsApp…', BK.accent),
+      PhoneStatus.invalid => ('Nomor WhatsApp tidak valid — nota dikirim ke nomor ini.', BK.crit),
+      PhoneStatus.valid when c.isReturning => ('Nomor dikenali — pelanggan lama.', BK.live),
+      PhoneStatus.valid => ('Nomor valid. Nota & akses booking dikirim ke sini.', BK.live),
+      PhoneStatus.idle => ('Nota & akses booking dikirim ke nomor WhatsApp ini.', BK.ink3),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 2),
+      child: Text(text, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w500)),
+    );
+  }
+
+  // Strip 14 hari + tombol kalender untuk tanggal jauh.
+  Widget _dateRow(CreateBookingController c) => Row(children: [
+        Expanded(
+          child: SizedBox(
+            height: 64,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 14,
+              separatorBuilder: (_, i) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final d = DateTime.now().add(Duration(days: i));
+                final on = c.date.year == d.year && c.date.month == d.month && c.date.day == d.day;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: () => c.setDate(d),
+                  child: Container(
+                    width: 54,
+                    decoration: BoxDecoration(color: on ? BK.accent : BK.card, borderRadius: BorderRadius.circular(13), border: Border.all(color: on ? BK.accent : BK.line)),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text(_dow(d.weekday), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: on ? Colors.white70 : BK.ink3)),
+                      const SizedBox(height: 2),
+                      Text('${d.day}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: on ? Colors.white : BK.ink)),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
-      );
+        const SizedBox(width: 8),
+        InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: () => _pickDate(c),
+          child: Container(
+            width: 48, height: 64,
+            decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(13), border: Border.all(color: BK.line)),
+            child: const Icon(Icons.calendar_month_outlined, size: 22, color: BK.accent),
+          ),
+        ),
+      ]);
+
+  Future<void> _pickDate(CreateBookingController c) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: c.date.isBefore(now) ? now : c.date,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: 'Pilih tanggal booking',
+    );
+    if (picked != null) c.setDate(picked);
+  }
+
+  // Baris input promo + tombol Pakai, dengan status hasil.
+  Widget _promoRow(CreateBookingController c) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _promo,
+              textCapitalization: TextCapitalization.characters,
+              enabled: !(c.promo?.valid ?? false),
+              decoration: InputDecoration(
+                hintText: 'KODE PROMO',
+                isDense: true,
+                filled: true, fillColor: BK.card,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (c.promo?.valid ?? false)
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: BK.crit, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13)),
+              onPressed: () { _promo.clear(); c.applyPromo(''); },
+              child: const Text('Hapus'),
+            )
+          else
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13)),
+              onPressed: c.checkingPromo ? null : () => c.applyPromo(_promo.text),
+              child: c.checkingPromo
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Pakai', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+        ]),
+        if (c.promo != null && !c.promo!.valid && c.promo!.message.isNotEmpty)
+          Padding(padding: const EdgeInsets.only(top: 6, left: 2), child: Text(c.promo!.message, style: const TextStyle(fontSize: 12, color: BK.crit))),
+        if (c.promo?.valid ?? false)
+          Padding(padding: const EdgeInsets.only(top: 6, left: 2), child: Text('Promo ${c.promo!.label} aktif · potongan Rp${rupiah(c.promo!.discount)}', style: const TextStyle(fontSize: 12, color: BK.live, fontWeight: FontWeight.w600))),
+      ]);
 
   Widget _submitBar(CreateBookingController c) => SafeArea(
         child: Padding(
@@ -339,12 +494,29 @@ class _FlowState extends State<_Flow> {
                     ? 'Pilih paket dulu'
                     : (!c.isInterday && c.slot == null)
                         ? 'Pilih slot dulu'
-                        : 'Buat booking · Rp${rupiah(c.total)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        : 'Buat booking · Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
       );
 
   Widget _label(String t) => Padding(padding: const EdgeInsets.fromLTRB(2, 16, 2, 8), child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)));
+
+  // Judul step bernomor (mengikuti web: 01 / 02 / 03 …).
+  Widget _stepLabel(String num, String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 16, 2, 8),
+        child: Row(children: [
+          Container(
+            width: 22, height: 22, alignment: Alignment.center,
+            decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(7)),
+            child: Text(num, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+          ),
+          const SizedBox(width: 8),
+          Text(title.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: BK.ink)),
+        ]),
+      );
+
+  String _fullDate(DateTime d) => '${_dow(d.weekday)}, ${d.day} ${_month(d.month)} ${d.year}';
+  String _month(int m) => const ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][m - 1];
 
   // Menit → label manusiawi. 90 → "1j 30m", 60 → "1 jam", 45 → "45 menit".
   String _humanMinutes(int m) {
@@ -361,12 +533,21 @@ class _FlowState extends State<_Flow> {
     final perUnit = _humanMinutes(c.unitMinutes);
     final showPerUnit = !c.isInterday && perUnit.isNotEmpty;
     final total = _humanMinutes(c.unitMinutes * c.duration);
+    final maxDur = c.maxDuration;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _label('DURASI (${c.unitLabel})'),
       Row(children: [
-        _stepBtn(Icons.remove, () => c.setDuration(c.duration - 1)),
+        _label('DURASI (${c.unitLabel})'),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(20)),
+          child: Text('maks $maxDur ${c.unitLabel}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
+        ),
+      ]),
+      Row(children: [
+        _stepBtn(Icons.remove, c.duration > 1 ? () => c.setDuration(c.duration - 1) : null),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Text('${c.duration} ${c.unitLabel}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
-        _stepBtn(Icons.add, () => c.setDuration(c.duration + 1)),
+        _stepBtn(Icons.add, c.duration < maxDur ? () => c.setDuration(c.duration + 1) : null),
       ]),
       if (showPerUnit)
         Padding(
@@ -376,38 +557,48 @@ class _FlowState extends State<_Flow> {
     ]);
   }
 
-  Widget _choice(String t, bool on, VoidCallback onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-          decoration: BoxDecoration(color: on ? BK.accentSoft : BK.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: on ? BK.accent : BK.line)),
-          child: Text(t, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? BK.accent : BK.ink2)),
+  Widget _choice(String t, bool on, VoidCallback onTap) => Material(
+        color: on ? BK.accentSoft : BK.card,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: on ? BK.accent : BK.line)),
+            child: Text(t, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? BK.accent : BK.ink2)),
+          ),
         ),
       );
 
-  Widget _slotChip(String s, {required bool available, required bool selected, required VoidCallback onTap}) => GestureDetector(
-        onTap: available ? onTap : null,
-        child: Container(
-          width: 68, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: selected ? BK.accent : BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: selected ? BK.accent : BK.line)),
-          child: Text(s, style: TextStyle(
-            fontSize: 12.5, fontWeight: FontWeight.w700,
-            decoration: available ? null : TextDecoration.lineThrough,
-            color: !available ? BK.ink3 : (selected ? Colors.white : BK.ink2),
-          )),
+  Widget _slotChip(String s, {required bool available, required bool selected, required VoidCallback onTap}) => Material(
+        color: selected ? BK.accent : BK.card,
+        borderRadius: BorderRadius.circular(11),
+        child: InkWell(
+          onTap: available ? onTap : null,
+          borderRadius: BorderRadius.circular(11),
+          child: Container(
+            width: 68, height: 44, alignment: Alignment.center,
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(11), border: Border.all(color: selected ? BK.accent : BK.line)),
+            child: Text(s, style: TextStyle(
+              fontSize: 12.5, fontWeight: FontWeight.w700,
+              decoration: available ? null : TextDecoration.lineThrough,
+              color: !available ? BK.ink3 : (selected ? Colors.white : BK.ink2),
+            )),
+          ),
         ),
       );
 
-  Widget _stepBtn(IconData i, VoidCallback onTap) => InkWell(
+  Widget _stepBtn(IconData i, VoidCallback? onTap) => InkWell(
         onTap: onTap, borderRadius: BorderRadius.circular(11),
-        child: Container(width: 42, height: 42, decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)), child: Icon(i, size: 20, color: BK.ink)),
+        child: Container(width: 44, height: 44, decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)), child: Icon(i, size: 20, color: onTap == null ? BK.ink3 : BK.ink)),
       );
 
-  Widget _row(String k, String v) => Padding(
+  Widget _row(String k, String v, {Color valueColor = BK.ink}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(children: [
           Expanded(child: Text(k, style: const TextStyle(fontSize: 13, color: BK.ink2))),
-          Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
+          Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: valueColor)),
         ]),
       );
 

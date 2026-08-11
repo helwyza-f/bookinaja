@@ -45,4 +45,15 @@ class CustomersRepository {
     if (res is! Map || res['name'] == null) return null;
     return (name: '${res['name']}', tier: '${res['tier'] ?? 'reguler'}');
   }
+
+  /// Cek format/keaktifan nomor WhatsApp. GET /public/validate-phone?phone=
+  /// Balik true kalau nomor valid (dipakai untuk feedback field di form booking).
+  Future<bool> validatePhone(String phone) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return phone.replaceAll(RegExp(r'\D'), '').length >= 10;
+    }
+    final res = await _api.get('/public/validate-phone?phone=${Uri.encodeComponent(phone)}');
+    return res is Map && res['valid'] == true;
+  }
 }

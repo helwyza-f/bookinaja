@@ -4,21 +4,51 @@ class PaymentAttempt {
   final String methodLabel;
   final int amount;
   final String status; // submitted | awaiting_verification | verified | rejected | ...
+  final String paymentScope; // deposit | settlement
   final String referenceCode;
   final String proofUrl;
   final String payerNote;
+  final String adminNote;
+  final String createdAt;
+  final String verifiedAt;
+  final String rejectedAt;
 
   const PaymentAttempt({
     required this.id,
     required this.methodLabel,
     required this.amount,
     required this.status,
+    this.paymentScope = '',
     required this.referenceCode,
     required this.proofUrl,
     required this.payerNote,
+    this.adminNote = '',
+    this.createdAt = '',
+    this.verifiedAt = '',
+    this.rejectedAt = '',
   });
 
   bool get isPending => status == 'submitted' || status == 'awaiting_verification';
+  bool get isVerified => status == 'verified';
+  bool get isRejected => status == 'rejected' || status == 'denied' || status == 'failed';
+
+  String get statusLabel => switch (status) {
+        'verified' => 'Terverifikasi',
+        'rejected' || 'denied' => 'Ditolak',
+        'submitted' || 'awaiting_verification' => 'Menunggu verifikasi',
+        'failed' => 'Gagal',
+        'expired' => 'Kadaluarsa',
+        _ => status.isEmpty ? '-' : status,
+      };
+
+  String get scopeLabel => switch (paymentScope) {
+        'settlement' => 'Pelunasan',
+        'deposit' => 'DP',
+        _ => '',
+      };
+
+  // Waktu paling relevan untuk ditampilkan di riwayat.
+  String get stampIso => verifiedAt.isNotEmpty ? verifiedAt : (rejectedAt.isNotEmpty ? rejectedAt : createdAt);
 
   factory PaymentAttempt.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
@@ -27,9 +57,14 @@ class PaymentAttempt {
       methodLabel: '${j['method_label'] ?? j['method_code'] ?? 'Pembayaran'}',
       amount: money(j['amount']),
       status: '${j['status'] ?? ''}'.toLowerCase(),
+      paymentScope: '${j['payment_scope'] ?? ''}'.toLowerCase(),
       referenceCode: '${j['reference_code'] ?? ''}',
       proofUrl: '${j['proof_url'] ?? ''}',
       payerNote: '${j['payer_note'] ?? ''}',
+      adminNote: '${j['admin_note'] ?? ''}',
+      createdAt: '${j['created_at'] ?? j['submitted_at'] ?? ''}',
+      verifiedAt: '${j['verified_at'] ?? ''}',
+      rejectedAt: '${j['rejected_at'] ?? ''}',
     );
   }
 }
@@ -117,6 +152,8 @@ class BookingDetail {
   final int balanceDue;
   final int depositAmount;
   final bool depositOverrideActive;
+  final String depositOverrideReason;
+  final String depositOverrideBy;
   final String cancellationReason;
   final String paymentMode; // partial | none | full
   final bool enableFnb;
@@ -142,6 +179,8 @@ class BookingDetail {
     required this.balanceDue,
     required this.depositAmount,
     required this.depositOverrideActive,
+    this.depositOverrideReason = '',
+    this.depositOverrideBy = '',
     this.cancellationReason = '',
     this.paymentMode = 'partial',
     this.enableFnb = true,
@@ -162,6 +201,12 @@ class BookingDetail {
   bool get hasBalance => balanceDue > 0;
 
   List<PaymentAttempt> get pendingAttempts => attempts.where((a) => a.isPending).toList();
+  // Riwayat pembayaran (sudah diverifikasi/ditolak) — terbaru dulu.
+  List<PaymentAttempt> get historyAttempts {
+    final list = attempts.where((a) => !a.isPending).toList();
+    list.sort((a, b) => b.stampIso.compareTo(a.stampIso));
+    return list;
+  }
 
   // --- gating aksi (persis web admin) ---
   bool get canConfirm => statusRaw == 'pending' && paymentStatus != 'awaiting_verification';
@@ -236,6 +281,8 @@ class BookingDetail {
       balanceDue: j['balance_due'] != null ? money(j['balance_due']) : (total - paid).clamp(0, total),
       depositAmount: money(j['deposit_amount']),
       depositOverrideActive: j['deposit_override_active'] == true,
+      depositOverrideReason: '${j['deposit_override_reason'] ?? ''}',
+      depositOverrideBy: '${j['deposit_override_by'] ?? ''}',
       cancellationReason: '${j['cancellation_reason'] ?? ''}',
       paymentMode: '${j['payment_mode'] ?? 'partial'}'.toLowerCase(),
       enableFnb: (j['controller_features'] is Map)
@@ -251,6 +298,26 @@ class BookingDetail {
       paymentMethods: asList(j['payment_methods']).whereType<Map>().map((e) => PaymentMethodOption.fromJson(Map<String, dynamic>.from(e))).toList(),
     );
   }
+
+  // --- format jadwal (dipakai di hero) ---
+  static const _dow = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  static const _mon = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+  String get dateLabel {
+    final d = DateTime.tryParse(startTime)?.toLocal();
+    if (d == null) return '-';
+    return '${_dow[d.weekday - 1]}, ${d.day} ${_mon[d.month - 1]} ${d.year}';
+  }
+
+  String get timeRangeLabel {
+    final s = DateTime.tryParse(startTime)?.toLocal();
+    if (s == null) return '-';
+    final e = DateTime.tryParse(endTime)?.toLocal();
+    String hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    return e == null ? hm(s) : '${hm(s)} – ${hm(e)}';
+  }
+
+  bool get hasSchedule => DateTime.tryParse(startTime) != null;
 
   /// Sisa menit sesi (dari end_time). null kalau tak ada / sudah lewat.
   int? get remainingMinutes {

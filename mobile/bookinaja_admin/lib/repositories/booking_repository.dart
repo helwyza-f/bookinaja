@@ -201,7 +201,7 @@ class BookingRepository {
   /// Catat pembayaran manual (transfer/e-wallet) atas nama customer.
   /// Menghasilkan attempt awaiting_verification yang lalu diverifikasi admin.
   /// scope: 'deposit' (DP) | 'settlement' (pelunasan). POST /bookings/:id/manual-payment.
-  Future<void> submitManualPayment(String id, {required String scope, required String method, String proofUrl = ''}) async {
+  Future<void> submitManualPayment(String id, {required String scope, required String method, String proofUrl = '', String note = ''}) async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 400));
       return;
@@ -211,6 +211,7 @@ class BookingRepository {
       'scope': scope,
       'method': method,
       if (proofUrl.isNotEmpty) 'proof_url': proofUrl,
+      if (note.isNotEmpty) 'note': note,
     });
   }
 
@@ -224,6 +225,41 @@ class BookingRepository {
     final res = await _api.uploadFile('/bookings/$id/upload-proof', filePath);
     if (res is Map && res['url'] is String) return res['url'] as String;
     throw Exception('Respons upload tidak valid');
+  }
+
+  /// Preview kode promo sebelum submit. POST /public/promos/preview.
+  /// tenantId dari profil, startLocal jam mulai booking. Balik hasil terurai.
+  Future<({bool valid, int discount, int finalAmount, String label, String message})> promoPreview({
+    required String code,
+    required String tenantId,
+    required String resourceId,
+    required DateTime startLocal,
+    required int subtotal,
+  }) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final ok = code.toUpperCase() == 'HEMAT';
+      return (valid: ok, discount: ok ? 5000 : 0, finalAmount: ok ? (subtotal - 5000) : subtotal, label: ok ? 'HEMAT' : '', message: ok ? '' : 'Promo tidak berlaku.');
+    }
+    final iso = startLocal.toUtc().toIso8601String();
+    final res = await _api.post('/public/promos/preview', body: {
+      'code': code,
+      if (tenantId.isNotEmpty) 'tenant_id': tenantId,
+      'resource_id': resourceId,
+      'start_time': iso,
+      'end_time': iso,
+      'subtotal': subtotal,
+    });
+    final m = res is Map ? res : const {};
+    final valid = m['valid'] == true;
+    int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+    return (
+      valid: valid,
+      discount: money(m['discount_amount']),
+      finalAmount: valid ? money(m['final_amount']) : subtotal,
+      label: '${m['label'] ?? m['code'] ?? code}',
+      message: '${m['message'] ?? ''}',
+    );
   }
 
   /// Buat booking manual (admin). POST /bookings/manual.

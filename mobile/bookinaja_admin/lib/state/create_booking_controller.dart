@@ -6,6 +6,9 @@ import '../repositories/booking_repository.dart';
 import '../repositories/customers_repository.dart';
 import 'async_value.dart';
 
+/// Status validasi nomor WA di form booking (mengikuti flow customer web).
+enum PhoneStatus { idle, validating, valid, invalid }
+
 /// Flow buat booking: resource → paket → tanggal → slot → durasi → addon → submit.
 class CreateBookingController extends ChangeNotifier {
   CreateBookingController(this._catalog, this._bookings, this._customers, {this.initialResourceId = ''});
@@ -19,9 +22,19 @@ class CreateBookingController extends ChangeNotifier {
   // Jam operasional (menit) — diisi dari profil tenant saat load(). Server tetap validasi.
   int _openMin = 8 * 60;
   int _closeMin = 24 * 60;
+  String _tenantId = ''; // untuk preview promo
 
   /// Pelanggan terdeteksi dari nomor WA (CRM). Null kalau baru.
   ({String name, String tier})? foundCustomer;
+
+  // Status validasi nomor WA + apakah pelanggan lama (mengikuti web).
+  PhoneStatus phoneStatus = PhoneStatus.idle;
+  bool isReturning = false;
+
+  // Promo (opsional). Di-preview sebelum submit.
+  ({bool valid, int discount, int finalAmount, String label, String message})? promo;
+  bool checkingPromo = false;
+  String promoCodeApplied = ''; // kode (uppercase) yang tervalidasi valid
 
   AsyncValue<List<ResourceEntry>> resources = const AsyncValue.loading();
   List<Addon> _allAddons = const [];
@@ -52,6 +65,31 @@ class CreateBookingController extends ChangeNotifier {
     return base + add;
   }
 
+  /// Total setelah promo (kalau ada & valid). Dipakai di ringkasan & submit bar.
+  int get grandTotal => (promo?.valid ?? false) ? promo!.finalAmount : total;
+
+  /// Maksimum durasi yang muat dari slot terpilih sampai busy berikutnya / jam
+  /// tutup (mengikuti maxAvailableSessions di web). Interday dibatasi 12.
+  int get maxDuration {
+    if (pkg == null) return 1;
+    if (isInterday) return 12;
+    if (slot == null) return 30;
+    final parts = slot!.split(':');
+    final startMin = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    final step = unitMinutes;
+    int availableMin = _closeMin - startMin;
+    final nextBusy = _busy.where((b) => b.startMin > startMin).fold<int?>(null, (m, b) => m == null || b.startMin < m ? b.startMin : m);
+    if (nextBusy != null) availableMin = availableMin < (nextBusy - startMin) ? availableMin : (nextBusy - startMin);
+    final max = availableMin ~/ step;
+    return max > 0 ? max : 1;
+  }
+
+  DateTime _startLocal() {
+    if (isInterday) return DateTime(date.year, date.month, date.day, _openMin ~/ 60, _openMin % 60);
+    final parts = slot!.split(':');
+    return DateTime(date.year, date.month, date.day, int.parse(parts[0]), int.parse(parts[1]));
+  }
+
   bool get isToday => date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
 
   /// Slot mulai (HH:mm) + status available — hanya untuk paket non-interday.
@@ -79,9 +117,10 @@ class CreateBookingController extends ChangeNotifier {
         _catalog.operatingHours(),
       ]);
       _allAddons = r[1] as List<Addon>;
-      final hours = r[2] as ({int openMin, int closeMin});
+      final hours = r[2] as ({int openMin, int closeMin, String tenantId});
       _openMin = hours.openMin;
       _closeMin = hours.closeMin;
+      _tenantId = hours.tenantId;
       final list = r[0] as List<ResourceEntry>;
       resources = AsyncValue.data(list);
       notifyListeners();
@@ -96,23 +135,71 @@ class CreateBookingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cek CRM by nomor WA. Kembalikan nama kalau terdaftar (buat auto-fill).
-  Future<String?> lookupCustomer(String phone) async {
+  /// Validasi nomor WA + deteksi pelanggan lama (mengikuti web). Set phoneStatus.
+  /// Kembalikan nama untuk auto-fill kalau pelanggan lama & nama masih kosong.
+  Future<String?> validatePhoneNumber(String phone) async {
     final trimmed = phone.trim();
     if (trimmed.length < 9) {
-      if (foundCustomer != null) {
-        foundCustomer = null;
-        notifyListeners();
-      }
+      phoneStatus = PhoneStatus.idle;
+      isReturning = false;
+      if (foundCustomer != null) foundCustomer = null;
+      notifyListeners();
       return null;
     }
+    phoneStatus = PhoneStatus.validating;
+    notifyListeners();
     try {
-      foundCustomer = await _customers.validate(trimmed);
-    } catch (_) {
+      final found = await _customers.validate(trimmed);
+      if (found != null) {
+        foundCustomer = found;
+        isReturning = true;
+        phoneStatus = PhoneStatus.valid;
+        notifyListeners();
+        return found.name;
+      }
       foundCustomer = null;
+      isReturning = false;
+      final ok = await _customers.validatePhone(trimmed);
+      phoneStatus = ok ? PhoneStatus.valid : PhoneStatus.invalid;
+    } catch (_) {
+      phoneStatus = PhoneStatus.invalid;
     }
     notifyListeners();
-    return foundCustomer?.name;
+    return null;
+  }
+
+  /// Preview kode promo. Butuh paket & slot (untuk non-interday) sudah dipilih.
+  Future<void> applyPromo(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty || pkg == null || (!isInterday && slot == null) || resource == null) {
+      promo = null;
+      notifyListeners();
+      return;
+    }
+    checkingPromo = true;
+    notifyListeners();
+    try {
+      final res = await _bookings.promoPreview(
+        code: trimmed.toUpperCase(),
+        tenantId: _tenantId,
+        resourceId: resource!.resourceId,
+        startLocal: _startLocal(),
+        subtotal: total,
+      );
+      promo = res;
+      promoCodeApplied = res.valid ? trimmed.toUpperCase() : '';
+    } catch (_) {
+      promo = (valid: false, discount: 0, finalAmount: total, label: '', message: 'Gagal memvalidasi promo.');
+      promoCodeApplied = '';
+    }
+    checkingPromo = false;
+    notifyListeners();
+  }
+
+  // Batalkan promo yang sudah diterapkan (dipanggil saat pilihan berubah).
+  void _resetPromo() {
+    if (promo != null) promo = null;
+    promoCodeApplied = '';
   }
 
   /// Langkah 1: pilih resource → masuk builder.
@@ -137,6 +224,7 @@ class CreateBookingController extends ChangeNotifier {
     pkg = null;
     slot = null;
     submitError = null;
+    _resetPromo();
     notifyListeners();
   }
 
@@ -144,6 +232,7 @@ class CreateBookingController extends ChangeNotifier {
     pkg = p;
     slot = null;
     duration = 1;
+    _resetPromo();
     notifyListeners();
     if (!p.isInterday) await _loadAvailability();
   }
@@ -151,6 +240,7 @@ class CreateBookingController extends ChangeNotifier {
   Future<void> setDate(DateTime d) async {
     date = d;
     slot = null;
+    _resetPromo();
     notifyListeners();
     if (pkg != null && !isInterday) await _loadAvailability();
   }
@@ -170,16 +260,15 @@ class CreateBookingController extends ChangeNotifier {
 
   void selectSlot(String s) {
     slot = s;
+    // Slot baru bisa mengubah durasi maksimum — kembalikan ke 1 kalau tak muat.
+    if (duration > maxDuration) duration = 1;
+    _resetPromo();
     notifyListeners();
   }
 
   void setDuration(int n) {
-    duration = n.clamp(1, 30);
-    // Slot dipilih lebih dulu (seperti web); durasi baru bisa membuat slot
-    // tak muat lagi — batalkan pilihan slot yang jadi tidak tersedia.
-    if (slot != null && !slots.any((s) => s.label == slot && s.available)) {
-      slot = null;
-    }
+    duration = n.clamp(1, maxDuration);
+    _resetPromo();
     notifyListeners();
   }
 
@@ -199,6 +288,7 @@ class CreateBookingController extends ChangeNotifier {
 
   void toggleAddon(String id) {
     if (!selectedAddonIds.add(id)) selectedAddonIds.remove(id);
+    _resetPromo();
     notifyListeners();
   }
 
@@ -211,13 +301,8 @@ class CreateBookingController extends ChangeNotifier {
     submitError = null;
     notifyListeners();
 
-    final DateTime startLocal;
-    if (isInterday) {
-      startLocal = DateTime(date.year, date.month, date.day, _openMin ~/ 60, _openMin % 60);
-    } else {
-      final parts = slot!.split(':');
-      startLocal = DateTime(date.year, date.month, date.day, int.parse(parts[0]), int.parse(parts[1]));
-    }
+    final startLocal = _startLocal();
+    final promoApplied = (promo?.valid ?? false) ? promoCodeApplied : '';
 
     try {
       final created = await _bookings.create(
@@ -227,6 +312,7 @@ class CreateBookingController extends ChangeNotifier {
         itemIds: [pkg!.itemId, ...selectedAddonIds],
         startLocal: startLocal,
         durationUnits: duration,
+        promoCode: promoApplied,
       );
       submitting = false;
       notifyListeners();
@@ -245,7 +331,7 @@ class CreateBookingController extends ChangeNotifier {
         resource: resource!.resourceName,
         time: timeLabel,
         status: BookingStatus.pending,
-        total: total,
+        total: grandTotal,
         paid: 0,
       );
     } catch (e) {

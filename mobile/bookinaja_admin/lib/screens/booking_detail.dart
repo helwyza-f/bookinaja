@@ -128,8 +128,16 @@ class _DetailView extends StatelessWidget {
             Text(d.customerName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text('${d.resourceName}${d.customerPhone.isNotEmpty ? ' · ${d.customerPhone}' : ''}', style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+            if (d.hasSchedule) ...[
+              const SizedBox(height: 14),
+              Row(children: [
+                Expanded(child: _heroTile(Icons.event_outlined, 'Tanggal', d.dateLabel)),
+                const SizedBox(width: 8),
+                Expanded(child: _heroTile(Icons.schedule, 'Jam', d.timeRangeLabel)),
+              ]),
+            ],
             if (d.isActive && d.endTime.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _SessionTimer(endIso: d.endTime),
             ],
           ]),
@@ -200,68 +208,50 @@ class _DetailView extends StatelessWidget {
                 Text('Masih ada sisa tagihan Rp${rupiah(d.balanceDue)} — lunasi di bawah.', style: const TextStyle(fontSize: 12.5, color: BK.pend, fontWeight: FontWeight.w600)),
               ],
             ]),
-          )
-        else ...[
-          const Text('AKSI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 9),
-          if (d.canConfirm)
-            _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
-          if (d.canRecordDeposit)
-            _primary('Catat ${d.depositTerm} (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, '${d.depositTerm} dicatat')),
-          if (d.canManualDeposit)
-            _primary('Catat ${d.depositTerm} (transfer/e-wallet)', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'deposit'), outline: true),
-          if (d.canStart)
-            _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
-          if (d.canOverrideDeposit)
-            _primary('Mulai tanpa DP (override)', BK.ink, disabled ? null : () async {
-              final reason = await _askReason(context, 'Override DP', 'Alasan (opsional)');
-              if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
-            }, outline: true),
-          if (d.canComplete)
-            _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
-          if (d.isActive) ...[
-            _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
-            // F&B / Add-on hanya tampil kalau diaktifkan tenant (controller_features),
-            // mengikuti web. Reflow: dua → berdampingan, satu → penuh, nol → hilang.
-            Builder(builder: (_) {
-              OutlinedButton catalogBtn(IconData icon, String label, VoidCallback onTap) => OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
-                    onPressed: disabled ? null : onTap,
-                    icon: Icon(icon, size: 18),
-                    label: Text(label),
-                  );
-              final btns = <Widget>[
-                if (d.enableFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
-                if (d.enableAddons) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
-              ];
-              if (btns.isEmpty) return const SizedBox.shrink();
-              if (btns.length == 1) return SizedBox(width: double.infinity, child: btns.first);
-              return Row(children: [
-                Expanded(child: btns[0]),
-                const SizedBox(width: 9),
-                Expanded(child: btns[1]),
-              ]);
-            }),
-            if (d.enableFnb || d.enableAddons) const SizedBox(height: 9),
-          ],
-        ],
+          ),
+        // === SESI: konfirmasi, mulai, override, akhiri, perpanjang, F&B/add-on ===
+        if (!d.isFinal)
+          Builder(builder: (_) {
+            final acts = <Widget>[
+              if (d.canConfirm)
+                _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
+              if (d.canStart)
+                _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
+              if (d.canOverrideDeposit)
+                _primary('Mulai tanpa DP (override)', BK.ink, disabled ? null : () async {
+                  final reason = await _askReason(context, 'Override DP', 'Alasan (opsional)');
+                  if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
+                }, outline: true, hint: 'Jalankan sesi tanpa DP; pelunasan nanti pakai total penuh.'),
+              if (d.canComplete)
+                _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
+              if (d.isActive)
+                _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
+              if (d.isActive && (d.enableFnb || d.enableAddons))
+                _catalogButtons(context, d, disabled),
+            ];
+            if (acts.isEmpty) return const SizedBox.shrink();
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [_groupLabel('Sesi'), ...acts]);
+          }),
 
-        // Pelunasan & nota — di luar gating "isFinal": canSettle justru butuh
-        // status completed (sesi selesai tapi masih ada sisa bayar).
-        if (d.canSettle)
-          Padding(padding: const EdgeInsets.only(top: 4), child: _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas'))),
-        if (d.canManualSettlement)
-          Padding(padding: const EdgeInsets.only(top: 8), child: _primary('Lunasi via transfer/e-wallet', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'settlement'), outline: true)),
-        if (d.canSendReceipt)
-          Padding(padding: const EdgeInsets.only(top: 8), child: _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true)),
+        // === PEMBAYARAN: catat DP, pelunasan, nota (bisa muncul saat completed) ===
+        Builder(builder: (_) {
+          final pays = <Widget>[
+            if (d.canRecordDeposit)
+              _primary('Catat ${d.depositTerm} (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, '${d.depositTerm} dicatat')),
+            if (d.canManualDeposit)
+              _primary('Catat ${d.depositTerm} (transfer/e-wallet)', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'deposit'), outline: true),
+            if (d.canSettle)
+              _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas')),
+            if (d.canManualSettlement)
+              _primary('Lunasi via transfer/e-wallet', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'settlement'), outline: true),
+            if (d.canSendReceipt)
+              _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
+          ];
+          if (pays.isEmpty) return const SizedBox.shrink();
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [_groupLabel('Pembayaran'), ...pays]);
+        }),
 
-        const SizedBox(height: 8),
-        Row(children: const [
-          Text('Pembayaran', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
-          SizedBox(width: 9),
-          Expanded(child: Divider(color: BK.line)),
-        ]),
-        const SizedBox(height: 4),
+        _sectionLabel('Ringkasan pembayaran'),
         BKCard(child: Column(children: [
           _line('Total tagihan', 'Rp${rupiah(d.grandTotal)}'),
           _line('Sudah dibayar', 'Rp${rupiah(d.paidAmount)}', color: BK.live),
@@ -272,7 +262,34 @@ class _DetailView extends StatelessWidget {
             const Spacer(),
             Text('Rp${rupiah(d.balanceDue)}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: d.hasBalance ? BK.pend : BK.live)),
           ]),
+          if (d.depositOverrideActive && (d.depositOverrideReason.isNotEmpty || d.depositOverrideBy.isNotEmpty)) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(10)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Override DP', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: BK.pend)),
+                const SizedBox(height: 3),
+                Text([
+                  if (d.depositOverrideReason.isNotEmpty) d.depositOverrideReason else 'Sesi dijalankan tanpa DP.',
+                  if (d.depositOverrideBy.isNotEmpty) 'Disetujui ${d.depositOverrideBy}',
+                ].join(' · '), style: const TextStyle(fontSize: 12, color: BK.ink2)),
+              ]),
+            ),
+          ],
         ])),
+
+        // Riwayat pembayaran (attempt yang sudah diverifikasi / ditolak)
+        if (d.historyAttempts.isNotEmpty) ...[
+          _sectionLabel('Riwayat pembayaran'),
+          BKCard(child: Column(children: [
+            for (int i = 0; i < d.historyAttempts.length; i++) ...[
+              if (i > 0) const Divider(height: 18, color: BK.line),
+              _historyRow(context, d.historyAttempts[i]),
+            ],
+          ])),
+        ],
 
         // Rincian pesanan (F&B + add-on)
         if (d.orders.isNotEmpty || d.options.isNotEmpty) ...[
@@ -295,12 +312,13 @@ class _DetailView extends StatelessWidget {
         ],
 
         if (d.canCancel) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: BK.critSoft, foregroundColor: BK.crit, padding: const EdgeInsets.symmetric(vertical: 14)),
             onPressed: disabled ? null : () => _confirmCancel(context),
             child: const Text('Batalkan booking'),
           ),
+          const Padding(padding: EdgeInsets.only(top: 4), child: Text('Hanya untuk booking yang belum dimulai.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: BK.ink3))),
         ],
       ],
     ));
@@ -341,19 +359,40 @@ class _DetailView extends StatelessWidget {
         ]),
       );
 
-  Widget _primary(String label, Color color, VoidCallback? onTap, {bool outline = false}) {
+  // Tile jadwal di hero (di atas gradient) — Tanggal / Jam.
+  Widget _heroTile(IconData icon, String label, String value) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 12, color: Colors.white70),
+            const SizedBox(width: 5),
+            Text(label.toUpperCase(), style: const TextStyle(color: Colors.white70, fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
+          ]),
+          const SizedBox(height: 3),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
+        ]),
+      );
+
+  Widget _primary(String label, Color color, VoidCallback? onTap, {bool outline = false, String? hint}) {
+    final button = SizedBox(
+      width: double.infinity,
+      child: outline
+          ? OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: color, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)))
+          : FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
-      child: SizedBox(
-        width: double.infinity,
-        child: outline
-            ? OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: color, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)))
-            : FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
-      ),
+      child: hint == null
+          ? button
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              button,
+              Padding(padding: const EdgeInsets.only(top: 3, left: 4), child: Text(hint, style: const TextStyle(fontSize: 11, color: BK.ink3))),
+            ]),
     );
   }
 
@@ -375,6 +414,83 @@ class _DetailView extends StatelessWidget {
         ]),
       );
 
+  // Label grup aksi (tanpa divider) — memisahkan "Sesi" vs "Pembayaran".
+  Widget _groupLabel(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 6, 2, 9),
+        child: Text(t.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: BK.ink3)),
+      );
+
+  // Tombol F&B / Add-on (reflow: dua → berdampingan, satu → penuh).
+  Widget _catalogButtons(BuildContext context, BookingDetail d, bool disabled) {
+    OutlinedButton catalogBtn(IconData icon, String label, VoidCallback onTap) => OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
+          onPressed: disabled ? null : onTap,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+        );
+    final btns = <Widget>[
+      if (d.enableFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
+      if (d.enableAddons) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
+    ];
+    if (btns.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: btns.length == 1
+          ? SizedBox(width: double.infinity, child: btns.first)
+          : Row(children: [Expanded(child: btns[0]), const SizedBox(width: 9), Expanded(child: btns[1])]),
+    );
+  }
+
+  // Satu baris riwayat pembayaran (verified/rejected) — bisa buka bukti lagi.
+  Widget _historyRow(BuildContext context, PaymentAttempt a) {
+    final ok = a.isVerified;
+    final color = ok ? BK.live : BK.crit;
+    final soft = ok ? BK.liveSoft : BK.critSoft;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(color: soft, borderRadius: BorderRadius.circular(10)),
+        child: Icon(ok ? Icons.check_circle_outline : Icons.cancel_outlined, size: 20, color: color),
+      ),
+      const SizedBox(width: 11),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text('${a.methodLabel}${a.scopeLabel.isNotEmpty ? ' · ${a.scopeLabel}' : ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: BK.ink))),
+          Text('Rp${rupiah(a.amount)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: BK.ink)),
+        ]),
+        const SizedBox(height: 2),
+        Text([
+          a.statusLabel,
+          if (a.stampIso.isNotEmpty) _stamp(a.stampIso),
+          if (a.referenceCode.isNotEmpty) 'Ref ${a.referenceCode}',
+        ].where((s) => s.isNotEmpty).join(' · '), style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600)),
+        if (a.adminNote.isNotEmpty || a.payerNote.isNotEmpty)
+          Padding(padding: const EdgeInsets.only(top: 2), child: Text([if (a.payerNote.isNotEmpty) a.payerNote, if (a.adminNote.isNotEmpty) 'Catatan: ${a.adminNote}'].join(' · '), style: const TextStyle(fontSize: 11.5, color: BK.ink3))),
+        if (a.proofUrl.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: GestureDetector(
+              onTap: () => _showProof(context, a.proofUrl),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                ClipRRect(borderRadius: BorderRadius.circular(7), child: Image.network(a.proofUrl, width: 34, height: 34, fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(width: 34, height: 34, color: BK.card2, child: const Icon(Icons.broken_image_outlined, size: 16, color: BK.ink3)))),
+                const SizedBox(width: 6),
+                const Text('Lihat bukti', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BK.accent)),
+              ]),
+            ),
+          ),
+      ])),
+    ]);
+  }
+
+  // ISO → "dd Mmm HH:mm" (dipakai di riwayat pembayaran).
+  static String _stamp(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return '${d.day} ${mon[d.month - 1]} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
   Widget _timelineRow(TimelineEvent e, {required bool last}) {
     return IntrinsicHeight(
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -391,7 +507,7 @@ class _DetailView extends StatelessWidget {
             Text([
               if (e.actorName.isNotEmpty) e.actorName else e.actorType,
               if (e.description.isNotEmpty) e.description,
-              _clock(e.createdAt),
+              _when(e.createdAt),
             ].where((s) => s.isNotEmpty).join(' · '), style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
           ]),
         )),
@@ -399,11 +515,15 @@ class _DetailView extends StatelessWidget {
     );
   }
 
-  static String _clock(String iso) {
-    final d = DateTime.tryParse(iso);
+  // Jam kalau hari ini, "dd Mmm HH:mm" kalau lain hari — biar event lintas hari tak ambigu.
+  static String _when(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
     if (d == null) return '';
-    final l = d.toLocal();
-    return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+    final hm = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) return hm;
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return '${d.day} ${mon[d.month - 1]} $hm';
   }
 
   Future<void> _extendDialog(BuildContext context) async {
@@ -475,13 +595,13 @@ class _DetailView extends StatelessWidget {
     final c = context.read<BookingDetailController>();
     final amount = scope == 'settlement' ? d.balanceDue : d.depositAmount;
     final title = scope == 'settlement' ? 'Lunasi via transfer/e-wallet' : 'Catat ${d.depositTerm} (transfer/e-wallet)';
-    final result = await showModalBottomSheet<({String method, String proofUrl})>(
+    final result = await showModalBottomSheet<({String method, String proofUrl, String note})>(
       context: context, backgroundColor: BK.bg, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => _ManualPaySheet(controller: c, title: title, amount: amount, methods: d.manualMethods),
     );
     if (result != null && context.mounted) {
-      await _run(context, () => c.submitManualPayment(scope: scope, method: result.method, proofUrl: result.proofUrl),
+      await _run(context, () => c.submitManualPayment(scope: scope, method: result.method, proofUrl: result.proofUrl, note: result.note),
           'Pembayaran dicatat — menunggu verifikasi');
     }
   }
@@ -500,11 +620,27 @@ class _ManualPaySheet extends StatefulWidget {
 
 class _ManualPaySheetState extends State<_ManualPaySheet> {
   final _picker = ImagePicker();
+  final _note = TextEditingController();
   String? _method;
   String? _proofPath; // path lokal foto yang dipilih
   String? _proofUrl; // url setelah terunggah
   bool _uploading = false;
   String? _error;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  // Ikon per kategori metode (bank/e-wallet/QRIS) untuk pindai cepat.
+  IconData _methodIcon(PaymentMethodOption m) {
+    final c = '${m.category} ${m.code}'.toLowerCase();
+    if (c.contains('qris') || c.contains('qr')) return Icons.qr_code_2;
+    if (c.contains('wallet') || c.contains('ewallet') || c.contains('gopay') || c.contains('ovo') || c.contains('dana') || c.contains('shopee')) return Icons.account_balance_wallet_outlined;
+    if (c.contains('bank') || c.contains('transfer') || c.contains('va')) return Icons.account_balance_outlined;
+    return Icons.payments_outlined;
+  }
 
   Future<void> _pick(ImageSource source) async {
     try {
@@ -577,7 +713,9 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
                 child: BKCard(child: Row(children: [
                   Icon(_method == m.code ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                       color: _method == m.code ? BK.accent : BK.ink3, size: 20),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
+                  Icon(_methodIcon(m), size: 18, color: _method == m.code ? BK.accent : BK.ink3),
+                  const SizedBox(width: 10),
                   Expanded(child: Text(m.displayName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink))),
                 ])),
               ),
@@ -588,9 +726,25 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
           _proofPreview(),
           if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
           const SizedBox(height: 14),
+          const Text('CATATAN ADMIN (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _note,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'mis. transfer BCA a.n. Budi, ref 8821',
+              isDense: true,
+              filled: true, fillColor: BK.card,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+            ),
+          ),
+          const SizedBox(height: 14),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: canSubmit ? () => Navigator.pop(context, (method: _method!, proofUrl: _proofUrl ?? '')) : null,
+            onPressed: canSubmit ? () => Navigator.pop(context, (method: _method!, proofUrl: _proofUrl ?? '', note: _note.text.trim())) : null,
             child: Text(_uploading ? 'Mengunggah foto…' : 'Catat pembayaran', style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
         ]),

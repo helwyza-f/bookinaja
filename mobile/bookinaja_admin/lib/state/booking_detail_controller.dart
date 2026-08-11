@@ -58,8 +58,8 @@ class BookingDetailController extends ChangeNotifier {
   Future<bool> verifyAttempt(String attemptId) => _act(() => _repo.verifyAttempt(attemptId));
   Future<bool> rejectAttempt(String attemptId, {String reason = ''}) => _act(() => _repo.rejectAttempt(attemptId, reason: reason));
   Future<bool> sendReceipt() => _act(() => _repo.sendReceipt(bookingId));
-  Future<bool> submitManualPayment({required String scope, required String method, String proofUrl = ''}) =>
-      _act(() => _repo.submitManualPayment(bookingId, scope: scope, method: method, proofUrl: proofUrl));
+  Future<bool> submitManualPayment({required String scope, required String method, String proofUrl = '', String note = ''}) =>
+      _act(() => _repo.submitManualPayment(bookingId, scope: scope, method: method, proofUrl: proofUrl, note: note));
 
   /// Upload bukti (tidak mengubah state booking) → kembalikan URL, atau null jika gagal.
   Future<String?> uploadProof(String filePath) async {
