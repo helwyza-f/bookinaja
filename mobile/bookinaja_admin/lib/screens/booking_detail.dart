@@ -223,7 +223,7 @@ class _DetailView extends StatelessWidget {
               if (d.canComplete)
                 _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
               if (d.isActive)
-                _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
+                _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendSheet(context, d), outline: true),
               if (d.isActive && (d.enableFnb || d.enableAddons))
                 _catalogButtons(context, d, disabled),
               if (d.canOverrideDeposit) _overrideLink(context, disabled),
@@ -478,20 +478,27 @@ class _DetailView extends StatelessWidget {
     ]);
   }
 
-  // Override DP sebagai link kecil (aksi edge, bukan tombol utama).
-  Widget _overrideLink(BuildContext context, bool disabled) => Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          style: TextButton.styleFrom(foregroundColor: BK.ink3, padding: const EdgeInsets.symmetric(vertical: 4)),
-          onPressed: disabled ? null : () async {
-            final c = context.read<BookingDetailController>();
-            final reason = await _askReason(context, 'Mulai tanpa DP (override)', 'Alasan (opsional)');
-            if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
-          },
-          icon: const Icon(Icons.lock_open_outlined, size: 15),
-          label: const Text('Mulai tanpa DP (override)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+  // Override DP: tombol sekunder (outline) — kelihatan jelas tapi tidak
+  // sekuat CTA utama, dengan hint konsekuensinya.
+  Widget _overrideLink(BuildContext context, bool disabled) {
+    onTap() async {
+      final c = context.read<BookingDetailController>();
+      final reason = await _askReason(context, 'Mulai tanpa DP (override)', 'Alasan (opsional)');
+      if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 13)),
+          onPressed: disabled ? null : onTap,
+          icon: const Icon(Icons.lock_open_outlined, size: 17),
+          label: const Text('Mulai tanpa DP (override)', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
-      );
+        const Padding(padding: EdgeInsets.only(top: 3, left: 4), child: Text('Jalankan sesi tanpa DP; pelunasan nanti pakai total penuh.', style: TextStyle(fontSize: 11, color: BK.ink3))),
+      ]),
+    );
+  }
 
   // Catat DP / pembayaran muka: langsung cash kalau tak ada metode manual,
   // kalau ada → sheet pilih metode (Tunai / transfer / e-wallet).
@@ -556,25 +563,19 @@ class _DetailView extends StatelessWidget {
     return '${d.day} ${mon[d.month - 1]} $hm';
   }
 
-  Future<void> _extendDialog(BuildContext context) async {
+  /// Sheet perpanjang sesi (mengikuti web): pilih tambahan durasi dengan
+  /// preview jam selesai + biaya, opsi yang bentrok jadwal berikutnya dikunci.
+  Future<void> _extendSheet(BuildContext context, BookingDetail d) async {
     final c = context.read<BookingDetailController>();
-    int units = 1;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => StatefulBuilder(builder: (ctx, setSt) => AlertDialog(
-        title: const Text('Perpanjang sesi'),
-        content: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton(onPressed: () => setSt(() => units = (units - 1).clamp(1, 12)), icon: const Icon(Icons.remove_circle_outline)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('$units unit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
-          IconButton(onPressed: () => setSt(() => units = (units + 1).clamp(1, 12)), icon: const Icon(Icons.add_circle_outline)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Perpanjang')),
-        ],
-      )),
+    final catalog = context.read<CatalogRepository>();
+    final count = await showModalBottomSheet<int>(
+      context: context, backgroundColor: BK.bg, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ExtendSheet(detail: d, catalog: catalog),
     );
-    if (ok == true && context.mounted) await _run(context, () => c.extend(units), 'Sesi diperpanjang $units unit');
+    if (count != null && count > 0 && context.mounted) {
+      await _run(context, () => c.extend(count), 'Sesi diperpanjang $count ${d.unitLabel}');
+    }
   }
 
   Future<void> _fnbSheet(BuildContext context, BookingDetail d) async {
@@ -819,6 +820,130 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
       onPressed: _pickSource,
       icon: const Icon(Icons.add_a_photo_outlined, size: 18),
       label: const Text('Tambah foto bukti'),
+    );
+  }
+}
+
+/// Sheet perpanjang sesi: opsi +1..+4 dengan jam selesai & biaya, sadar bentrok
+/// dengan jadwal booking berikutnya (mengikuti extend-session-dialog di web).
+class _ExtendSheet extends StatefulWidget {
+  final BookingDetail detail;
+  final CatalogRepository catalog;
+  const _ExtendSheet({required this.detail, required this.catalog});
+  @override
+  State<_ExtendSheet> createState() => _ExtendSheetState();
+}
+
+class _ExtendSheetState extends State<_ExtendSheet> {
+  List<BusySlot> _busy = const [];
+  bool _loading = true;
+  int? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final date = widget.detail.startLocal ?? DateTime.now();
+    try {
+      _busy = await widget.catalog.availability(widget.detail.resourceId, date);
+    } catch (_) {
+      _busy = const [];
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  // Batas menit sebelum bentrok booking berikutnya (atau tengah malam).
+  int get _limitMin {
+    final endMin = widget.detail.endMinutes ?? 0;
+    int limit = 24 * 60;
+    for (final b in _busy) {
+      if (b.startMin >= endMin && b.startMin < limit) limit = b.startMin;
+    }
+    return limit;
+  }
+
+  String _hm(int min) => '${((min ~/ 60) % 24).toString().padLeft(2, '0')}:${(min % 60).toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.detail;
+    final endMin = d.endMinutes ?? 0;
+    final step = d.unitDurationMin;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Expanded(child: Text('Perpanjang sesi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
+            if (d.endLocal != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(10)),
+                child: Text('Selesai kini ${_hm(endMin)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.accent)),
+              ),
+          ]),
+          const SizedBox(height: 4),
+          const Text('Pilih tambahan durasi. Opsi yang bentrok jadwal berikutnya terkunci.', style: TextStyle(fontSize: 12, color: BK.ink3)),
+          const SizedBox(height: 14),
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+          else
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.55,
+              children: [for (int i = 1; i <= 4; i++) _optionCard(i, endMin, step)],
+            ),
+          const SizedBox(height: 14),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14), disabledBackgroundColor: BK.line),
+            onPressed: _selected == null ? null : () => Navigator.pop(context, _selected),
+            child: Text(_selected == null ? 'Pilih durasi dulu' : 'Perpanjang +$_selected ${d.unitLabel}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _optionCard(int i, int endMin, int step) {
+    final d = widget.detail;
+    final newEnd = endMin + step * i;
+    final blocked = newEnd > _limitMin;
+    final on = _selected == i;
+    final cost = d.unitPrice * i;
+    return GestureDetector(
+      onTap: blocked ? null : () => setState(() => _selected = i),
+      child: Opacity(
+        opacity: blocked ? 0.45 : 1,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: on ? BK.accentSoft : BK.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.5 : 1),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('+$i', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1, color: on ? BK.accent : BK.ink)),
+              if (blocked)
+                const Icon(Icons.lock_outline, size: 16, color: BK.crit)
+              else
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Text('SELESAI', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: BK.ink3)),
+                  Text(_hm(newEnd), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
+                ]),
+            ]),
+            Text(blocked ? 'Bentrok jadwal' : (cost > 0 ? '+Rp${rupiah(cost)} · ${d.unitLabel}' : d.unitLabel),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: blocked ? BK.crit : BK.ink2)),
+          ]),
+        ),
+      ),
     );
   }
 }

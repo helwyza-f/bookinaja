@@ -113,8 +113,10 @@ class OrderLine {
   factory OrderLine.option(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
     final qty = (j['quantity'] is num) ? (j['quantity'] as num).toInt() : 1;
-    final unit = money(j['price_at_booking'] ?? j['unit_price']);
-    return OrderLine(name: '${j['item_name'] ?? '-'}', quantity: qty, subtotal: unit * qty);
+    // price_at_booking sudah TOTAL baris (unit × durasi) dari backend — jangan
+    // dikali qty lagi. Fallback ke unit_price × qty kalau tak ada.
+    final subtotal = j['price_at_booking'] != null ? money(j['price_at_booking']) : money(j['unit_price']) * qty;
+    return OrderLine(name: '${j['item_name'] ?? '-'}', quantity: qty, subtotal: subtotal);
   }
 }
 
@@ -151,6 +153,8 @@ class BookingDetail {
   final int paidAmount;
   final int balanceDue;
   final int depositAmount;
+  final int unitPrice; // harga per unit paket utama (untuk hitung perpanjangan)
+  final int unitDurationMin; // menit per unit
   final bool depositOverrideActive;
   final String depositOverrideReason;
   final String depositOverrideBy;
@@ -178,6 +182,8 @@ class BookingDetail {
     required this.paidAmount,
     required this.balanceDue,
     required this.depositAmount,
+    this.unitPrice = 0,
+    this.unitDurationMin = 60,
     required this.depositOverrideActive,
     this.depositOverrideReason = '',
     this.depositOverrideBy = '',
@@ -280,6 +286,8 @@ class BookingDetail {
       paidAmount: paid,
       balanceDue: j['balance_due'] != null ? money(j['balance_due']) : (total - paid).clamp(0, total),
       depositAmount: money(j['deposit_amount']),
+      unitPrice: money(j['unit_price']),
+      unitDurationMin: (j['unit_duration'] is num) ? (j['unit_duration'] as num).toInt() : 60,
       depositOverrideActive: j['deposit_override_active'] == true,
       depositOverrideReason: '${j['deposit_override_reason'] ?? ''}',
       depositOverrideBy: '${j['deposit_override_by'] ?? ''}',
@@ -318,6 +326,15 @@ class BookingDetail {
   }
 
   bool get hasSchedule => DateTime.tryParse(startTime) != null;
+
+  // Untuk perpanjangan sesi.
+  String get unitLabel => unitDurationMin == 60 ? 'jam' : 'sesi';
+  DateTime? get startLocal => DateTime.tryParse(startTime)?.toLocal();
+  DateTime? get endLocal => DateTime.tryParse(endTime)?.toLocal();
+  int? get endMinutes {
+    final e = endLocal;
+    return e == null ? null : e.hour * 60 + e.minute;
+  }
 
   /// Sisa menit sesi (dari end_time). null kalau tak ada / sudah lewat.
   int? get remainingMinutes {
