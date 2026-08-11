@@ -209,7 +209,8 @@ class _DetailView extends StatelessWidget {
               ],
             ]),
           ),
-        // === SESI: konfirmasi, mulai, override, akhiri, perpanjang, F&B/add-on ===
+        // === SESI: konfirmasi, mulai, akhiri, perpanjang, F&B/add-on ===
+        // (override diturunkan jadi link kecil — aksi edge, bukan tombol utama)
         if (!d.isFinal)
           Builder(builder: (_) {
             final acts = <Widget>[
@@ -217,33 +218,25 @@ class _DetailView extends StatelessWidget {
                 _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
               if (d.canStart)
                 _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
-              if (d.canOverrideDeposit)
-                _primary('Mulai tanpa DP (override)', BK.ink, disabled ? null : () async {
-                  final reason = await _askReason(context, 'Override DP', 'Alasan (opsional)');
-                  if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
-                }, outline: true, hint: 'Jalankan sesi tanpa DP; pelunasan nanti pakai total penuh.'),
               if (d.canComplete)
                 _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
               if (d.isActive)
                 _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendDialog(context), outline: true),
               if (d.isActive && (d.enableFnb || d.enableAddons))
                 _catalogButtons(context, d, disabled),
+              if (d.canOverrideDeposit) _overrideLink(context, disabled),
             ];
             if (acts.isEmpty) return const SizedBox.shrink();
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [_groupLabel('Sesi'), ...acts]);
           }),
 
-        // === PEMBAYARAN: catat DP, pelunasan, nota (bisa muncul saat completed) ===
+        // === PEMBAYARAN: satu tombol per tahap; metode (cash/transfer) dipilih di sheet ===
         Builder(builder: (_) {
           final pays = <Widget>[
             if (d.canRecordDeposit)
-              _primary('Catat ${d.depositTerm} (cash)', BK.pend, disabled ? null : () => _run(context, c.recordDeposit, '${d.depositTerm} dicatat')),
-            if (d.canManualDeposit)
-              _primary('Catat ${d.depositTerm} (transfer/e-wallet)', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'deposit'), outline: true),
+              _primary('Catat ${d.depositTerm}', BK.pend, disabled ? null : () => _payDeposit(context, d)),
             if (d.canSettle)
-              _primary('Lunasi cash · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _run(context, c.settle, 'Pembayaran lunas')),
-            if (d.canManualSettlement)
-              _primary('Lunasi via transfer/e-wallet', BK.ink, disabled ? null : () => _manualPaySheet(context, d, 'settlement'), outline: true),
+              _primary('Lunasi · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _paySettle(context, d)),
             if (d.canSendReceipt)
               _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
           ];
@@ -483,6 +476,41 @@ class _DetailView extends StatelessWidget {
     ]);
   }
 
+  // Override DP sebagai link kecil (aksi edge, bukan tombol utama).
+  Widget _overrideLink(BuildContext context, bool disabled) => Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          style: TextButton.styleFrom(foregroundColor: BK.ink3, padding: const EdgeInsets.symmetric(vertical: 4)),
+          onPressed: disabled ? null : () async {
+            final c = context.read<BookingDetailController>();
+            final reason = await _askReason(context, 'Mulai tanpa DP (override)', 'Alasan (opsional)');
+            if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
+          },
+          icon: const Icon(Icons.lock_open_outlined, size: 15),
+          label: const Text('Mulai tanpa DP (override)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+        ),
+      );
+
+  // Catat DP / pembayaran muka: langsung cash kalau tak ada metode manual,
+  // kalau ada → sheet pilih metode (Tunai / transfer / e-wallet).
+  void _payDeposit(BuildContext context, BookingDetail d) {
+    final c = context.read<BookingDetailController>();
+    if (d.manualMethods.isEmpty) {
+      _run(context, c.recordDeposit, '${d.depositTerm} dicatat');
+    } else {
+      _paymentSheet(context, d, 'deposit');
+    }
+  }
+
+  void _paySettle(BuildContext context, BookingDetail d) {
+    final c = context.read<BookingDetailController>();
+    if (d.manualMethods.isEmpty) {
+      _run(context, c.settle, 'Pembayaran lunas');
+    } else {
+      _paymentSheet(context, d, 'settlement');
+    }
+  }
+
   // ISO → "dd Mmm HH:mm" (dipakai di riwayat pembayaran).
   static String _stamp(String iso) {
     final d = DateTime.tryParse(iso)?.toLocal();
@@ -589,18 +617,22 @@ class _DetailView extends StatelessWidget {
     );
   }
 
-  /// Pilih metode manual (transfer/e-wallet/QRIS), lampirkan foto bukti opsional,
-  /// lalu catat pembayaran atas nama customer → attempt awaiting_verification.
-  Future<void> _manualPaySheet(BuildContext context, BookingDetail d, String scope) async {
+  /// Satu sheet pembayaran: pilih Tunai (langsung) atau metode manual
+  /// (transfer/e-wallet + foto bukti + catatan) → attempt awaiting_verification.
+  Future<void> _paymentSheet(BuildContext context, BookingDetail d, String scope) async {
     final c = context.read<BookingDetailController>();
     final amount = scope == 'settlement' ? d.balanceDue : d.depositAmount;
-    final title = scope == 'settlement' ? 'Lunasi via transfer/e-wallet' : 'Catat ${d.depositTerm} (transfer/e-wallet)';
-    final result = await showModalBottomSheet<({String method, String proofUrl, String note})>(
+    final title = scope == 'settlement' ? 'Lunasi pembayaran' : 'Catat ${d.depositTerm}';
+    final result = await showModalBottomSheet<({String method, String proofUrl, String note, bool isCash})>(
       context: context, backgroundColor: BK.bg, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => _ManualPaySheet(controller: c, title: title, amount: amount, methods: d.manualMethods),
     );
-    if (result != null && context.mounted) {
+    if (result == null || !context.mounted) return;
+    if (result.isCash) {
+      await _run(context, scope == 'settlement' ? c.settle : c.recordDeposit,
+          scope == 'settlement' ? 'Pembayaran lunas' : '${d.depositTerm} dicatat');
+    } else {
       await _run(context, () => c.submitManualPayment(scope: scope, method: result.method, proofUrl: result.proofUrl, note: result.note),
           'Pembayaran dicatat — menunggu verifikasi');
     }
@@ -690,8 +722,11 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
     );
   }
 
+  static const _cashCode = '__cash__';
+
   @override
   Widget build(BuildContext context) {
+    final isCash = _method == _cashCode;
     final canSubmit = _method != null && !_uploading;
     return SafeArea(
       child: Padding(
@@ -699,58 +734,65 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
           const SizedBox(height: 2),
-          Text('Nominal Rp${rupiah(widget.amount)} · pilih metode. Pembayaran menunggu verifikasi.',
-              style: const TextStyle(fontSize: 12, color: BK.ink3)),
+          Text('Nominal Rp${rupiah(widget.amount)} · pilih metode.', style: const TextStyle(fontSize: 12, color: BK.ink3)),
           const SizedBox(height: 12),
           const Text('METODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 8),
+          // Tunai — langsung tercatat lunas (tanpa verifikasi).
+          _methodTile(icon: Icons.payments_outlined, label: 'Tunai (cash)', selected: isCash, onTap: () => setState(() => _method = _cashCode)),
           for (final m in widget.methods)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(BK.radius),
-                onTap: () => setState(() => _method = m.code),
-                child: BKCard(child: Row(children: [
-                  Icon(_method == m.code ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: _method == m.code ? BK.accent : BK.ink3, size: 20),
-                  const SizedBox(width: 10),
-                  Icon(_methodIcon(m), size: 18, color: _method == m.code ? BK.accent : BK.ink3),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(m.displayName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink))),
-                ])),
+            _methodTile(icon: _methodIcon(m), label: m.displayName, selected: _method == m.code, onTap: () => setState(() => _method = m.code)),
+          // Foto bukti + catatan hanya relevan untuk pembayaran non-tunai.
+          if (_method != null && !isCash) ...[
+            const SizedBox(height: 6),
+            const Text('FOTO BUKTI (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+            const SizedBox(height: 8),
+            _proofPreview(),
+            if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
+            const SizedBox(height: 14),
+            const Text('CATATAN ADMIN (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _note,
+              maxLines: 2,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'mis. transfer BCA a.n. Budi, ref 8821',
+                isDense: true,
+                filled: true, fillColor: BK.card,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
               ),
             ),
-          const SizedBox(height: 6),
-          const Text('FOTO BUKTI (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 8),
-          _proofPreview(),
-          if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
-          const SizedBox(height: 14),
-          const Text('CATATAN ADMIN (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _note,
-            maxLines: 2,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              hintText: 'mis. transfer BCA a.n. Budi, ref 8821',
-              isDense: true,
-              filled: true, fillColor: BK.card,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-            ),
-          ),
+          ],
+          if (!isCash)
+            const Padding(padding: EdgeInsets.only(top: 8), child: Text('Pembayaran non-tunai menunggu verifikasi.', style: TextStyle(fontSize: 11.5, color: BK.ink3))),
           const SizedBox(height: 14),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: canSubmit ? () => Navigator.pop(context, (method: _method!, proofUrl: _proofUrl ?? '', note: _note.text.trim())) : null,
+            onPressed: canSubmit ? () => Navigator.pop(context, (method: isCash ? '' : _method!, proofUrl: _proofUrl ?? '', note: isCash ? '' : _note.text.trim(), isCash: isCash)) : null,
             child: Text(_uploading ? 'Mengunggah foto…' : 'Catat pembayaran', style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
         ]),
       ),
     );
   }
+
+  Widget _methodTile({required IconData icon, required String label, required bool selected, required VoidCallback onTap}) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(BK.radius),
+          onTap: onTap,
+          child: BKCard(child: Row(children: [
+            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? BK.accent : BK.ink3, size: 20),
+            const SizedBox(width: 10),
+            Icon(icon, size: 18, color: selected ? BK.accent : BK.ink3),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink))),
+          ])),
+        ),
+      );
 
   Widget _proofPreview() {
     if (_uploading && _proofPath != null) {
