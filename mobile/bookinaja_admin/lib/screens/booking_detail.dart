@@ -1115,6 +1115,7 @@ class _CartPickerSheet<T> extends StatefulWidget {
 class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
   List<T>? _items;
   final Map<String, int> _qty = {}; // id → qty
+  String _query = '';
 
   @override
   void initState() {
@@ -1137,59 +1138,85 @@ class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
   Widget build(BuildContext context) {
     final total = _total();
     final count = _count();
-    return DraggableScrollableSheet(
-      initialChildSize: 0.62, minChildSize: 0.45, maxChildSize: 0.92, expand: false,
-      builder: (_, scroll) => Column(children: [
-        const SizedBox(height: 10),
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3))),
-        Padding(padding: const EdgeInsets.fromLTRB(20, 12, 12, 6), child: Row(children: [
-          Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
-          const Spacer(),
-          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: BK.ink3)),
-        ])),
-        Expanded(child: _items == null
-            ? const Center(child: CircularProgressIndicator())
-            : _items!.isEmpty
-                ? const StateView(icon: Icons.inbox, color: BK.ink3, title: 'Kosong', hint: 'Belum ada item.')
-                : ListView.separated(
-                    controller: scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    itemCount: _items!.length,
-                    separatorBuilder: (_, i) => const Divider(height: 1, color: BK.line),
-                    itemBuilder: (_, i) {
-                      final it = _items![i];
-                      final id = widget.idOf(it);
-                      final q = _qty[id] ?? 0;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(children: [
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(widget.labelOf(it), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
-                            const SizedBox(height: 1),
-                            Text('Rp${rupiah(widget.priceOf(it))}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
-                          ])),
-                          _qtyStepper(q,
-                              onMinus: q > 0 ? () => setState(() { if (q - 1 <= 0) { _qty.remove(id); } else { _qty[id] = q - 1; } }) : null,
-                              onPlus: () => setState(() => _qty[id] = q + 1)),
-                        ]),
-                      );
-                    },
-                  ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14), disabledBackgroundColor: BK.line),
-              onPressed: count == 0 ? null : () => Navigator.pop(context, [
-                for (final e in _qty.entries) (id: e.key, qty: e.value),
-              ]),
-              child: Text(count == 0 ? 'Pilih item dulu' : 'Tambah $count item · Rp${rupiah(total)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+    final all = _items ?? const [];
+    final q = _query.trim().toLowerCase();
+    final filtered = q.isEmpty ? all : all.where((it) => widget.labelOf(it).toLowerCase().contains(q)).toList();
+    // Layout terpinned (bukan DraggableScrollableSheet) supaya CTA tetap di atas
+    // keyboard saat mengetik pencarian.
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.82),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(height: 10),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3))),
+            Padding(padding: const EdgeInsets.fromLTRB(20, 12, 12, 6), child: Row(children: [
+              Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+              const Spacer(),
+              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: BK.ink3)),
+            ])),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(fontSize: 14, color: BK.ink),
+                decoration: InputDecoration(
+                  hintText: 'Cari item…',
+                  prefixIcon: const Icon(Icons.search, size: 19, color: BK.ink3),
+                  isDense: true,
+                  filled: true, fillColor: BK.card,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+                ),
+              ),
             ),
-          ),
+            Flexible(child: _items == null
+                ? const Center(child: Padding(padding: EdgeInsets.all(28), child: CircularProgressIndicator()))
+                : filtered.isEmpty
+                    ? StateView(icon: q.isEmpty ? Icons.inbox : Icons.search_off, color: BK.ink3, title: q.isEmpty ? 'Kosong' : 'Tidak ketemu', hint: q.isEmpty ? 'Belum ada item.' : 'Coba kata kunci lain.')
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, i) => const Divider(height: 1, color: BK.line),
+                        itemBuilder: (_, i) {
+                          final it = filtered[i];
+                          final id = widget.idOf(it);
+                          final qn = _qty[id] ?? 0;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(children: [
+                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(widget.labelOf(it), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+                                const SizedBox(height: 1),
+                                Text('Rp${rupiah(widget.priceOf(it))}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+                              ])),
+                              _qtyStepper(qn,
+                                  onMinus: qn > 0 ? () => setState(() { if (qn - 1 <= 0) { _qty.remove(id); } else { _qty[id] = qn - 1; } }) : null,
+                                  onPlus: () => setState(() => _qty[id] = qn + 1)),
+                            ]),
+                          );
+                        },
+                      ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14), disabledBackgroundColor: BK.line),
+                onPressed: count == 0 ? null : () => Navigator.pop(context, [
+                  for (final e in _qty.entries) (id: e.key, qty: e.value),
+                ]),
+                child: Text(count == 0 ? 'Pilih item dulu' : 'Tambah $count item · Rp${rupiah(total)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ]),
         ),
-      ]),
+      ),
     );
   }
 
