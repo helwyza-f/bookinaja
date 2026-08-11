@@ -24,17 +24,24 @@ class DashboardScreen extends StatelessWidget {
           Builder(builder: (context) {
             final auth = context.watch<AuthController>();
             final name = auth.account?.name ?? 'Admin';
-            final ws = (auth.workspace?.name ?? '').toUpperCase();
-            final role = (auth.workspace?.role ?? '').toUpperCase();
+            final ws = auth.workspace?.name ?? '';
             return Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text([if (ws.isNotEmpty) ws, if (role.isNotEmpty) role].join(' · '),
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-                  const SizedBox(height: 2),
-                  Text('Halo, $name', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink)),
+                  Text('${_greeting()},', style: const TextStyle(fontSize: 12.5, color: BK.ink3, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 1),
+                  Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink)),
+                  if (ws.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(children: [
+                      const Icon(Icons.storefront_outlined, size: 13, color: BK.ink3),
+                      const SizedBox(width: 4),
+                      Flexible(child: Text('$ws · ${_today()}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: BK.ink3))),
+                    ]),
+                  ],
                 ]),
               ),
+              const SizedBox(width: 10),
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'logout') context.read<AuthController>().logout();
@@ -45,13 +52,10 @@ class DashboardScreen extends StatelessWidget {
                   PopupMenuItem(value: 'logout', child: Text('Keluar')),
                 ],
                 child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [BK.accent, Color(0xFF7AA2FF)]),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
+                  width: 44, height: 44, alignment: Alignment.center,
+                  decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(14)),
+                  child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                      style: const TextStyle(color: BK.accent, fontWeight: FontWeight.w800, fontSize: 18)),
                 ),
               ),
             ]);
@@ -65,37 +69,47 @@ class DashboardScreen extends StatelessWidget {
               gradient: const LinearGradient(colors: [BK.accent, Color(0xFF1C47C9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(BK.radius),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('PERLU PERHATIAN SEKARANG', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
-              const SizedBox(height: 4),
-              Text(dash.loading ? '…' : '${dash.needsAction} booking', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 2),
-              Text(dash.error != null
-                  ? 'Gagal memuat — tarik untuk refresh'
-                  : (dash.needsAction == 0 ? 'Semua beres 🎉' : 'Perlu konfirmasi / verifikasi pembayaran'),
-                  style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('PERLU PERHATIAN SEKARANG', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                const SizedBox(height: 6),
+                Text(dash.loading ? '…' : '${dash.needsAction} booking', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, height: 1)),
+                const SizedBox(height: 4),
+                Text(dash.error != null
+                    ? 'Gagal memuat — tarik untuk refresh'
+                    : (dash.needsAction == 0 ? 'Semua beres, tidak ada antrean 🎉' : 'Perlu konfirmasi / verifikasi pembayaran'),
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+              ])),
+              const SizedBox(width: 12),
+              Container(
+                width: 46, height: 46, alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: .18), borderRadius: BorderRadius.circular(14)),
+                child: Icon(dash.needsAction == 0 ? Icons.check_rounded : Icons.notifications_active_outlined, color: Colors.white, size: 24),
+              ),
             ]),
           ),
           const SizedBox(height: 11),
 
           // stats
           Row(children: [
-            Expanded(child: _Stat('Omzet hari ini', dash.loading ? '…' : 'Rp${_shortMoney(dash.omzet)}')),
-            const SizedBox(width: 10),
-            Expanded(child: _Stat('Sesi aktif', dash.loading ? '…' : '${dash.activeCount}')),
+            Expanded(child: _Stat('Omzet', dash.loading ? '…' : 'Rp${_shortMoney(dash.omzet)}', Icons.payments_outlined, BK.live)),
+            const SizedBox(width: 9),
+            Expanded(child: _Stat('Booking', dash.loading ? '…' : '${dash.bookingsToday}', Icons.event_note_outlined, BK.accent)),
+            const SizedBox(width: 9),
+            Expanded(child: _Stat('Sesi aktif', dash.loading ? '…' : '${dash.activeCount}', Icons.sensors, BK.pend)),
           ]),
           const SizedBox(height: 16),
 
           const Text('AKSI CEPAT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
           Row(children: [
-            _QA(Icons.add, 'Booking', onTap: () => _go(context, const CreateBookingScreen())),
+            _QA(Icons.add, 'Booking', BK.accent, onTap: () => _go(context, const CreateBookingScreen())),
             const SizedBox(width: 9),
-            _QA(Icons.shopping_cart_outlined, 'Kasir', onTap: () => _go(context, const KasirScreen())),
+            _QA(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
             const SizedBox(width: 9),
-            _QA(Icons.payments_outlined, 'Biaya', onTap: () => _soon(context, 'Biaya')),
+            _QA(Icons.payments_outlined, 'Biaya', BK.pend, onTap: () => _soon(context, 'Biaya')),
             const SizedBox(width: 9),
-            _QA(Icons.bar_chart, 'Laporan', onTap: () => _soon(context, 'Laporan')),
+            _QA(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _soon(context, 'Laporan')),
           ]),
           const SizedBox(height: 18),
 
@@ -140,17 +154,40 @@ String _shortMoney(int v) {
   return '$v';
 }
 
+String _greeting() {
+  final h = DateTime.now().hour;
+  if (h < 11) return 'Selamat pagi';
+  if (h < 15) return 'Selamat siang';
+  if (h < 18) return 'Selamat sore';
+  return 'Selamat malam';
+}
+
+String _today() {
+  final d = DateTime.now();
+  const dow = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return '${dow[d.weekday - 1]}, ${d.day} ${mon[d.month - 1]}';
+}
+
 class _Stat extends StatelessWidget {
   final String k, v;
-  const _Stat(this.k, this.v);
+  final IconData icon;
+  final Color color;
+  const _Stat(this.k, this.v, this.icon, this.color);
   @override
   Widget build(BuildContext context) {
     return BKCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(k, style: const TextStyle(fontSize: 11.5, color: BK.ink3, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text(v, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: BK.ink)),
+        Container(
+          width: 28, height: 28, alignment: Alignment.center,
+          decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(9)),
+          child: Icon(icon, size: 15, color: color),
+        ),
+        const SizedBox(height: 9),
+        Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
+        const SizedBox(height: 1),
+        Text(k, style: const TextStyle(fontSize: 11, color: BK.ink3, fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -162,8 +199,9 @@ void _soon(BuildContext c, String m) => BkToast.info(c, m, subtitle: 'Fitur ini 
 class _QA extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback? onTap;
-  const _QA(this.icon, this.label, {this.onTap});
+  const _QA(this.icon, this.label, this.color, {this.onTap});
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -171,17 +209,17 @@ class _QA extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         onTap: onTap,
         child: BKCard(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Column(children: [
-          Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(11)),
-            child: Icon(icon, size: 17, color: BK.accent),
-          ),
-          const SizedBox(height: 7),
-          Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BK.ink2)),
-        ]),
-      ),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Column(children: [
+            Container(
+              width: 38, height: 38, alignment: Alignment.center,
+              decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 19, color: color),
+            ),
+            const SizedBox(height: 7),
+            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+          ]),
+        ),
       ),
     );
   }
@@ -193,16 +231,25 @@ class _LiveRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(children: [
-        Pill.live(''),
+        Container(
+          width: 38, height: 38, alignment: Alignment.center,
+          decoration: BoxDecoration(color: BK.liveSoft, borderRadius: BorderRadius.circular(11)),
+          child: Text(s.resource.trim().isNotEmpty ? s.resource.trim()[0].toUpperCase() : '?',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BK.live)),
+        ),
         const SizedBox(width: 11),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${s.resource} · ${s.customer}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+          const SizedBox(height: 1),
           Text(s.remaining, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+        ])),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(s.endsAt, style: const TextStyle(color: BK.live, fontWeight: FontWeight.w800, fontSize: 14)),
+          const Text('selesai', style: TextStyle(color: BK.ink3, fontSize: 10)),
         ]),
-        const Spacer(),
-        Text(s.endsAt, style: const TextStyle(color: BK.live, fontWeight: FontWeight.w700)),
       ]),
     );
   }
