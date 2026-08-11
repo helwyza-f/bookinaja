@@ -13,13 +13,13 @@ const sampleBookings = <Booking>[
 ];
 
 class LiveSession {
-  final String resource, customer, remaining, endsAt;
-  const LiveSession(this.resource, this.customer, this.remaining, this.endsAt);
+  final String id, code, resource, customer, remaining, endsAt;
+  const LiveSession(this.resource, this.customer, this.remaining, this.endsAt, {this.id = '', this.code = ''});
 }
 
 const sampleLive = <LiveSession>[
-  LiveSession('Station 03', 'Budi', 'sisa 24 mnt', '18:00'),
-  LiveSession('PS5 Room B', 'Sarah', 'sisa 1j 12m', '18:48'),
+  LiveSession('Station 03', 'Budi', 'sisa 24 mnt', '18:00', id: 'demo-1', code: 'DEMO0001'),
+  LiveSession('PS5 Room B', 'Sarah', 'sisa 1j 12m', '18:48', id: 'demo-2', code: 'DEMO0002'),
 ];
 
 const sampleResources = <ResourceStatus>[

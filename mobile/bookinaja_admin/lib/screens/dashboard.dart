@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../data/sample_data.dart';
+import '../models/booking.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
+import 'booking_detail.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
 
@@ -228,11 +230,25 @@ class _QA extends StatelessWidget {
 class _LiveRow extends StatelessWidget {
   final LiveSession s;
   const _LiveRow(this.s);
+
+  Future<void> _open(BuildContext context) async {
+    if (s.id.isEmpty) return;
+    final b = Booking(
+      id: s.id, code: s.code, customer: s.customer, resource: s.resource,
+      time: '', status: BookingStatus.live, total: 0, paid: 0,
+    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => BookingDetailScreen(booking: b)));
+    if (context.mounted) context.read<DashboardController>().load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      child: Row(children: [
+    return InkWell(
+      borderRadius: BorderRadius.circular(11),
+      onTap: () => _open(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(children: [
         Container(
           width: 38, height: 38, alignment: Alignment.center,
           decoration: BoxDecoration(color: BK.liveSoft, borderRadius: BorderRadius.circular(11)),
@@ -250,7 +266,10 @@ class _LiveRow extends StatelessWidget {
           Text(s.endsAt, style: const TextStyle(color: BK.live, fontWeight: FontWeight.w800, fontSize: 14)),
           const Text('selesai', style: TextStyle(color: BK.ink3, fontSize: 10)),
         ]),
-      ]),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right, size: 18, color: BK.ink3),
+        ]),
+      ),
     );
   }
 }

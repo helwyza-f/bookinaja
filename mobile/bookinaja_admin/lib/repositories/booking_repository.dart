@@ -46,7 +46,9 @@ class BookingRepository {
     final list = _extractList(res);
     return list.whereType<Map>().map((a) {
       final end = '${a['end_time'] ?? ''}';
-      return LiveSession('${a['resource_name'] ?? '-'}', '${a['customer_name'] ?? ''}', _remaining(end), _hhmm(end));
+      final id = '${a['id'] ?? a['booking_id'] ?? ''}';
+      final code = '${a['booking_code'] ?? a['code'] ?? (id.length > 8 ? id.substring(0, 8).toUpperCase() : id)}';
+      return LiveSession('${a['resource_name'] ?? '-'}', '${a['customer_name'] ?? ''}', _remaining(end), _hhmm(end), id: id, code: code);
     }).toList();
   }
 
