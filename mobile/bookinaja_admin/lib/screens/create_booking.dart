@@ -342,6 +342,8 @@ class _FlowState extends State<_Flow> {
             ],
           ],
 
+          if (c.startAt != null) _scheduleSummary(c),
+
           if (c.addons.isNotEmpty && (c.isInterday || c.slot != null)) ...[
             _label('ADD-ON'),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -578,8 +580,46 @@ class _FlowState extends State<_Flow> {
         ),
       );
 
-  // Slot dikelompokkan per waktu (Pagi/Siang/Sore/Malam) dgn header berwarna,
-  // grid 4 kolom biar rapi & seimbang, plus hitung ketersediaan.
+  // Kartu rangkuman jadwal: waktu mulai → selesai (mengikuti web).
+  Widget _scheduleSummary(CreateBookingController c) {
+    final s = c.startAt!, e = c.endAt!;
+    String hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(BK.radius)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: const [
+            Icon(Icons.schedule, size: 15, color: BK.accent),
+            SizedBox(width: 7),
+            Text('RANGKUMAN JADWAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: BK.accent)),
+          ]),
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('MULAI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: BK.ink3)),
+              const SizedBox(height: 2),
+              Text(hm(s), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink, height: 1)),
+              const SizedBox(height: 3),
+              Text(_fullDate(s), style: const TextStyle(fontSize: 11, color: BK.ink2)),
+            ])),
+            const Padding(padding: EdgeInsets.only(top: 16), child: Icon(Icons.arrow_forward_rounded, size: 16, color: BK.ink3)),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              const Text('SELESAI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: BK.ink3)),
+              const SizedBox(height: 2),
+              Text(hm(e), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.accent, height: 1)),
+              const SizedBox(height: 3),
+              Text(_fullDate(e), style: const TextStyle(fontSize: 11, color: BK.ink2), textAlign: TextAlign.end),
+            ])),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  // Grid slot rata 4 kolom + hitung ketersediaan (tanpa pengelompokan waktu —
+  // lebih bersih & konsisten dgn web). Warna lewat state chip.
   Widget _slotSection(CreateBookingController c) {
     final slots = c.slots;
     if (slots.isEmpty) {
@@ -594,22 +634,6 @@ class _FlowState extends State<_Flow> {
       ]);
     }
     final avail = slots.where((s) => s.available).length;
-    // urutan grup + meta warna/ikon.
-    const groups = [
-      (key: 'pagi', label: 'Pagi', icon: Icons.wb_twilight_rounded, color: Color(0xFFF5A524)),
-      (key: 'siang', label: 'Siang', icon: Icons.wb_sunny_rounded, color: Color(0xFFFB923C)),
-      (key: 'sore', label: 'Sore', icon: Icons.wb_cloudy_rounded, color: Color(0xFFEF6C4D)),
-      (key: 'malam', label: 'Malam', icon: Icons.nights_stay_rounded, color: Color(0xFF6366F1)),
-    ];
-
-    String bucket(String hhmm) {
-      final h = int.tryParse(hhmm.split(':').first) ?? 0;
-      if (h < 11) return 'pagi';
-      if (h < 15) return 'siang';
-      if (h < 18) return 'sore';
-      return 'malam';
-    }
-
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         _label('SLOT MULAI'),
@@ -622,50 +646,33 @@ class _FlowState extends State<_Flow> {
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: avail > 0 ? BK.live : BK.crit)),
         ),
       ]),
-      for (final g in groups)
-        Builder(builder: (_) {
-          final items = slots.where((s) => bucket(s.label) == g.key).toList();
-          if (items.isEmpty) return const SizedBox.shrink();
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const SizedBox(height: 10),
-            Row(children: [
-              Container(
-                width: 22, height: 22, alignment: Alignment.center,
-                decoration: BoxDecoration(color: g.color.withValues(alpha: .14), borderRadius: BorderRadius.circular(7)),
-                child: Icon(g.icon, size: 13, color: g.color),
-              ),
-              const SizedBox(width: 8),
-              Text(g.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: BK.ink)),
-            ]),
-            const SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4, mainAxisExtent: 42, crossAxisSpacing: 8, mainAxisSpacing: 8),
-              itemBuilder: (_, i) => _slotChip(items[i].label, g.color,
-                  available: items[i].available, selected: c.slot == items[i].label, onTap: () => c.selectSlot(items[i].label)),
-            ),
-          ]);
-        }),
+      const SizedBox(height: 4),
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: slots.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4, mainAxisExtent: 42, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemBuilder: (_, i) => _slotChip(slots[i].label,
+            available: slots[i].available, selected: c.slot == slots[i].label, onTap: () => c.selectSlot(slots[i].label)),
+      ),
     ]);
   }
 
-  Widget _slotChip(String s, Color tint, {required bool available, required bool selected, required VoidCallback onTap}) {
+  Widget _slotChip(String s, {required bool available, required bool selected, required VoidCallback onTap}) {
     final Color bg, fg, border;
     if (selected) {
-      bg = tint;
+      bg = BK.accent;
       fg = Colors.white;
-      border = tint;
+      border = BK.accent;
     } else if (!available) {
       bg = BK.critSoft;
       fg = BK.crit;
       border = BK.critSoft;
     } else {
-      bg = tint.withValues(alpha: .10);
-      fg = tint;
-      border = tint.withValues(alpha: .22);
+      bg = BK.accentSoft;
+      fg = BK.accent;
+      border = const Color(0x332F6BFF);
     }
     return Material(
       color: bg,
@@ -678,7 +685,7 @@ class _FlowState extends State<_Flow> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(11),
             border: Border.all(color: border, width: selected ? 1.5 : 1),
-            boxShadow: selected ? [BoxShadow(color: tint.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
+            boxShadow: selected ? [BoxShadow(color: BK.accent.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
           ),
           child: Text(s, style: TextStyle(
             fontSize: 12.5, fontWeight: FontWeight.w700,

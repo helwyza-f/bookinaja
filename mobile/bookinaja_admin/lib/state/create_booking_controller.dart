@@ -90,6 +90,18 @@ class CreateBookingController extends ChangeNotifier {
     return DateTime(date.year, date.month, date.day, int.parse(parts[0]), int.parse(parts[1]));
   }
 
+  /// Waktu mulai/selesai booking (untuk kartu Rangkuman Jadwal).
+  /// null kalau paket/slot belum lengkap.
+  DateTime? get startAt {
+    if (pkg == null || (!isInterday && slot == null)) return null;
+    return _startLocal();
+  }
+
+  DateTime? get endAt {
+    final s = startAt;
+    return s?.add(Duration(minutes: unitMinutes * duration));
+  }
+
   bool get isToday => date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
 
   /// Slot mulai (HH:mm) + status available — hanya untuk paket non-interday.
