@@ -39,7 +39,7 @@ func Authenticate(c *gin.Context) (*Principal, error) {
 	}
 
 	principal := &Principal{
-		TenantID: strings.TrimSpace(fmt.Sprintf("%v", claims["tenant_id"])),
+		TenantID: normalizeClaimString(claims["tenant_id"]),
 		Role:     strings.TrimSpace(fmt.Sprintf("%v", claims["role"])),
 	}
 
@@ -61,6 +61,16 @@ func Authenticate(c *gin.Context) (*Principal, error) {
 	}
 
 	return nil, fmt.Errorf("kredensial tidak valid")
+}
+
+func normalizeClaimString(value any) string {
+	s := strings.TrimSpace(fmt.Sprintf("%v", value))
+	switch s {
+	case "", "<nil>", "00000000-0000-0000-0000-000000000000":
+		return ""
+	default:
+		return s
+	}
 }
 
 func extractToken(c *gin.Context) (string, error) {
