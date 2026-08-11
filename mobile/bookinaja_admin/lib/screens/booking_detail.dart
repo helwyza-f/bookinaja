@@ -58,28 +58,95 @@ class _DetailView extends StatelessWidget {
     }
   }
 
-  Future<String?> _askReason(BuildContext context, String title, String label, {bool required = false}) async {
+  /// Bottom sheet konfirmasi + alasan. Kalau alasan opsional (required=false),
+  /// field disembunyikan di balik toggle "Tambah alasan" → kurangi friction.
+  /// Balik: null = batal; string (bisa kosong) = lanjut.
+  Future<String?> _askReason(
+    BuildContext context,
+    String title,
+    String label, {
+    bool required = false,
+    String? description,
+    String hint = '',
+    String confirmLabel = 'Lanjut',
+    Color confirmColor = BK.accent,
+  }) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    bool expanded = required; // wajib → langsung tampil
+    final result = await showModalBottomSheet<String?>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: ctrl, maxLines: 2, autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(11)), isDense: true),
+      backgroundColor: BK.bg,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setSt) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3)))),
+              const SizedBox(height: 16),
+              Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+              if (description != null) ...[
+                const SizedBox(height: 6),
+                Text(description, style: const TextStyle(fontSize: 13, color: BK.ink2, height: 1.4)),
+              ],
+              const SizedBox(height: 16),
+              if (!required && !expanded)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: BK.ink2, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9)),
+                    onPressed: () => setSt(() => expanded = true),
+                    icon: const Icon(Icons.edit_note_rounded, size: 18),
+                    label: const Text('Tambah alasan (opsional)'),
+                  ),
+                )
+              else ...[
+                Text(label.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  maxLines: 3,
+                  minLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    isDense: true,
+                    filled: true,
+                    fillColor: BK.card,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: BK.ink2, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 13)),
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w700)),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: confirmColor, padding: const EdgeInsets.symmetric(vertical: 13)),
+                  onPressed: () {
+                    final t = ctrl.text.trim();
+                    if (required && t.isEmpty) return; // wajib isi
+                    Navigator.pop(ctx, t);
+                  },
+                  child: Text(confirmLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
+                )),
+              ]),
+            ]),
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Kembali')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Lanjut')),
-        ],
       ),
     );
-    final text = ctrl.text.trim();
     ctrl.dispose();
-    if (ok != true) return null;
-    if (required && text.isEmpty) return null;
-    return text;
+    return result;
   }
 
   @override
@@ -181,7 +248,10 @@ class _DetailView extends StatelessWidget {
                   Expanded(child: FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: BK.critSoft, foregroundColor: BK.crit, padding: const EdgeInsets.symmetric(vertical: 11)),
                     onPressed: disabled ? null : () async {
-                      final reason = await _askReason(context, 'Tolak bukti?', 'Alasan penolakan');
+                      final reason = await _askReason(context, 'Tolak bukti?', 'Alasan penolakan',
+                          description: 'Bukti pembayaran ditolak dan customer perlu mengunggah ulang.',
+                          hint: 'mis. nominal tidak sesuai, bukti buram',
+                          confirmLabel: 'Tolak bukti', confirmColor: BK.crit);
                       if (reason != null && context.mounted) await _run(context, () => c.rejectAttempt(a.id, reason: reason), 'Bukti ditolak');
                     },
                     child: const Text('Tolak', style: TextStyle(fontWeight: FontWeight.w700)))),
@@ -211,8 +281,10 @@ class _DetailView extends StatelessWidget {
               ],
             ]),
           ),
+        // Konteks: booking sedang menunggu DP dari customer.
+        if (d.canRecordDeposit) _waitingDpBanner(d),
+
         // === SESI: konfirmasi, mulai, akhiri, perpanjang, F&B/add-on ===
-        // (override diturunkan jadi link kecil — aksi edge, bukan tombol utama)
         if (!d.isFinal)
           Builder(builder: (_) {
             final acts = <Widget>[
@@ -409,6 +481,23 @@ class _DetailView extends StatelessWidget {
         ]),
       );
 
+  // Banner konteks saat booking menunggu DP — biar admin paham statusnya.
+  Widget _waitingDpBanner(BookingDetail d) => Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(BK.radius)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.hourglass_top_rounded, size: 18, color: BK.pend),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Menunggu ${d.depositTerm} · Rp${rupiah(d.depositAmount)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
+            const SizedBox(height: 2),
+            Text('Customer bisa bayar & unggah bukti ${d.depositTerm} sendiri, atau catat pembayaran manual di bawah. Sesi belum bisa dimulai sampai ${d.depositTerm} masuk (atau di-override).',
+                style: const TextStyle(fontSize: 12, color: BK.ink2, height: 1.35)),
+          ])),
+        ]),
+      );
+
   // Label grup aksi (tanpa divider) — memisahkan "Sesi" vs "Pembayaran".
   Widget _groupLabel(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(2, 6, 2, 9),
@@ -483,7 +572,15 @@ class _DetailView extends StatelessWidget {
   Widget _overrideLink(BuildContext context, bool disabled) {
     onTap() async {
       final c = context.read<BookingDetailController>();
-      final reason = await _askReason(context, 'Mulai tanpa DP (override)', 'Alasan (opsional)');
+      final reason = await _askReason(
+        context,
+        'Mulai tanpa DP?',
+        'Alasan',
+        description: 'Sesi dijalankan tanpa DP. Pelunasan nanti memakai total penuh. Booking ini masih menunggu DP dari customer.',
+        hint: 'mis. pelanggan lama, bayar nanti',
+        confirmLabel: 'Ya, mulai tanpa DP',
+        confirmColor: BK.pend,
+      );
       if (reason != null && context.mounted) await _run(context, () => c.overrideDeposit(reason: reason), 'Override DP aktif — sesi bisa dimulai');
     }
     return Padding(
