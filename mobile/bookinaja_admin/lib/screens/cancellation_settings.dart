@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../models/cancellation_policy.dart';
 import '../repositories/settings_repository.dart';
 import '../state/settings_controller.dart';
@@ -44,10 +45,11 @@ class _View extends StatelessWidget {
                   onPressed: c.saving ? null : () async {
                     final ok = await c.save();
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(ok ? 'Kebijakan disimpan' : (c.error ?? 'Gagal menyimpan')),
-                      behavior: SnackBarBehavior.floating, backgroundColor: ok ? BK.live : BK.crit,
-                    ));
+                    if (ok) {
+                      BkToast.success(context, 'Kebijakan disimpan');
+                    } else {
+                      BkToast.error(context, c.error ?? 'Gagal menyimpan');
+                    }
                   },
                   child: c.saving
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

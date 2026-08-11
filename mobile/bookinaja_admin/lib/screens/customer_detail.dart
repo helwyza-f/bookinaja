@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../models/customer.dart';
 import '../repositories/customers_repository.dart';
 import 'customers.dart' show tierPill;
@@ -9,8 +10,7 @@ class CustomerDetailScreen extends StatelessWidget {
   final Customer customer;
   const CustomerDetailScreen({super.key, required this.customer});
 
-  void _snack(BuildContext c, String m) =>
-      ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating));
+  void _snack(BuildContext c, String m) => BkToast.info(c, m);
 
   @override
   Widget build(BuildContext context) {

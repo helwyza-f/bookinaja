@@ -12,6 +12,7 @@ import '../repositories/booking_repository.dart';
 import '../repositories/pos_repository.dart';
 import '../repositories/catalog_repository.dart';
 import '../state/booking_detail_controller.dart';
+import '../ui/toast.dart';
 
 class BookingDetailScreen extends StatelessWidget {
   final Booking booking;
@@ -29,9 +30,6 @@ class BookingDetailScreen extends StatelessWidget {
 class _DetailView extends StatelessWidget {
   final Booking fallback;
   const _DetailView({required this.fallback});
-
-  void _snack(BuildContext c, String m, Color color) =>
-      ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating, backgroundColor: color));
 
   // Lihat bukti bayar penuh (bisa zoom/pan).
   void _showProof(BuildContext context, String url) {
@@ -51,9 +49,13 @@ class _DetailView extends StatelessWidget {
 
   Future<void> _run(BuildContext context, Future<bool> Function() action, String okMsg) async {
     final c = context.read<BookingDetailController>();
+    final toast = BkToast.loading(context, 'Memproses…');
     final ok = await action();
-    if (!context.mounted) return;
-    _snack(context, ok ? okMsg : (c.actionError ?? 'Aksi gagal'), ok ? BK.live : BK.crit);
+    if (ok) {
+      toast.success(okMsg);
+    } else {
+      toast.error(c.actionError ?? 'Aksi gagal');
+    }
   }
 
   Future<String?> _askReason(BuildContext context, String title, String label, {bool required = false}) async {

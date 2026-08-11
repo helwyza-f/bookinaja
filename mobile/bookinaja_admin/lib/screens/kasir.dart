@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../models/menu_item.dart';
 import '../state/pos_controller.dart';
 
@@ -24,13 +25,11 @@ class _KasirScreenState extends State<KasirScreen> {
     final c = context.read<PosController>();
     final ok = await c.checkout();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(ok
-          ? 'Order ${c.lastOrderNumber ?? ''} dibayar (cash)'
-          : (c.checkoutError ?? 'Gagal membuat order')),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: ok ? BK.live : BK.crit,
-    ));
+    if (ok) {
+      BkToast.success(context, 'Order ${c.lastOrderNumber ?? ''} dibayar', subtitle: 'Pembayaran tunai tercatat.');
+    } else {
+      BkToast.error(context, c.checkoutError ?? 'Gagal membuat order');
+    }
   }
 
   @override

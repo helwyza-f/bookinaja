@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../models/resource_status.dart';
 import '../models/booking.dart';
 import '../state/ops_controller.dart';
@@ -154,10 +155,11 @@ class _ResourceCard extends StatelessWidget {
           final ctrl = context.read<OpsController>();
           final ok = await ctrl.setActive(r.resourceId);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(ok ? '${r.name} diaktifkan' : (ctrl.actionError ?? 'Gagal mengaktifkan')),
-              behavior: SnackBarBehavior.floating, backgroundColor: ok ? BK.live : BK.crit,
-            ));
+            if (ok) {
+              BkToast.success(context, '${r.name} diaktifkan');
+            } else {
+              BkToast.error(context, ctrl.actionError ?? 'Gagal mengaktifkan');
+            }
           }
         }
     }

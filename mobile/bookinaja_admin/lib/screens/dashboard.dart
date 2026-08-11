@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../data/sample_data.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
@@ -156,8 +157,7 @@ class _Stat extends StatelessWidget {
 }
 
 void _go(BuildContext c, Widget page) => Navigator.of(c).push(MaterialPageRoute(builder: (_) => page));
-void _soon(BuildContext c, String m) =>
-    ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text('$m — segera'), behavior: SnackBarBehavior.floating));
+void _soon(BuildContext c, String m) => BkToast.info(c, m, subtitle: 'Fitur ini segera hadir.');
 
 class _QA extends StatelessWidget {
   final IconData icon;

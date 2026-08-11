@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../state/auth_controller.dart';
 import 'kasir.dart';
 import 'cancellation_settings.dart';
@@ -8,8 +9,7 @@ import 'cancellation_settings.dart';
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
 
-  void _soon(BuildContext c, String m) =>
-      ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text('$m — segera'), behavior: SnackBarBehavior.floating));
+  void _soon(BuildContext c, String m) => BkToast.info(c, m, subtitle: 'Fitur ini segera hadir.');
 
   @override
   Widget build(BuildContext context) {

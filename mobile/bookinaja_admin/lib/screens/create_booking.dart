@@ -8,6 +8,7 @@ import '../repositories/booking_repository.dart';
 import '../repositories/customers_repository.dart';
 import '../state/create_booking_controller.dart';
 import '../state/bookings_controller.dart';
+import '../ui/toast.dart';
 
 /// Flow buat booking (admin): resource → paket → tanggal → slot → durasi → addon.
 class CreateBookingScreen extends StatelessWidget {
@@ -108,8 +109,17 @@ class _FlowState extends State<_Flow> {
     }
   }
 
-  void _snack(String m, Color color) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(m), behavior: SnackBarBehavior.floating, backgroundColor: color));
+  void _snack(String m, Color color) {
+    if (color == BK.live) {
+      BkToast.success(context, m);
+    } else if (color == BK.crit) {
+      BkToast.error(context, m);
+    } else if (color == BK.pend) {
+      BkToast.warning(context, m);
+    } else {
+      BkToast.info(context, m);
+    }
+  }
 
   Future<void> _pickFromList(CreateBookingController c) async {
     FocusManager.instance.primaryFocus?.unfocus();

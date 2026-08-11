@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
 import '../state/auth_controller.dart';
 
 /// Langkah 1: login account (email + password). Pilih workspace di layar berikutnya.
@@ -28,10 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthController>();
     final ok = await auth.login(email: _email.text.trim(), password: _password.text);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(auth.error ?? 'Gagal masuk'),
-        behavior: SnackBarBehavior.floating, backgroundColor: BK.crit,
-      ));
+      BkToast.error(context, 'Gagal masuk', subtitle: auth.error ?? 'Cek email & password lalu coba lagi.');
     }
   }
 
