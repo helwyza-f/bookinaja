@@ -72,6 +72,20 @@ class BookingDetailController extends ChangeNotifier {
     }
   }
   Future<bool> extend(int units) => _act(() => _repo.extendSession(bookingId, units));
-  Future<bool> addFnb(String fnbItemId, int qty) => _act(() => _repo.addFnb(bookingId, fnbItemId, qty));
-  Future<bool> addAddon(String itemId) => _act(() => _repo.addAddon(bookingId, itemId));
+
+  /// Tambah beberapa F&B sekaligus (satu reload). items: (id, qty>0).
+  Future<bool> addFnbItems(List<({String id, int qty})> items) => _act(() async {
+        for (final it in items) {
+          if (it.qty > 0) await _repo.addFnb(bookingId, it.id, it.qty);
+        }
+      });
+
+  /// Tambah beberapa add-on sekaligus. Endpoint hanya terima 1/item → loop qty.
+  Future<bool> addAddonItems(List<({String id, int qty})> items) => _act(() async {
+        for (final it in items) {
+          for (int i = 0; i < it.qty; i++) {
+            await _repo.addAddon(bookingId, it.id);
+          }
+        }
+      });
 }

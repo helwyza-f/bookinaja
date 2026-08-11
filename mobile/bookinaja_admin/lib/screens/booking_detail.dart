@@ -358,24 +358,25 @@ class _DetailView extends StatelessWidget {
           ])),
         ],
 
-        // Rincian pesanan (F&B + add-on)
+        // Rincian pesanan (F&B + add-on) — item sama digabung jadi satu baris.
         if (d.orders.isNotEmpty || d.options.isNotEmpty) ...[
           _sectionLabel('Rincian pesanan'),
-          BKCard(child: Column(children: [
-            for (final o in [...d.options, ...d.orders])
-              Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(children: [
-                Expanded(child: Text('${o.name}${o.quantity > 1 ? ' ×${o.quantity}' : ''}', style: const TextStyle(fontSize: 13, color: BK.ink2))),
-                Text('Rp${rupiah(o.subtotal)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
-              ])),
-          ])),
+          Builder(builder: (_) {
+            final lines = _aggregate([...d.options, ...d.orders]);
+            return BKCard(child: Column(children: [
+              for (final o in lines)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(children: [
+                  Expanded(child: Text('${o.name}${o.quantity > 1 ? '  ×${o.quantity}' : ''}', style: const TextStyle(fontSize: 13, color: BK.ink2))),
+                  Text('Rp${rupiah(o.subtotal)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
+                ])),
+            ]));
+          }),
         ],
 
-        // Timeline audit
+        // Timeline audit — collapsible kalau panjang.
         if (d.events.isNotEmpty) ...[
           _sectionLabel('Timeline'),
-          BKCard(child: Column(children: [
-            for (int i = 0; i < d.events.length; i++) _timelineRow(d.events[i], last: i == d.events.length - 1),
-          ])),
+          BKCard(child: _Timeline(events: d.events, rowBuilder: _timelineRow)),
         ],
 
         if (d.canCancel) ...[
@@ -471,6 +472,20 @@ class _DetailView extends StatelessWidget {
           Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? BK.ink)),
         ]),
       );
+
+  // Gabung baris pesanan bernama sama → satu baris (qty & subtotal dijumlah),
+  // urutan kemunculan pertama dipertahankan.
+  List<OrderLine> _aggregate(List<OrderLine> items) {
+    final order = <String>[];
+    final qty = <String, int>{};
+    final sub = <String, int>{};
+    for (final o in items) {
+      if (!qty.containsKey(o.name)) order.add(o.name);
+      qty[o.name] = (qty[o.name] ?? 0) + o.quantity;
+      sub[o.name] = (sub[o.name] ?? 0) + o.subtotal;
+    }
+    return [for (final n in order) OrderLine(name: n, quantity: qty[n]!, subtotal: sub[n]!)];
+  }
 
   Widget _sectionLabel(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(2, 18, 2, 8),
@@ -678,43 +693,41 @@ class _DetailView extends StatelessWidget {
   Future<void> _fnbSheet(BuildContext context, BookingDetail d) async {
     final c = context.read<BookingDetailController>();
     final repo = context.read<PosRepository>();
-    await showModalBottomSheet<void>(
+    final picked = await showModalBottomSheet<List<({String id, int qty})>>(
       context: context, backgroundColor: BK.bg, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) => _PickerSheet<MenuItem>(
+      builder: (_) => _CartPickerSheet<MenuItem>(
         title: 'Tambah F&B',
         load: repo.listMenu,
-        labelOf: (m) => m.name,
-        priceOf: (m) => m.price,
-        onPick: (m) async {
-          Navigator.pop(sheetCtx);
-          await _run(context, () => c.addFnb(m.id, 1), '${m.name} ditambahkan');
-        },
+        idOf: (m) => m.id, labelOf: (m) => m.name, priceOf: (m) => m.price,
       ),
     );
+    if (picked != null && picked.isNotEmpty && context.mounted) {
+      final n = picked.fold(0, (s, e) => s + e.qty);
+      await _run(context, () => c.addFnbItems(picked), '$n item F&B ditambahkan');
+    }
   }
 
   Future<void> _addonSheet(BuildContext context, BookingDetail d) async {
     final c = context.read<BookingDetailController>();
     final repo = context.read<CatalogRepository>();
-    await showModalBottomSheet<void>(
+    final picked = await showModalBottomSheet<List<({String id, int qty})>>(
       context: context, backgroundColor: BK.bg, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) => _PickerSheet<Addon>(
+      builder: (_) => _CartPickerSheet<Addon>(
         title: 'Tambah add-on',
         load: () async {
           final all = await repo.addonsCatalog();
           final match = all.where((a) => a.resourceId == d.resourceId).toList();
           return match.isEmpty ? all : match;
         },
-        labelOf: (a) => a.name,
-        priceOf: (a) => a.price,
-        onPick: (a) async {
-          Navigator.pop(sheetCtx);
-          await _run(context, () => c.addAddon(a.itemId), '${a.name} ditambahkan');
-        },
+        idOf: (a) => a.itemId, labelOf: (a) => a.name, priceOf: (a) => a.price,
       ),
     );
+    if (picked != null && picked.isNotEmpty && context.mounted) {
+      final n = picked.fold(0, (s, e) => s + e.qty);
+      await _run(context, () => c.addAddonItems(picked), '$n add-on ditambahkan');
+    }
   }
 
   /// Satu sheet pembayaran: pilih Tunai (langsung) atau metode manual
@@ -1086,49 +1099,155 @@ class _SessionTimerState extends State<_SessionTimer> {
   }
 }
 
-/// Bottom sheet pemilih item generik (F&B / add-on).
-class _PickerSheet<T> extends StatelessWidget {
+/// Bottom sheet pemilih item generik dengan qty stepper (F&B / add-on) —
+/// pilih beberapa item + jumlah, lalu tambah sekaligus. Balik: [(id, qty)].
+class _CartPickerSheet<T> extends StatefulWidget {
   final String title;
   final Future<List<T>> Function() load;
+  final String Function(T) idOf;
   final String Function(T) labelOf;
   final int Function(T) priceOf;
-  final Future<void> Function(T) onPick;
-  const _PickerSheet({required this.title, required this.load, required this.labelOf, required this.priceOf, required this.onPick});
+  const _CartPickerSheet({required this.title, required this.load, required this.idOf, required this.labelOf, required this.priceOf});
+  @override
+  State<_CartPickerSheet<T>> createState() => _CartPickerSheetState<T>();
+}
+
+class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
+  List<T>? _items;
+  final Map<String, int> _qty = {}; // id → qty
+
+  @override
+  void initState() {
+    super.initState();
+    widget.load().then((v) { if (mounted) setState(() => _items = v); });
+  }
+
+  int _total() {
+    if (_items == null) return 0;
+    var t = 0;
+    for (final it in _items!) {
+      t += widget.priceOf(it) * (_qty[widget.idOf(it)] ?? 0);
+    }
+    return t;
+  }
+
+  int _count() => _qty.values.fold(0, (s, v) => s + v);
 
   @override
   Widget build(BuildContext context) {
+    final total = _total();
+    final count = _count();
     return DraggableScrollableSheet(
-      initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.9, expand: false,
+      initialChildSize: 0.62, minChildSize: 0.45, maxChildSize: 0.92, expand: false,
       builder: (_, scroll) => Column(children: [
-        Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 8), child: Row(children: [
-          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+        const SizedBox(height: 10),
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3))),
+        Padding(padding: const EdgeInsets.fromLTRB(20, 12, 12, 6), child: Row(children: [
+          Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
           const Spacer(),
           IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: BK.ink3)),
         ])),
-        Expanded(child: FutureBuilder<List<T>>(
-          future: load(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            final items = snap.data!;
-            if (items.isEmpty) return const StateView(icon: Icons.inbox, color: BK.ink3, title: 'Kosong', hint: 'Belum ada item.');
-            return ListView.separated(
-              controller: scroll,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              itemCount: items.length,
-              separatorBuilder: (_, i) => const Divider(height: 1, color: BK.line),
-              itemBuilder: (_, i) {
-                final it = items[i];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  title: Text(labelOf(it), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: BK.ink)),
-                  trailing: Text('Rp${rupiah(priceOf(it))}', style: const TextStyle(fontWeight: FontWeight.w700, color: BK.ink2)),
-                  onTap: () => onPick(it),
-                );
-              },
-            );
-          },
-        )),
+        Expanded(child: _items == null
+            ? const Center(child: CircularProgressIndicator())
+            : _items!.isEmpty
+                ? const StateView(icon: Icons.inbox, color: BK.ink3, title: 'Kosong', hint: 'Belum ada item.')
+                : ListView.separated(
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    itemCount: _items!.length,
+                    separatorBuilder: (_, i) => const Divider(height: 1, color: BK.line),
+                    itemBuilder: (_, i) {
+                      final it = _items![i];
+                      final id = widget.idOf(it);
+                      final q = _qty[id] ?? 0;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(children: [
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(widget.labelOf(it), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+                            const SizedBox(height: 1),
+                            Text('Rp${rupiah(widget.priceOf(it))}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+                          ])),
+                          _qtyStepper(q,
+                              onMinus: q > 0 ? () => setState(() { if (q - 1 <= 0) { _qty.remove(id); } else { _qty[id] = q - 1; } }) : null,
+                              onPlus: () => setState(() => _qty[id] = q + 1)),
+                        ]),
+                      );
+                    },
+                  ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14), disabledBackgroundColor: BK.line),
+              onPressed: count == 0 ? null : () => Navigator.pop(context, [
+                for (final e in _qty.entries) (id: e.key, qty: e.value),
+              ]),
+              child: Text(count == 0 ? 'Pilih item dulu' : 'Tambah $count item · Rp${rupiah(total)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ),
       ]),
     );
+  }
+
+  Widget _qtyStepper(int q, {VoidCallback? onMinus, required VoidCallback onPlus}) {
+    if (q == 0) {
+      return OutlinedButton(
+        style: OutlinedButton.styleFrom(foregroundColor: BK.accent, backgroundColor: BK.accentSoft, side: BorderSide.none, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), minimumSize: const Size(0, 0)),
+        onPressed: onPlus,
+        child: const Text('Tambah', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+      );
+    }
+    Widget btn(IconData ic, VoidCallback? on) => InkWell(
+          onTap: on, borderRadius: BorderRadius.circular(9),
+          child: Container(width: 30, height: 30, alignment: Alignment.center, child: Icon(ic, size: 18, color: on == null ? BK.ink3 : BK.accent)),
+        );
+    return Container(
+      decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(10)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        btn(Icons.remove, onMinus),
+        SizedBox(width: 22, child: Text('$q', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: BK.ink))),
+        btn(Icons.add, onPlus),
+      ]),
+    );
+  }
+}
+
+/// Timeline yang bisa di-collapse kalau event-nya banyak.
+class _Timeline extends StatefulWidget {
+  final List<TimelineEvent> events;
+  final Widget Function(TimelineEvent e, {required bool last}) rowBuilder;
+  const _Timeline({required this.events, required this.rowBuilder});
+  @override
+  State<_Timeline> createState() => _TimelineState();
+}
+
+class _TimelineState extends State<_Timeline> {
+  static const _collapsedCount = 4;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = widget.events;
+    final long = all.length > _collapsedCount;
+    final visible = (!long || _expanded) ? all.length : _collapsedCount;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (int i = 0; i < visible; i++) widget.rowBuilder(all[i], last: i == all.length - 1),
+      if (long) ...[
+        const Divider(height: 1, color: BK.line),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 6)),
+            onPressed: () => setState(() => _expanded = !_expanded),
+            icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 18),
+            label: Text(_expanded ? 'Sembunyikan' : 'Lihat ${all.length - _collapsedCount} lainnya', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    ]);
   }
 }
