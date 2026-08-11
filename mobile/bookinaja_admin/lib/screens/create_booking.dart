@@ -536,11 +536,12 @@ class _FlowState extends State<_Flow> {
     return '${h}j ${rem}m';
   }
 
-  // Stepper durasi + hint panjang per unit (jam/sesi/hari), mengikuti label
-  // resource. Untuk paket berbasis sesi, tampilkan durasi 1 sesi berapa lama.
+  // Pilihan durasi sebagai option chips (mengikuti web) — sekali tap, dibatasi
+  // ke maksimum yang muat. Hint per-unit hanya untuk unit non-jam (mis. sesi).
   Widget _durationBlock(CreateBookingController c) {
     final perUnit = _humanMinutes(c.unitMinutes);
-    final showPerUnit = !c.isInterday && perUnit.isNotEmpty;
+    // "1 jam = 1 jam" redundan; tampilkan hanya kalau unit bukan jam.
+    final showPerUnit = !c.isInterday && c.unitLabel != 'jam' && perUnit.isNotEmpty;
     final total = _humanMinutes(c.unitMinutes * c.duration);
     final maxDur = c.maxDuration;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -553,14 +554,38 @@ class _FlowState extends State<_Flow> {
           child: Text('maks $maxDur ${c.unitLabel}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
         ),
       ]),
-      Row(children: [
-        _stepBtn(Icons.remove, c.duration > 1 ? () => c.setDuration(c.duration - 1) : null),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Text('${c.duration} ${c.unitLabel}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
-        _stepBtn(Icons.add, c.duration < maxDur ? () => c.setDuration(c.duration + 1) : null),
-      ]),
+      SizedBox(
+        height: 56,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: maxDur,
+          separatorBuilder: (_, i) => const SizedBox(width: 8),
+          itemBuilder: (_, i) {
+            final val = i + 1;
+            final on = c.duration == val;
+            return GestureDetector(
+              onTap: () => c.setDuration(val),
+              child: Container(
+                width: 62,
+                decoration: BoxDecoration(
+                  color: on ? BK.accent : BK.card,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.5 : 1),
+                  boxShadow: on ? [BoxShadow(color: BK.accent.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
+                ),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text('$val', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1, color: on ? Colors.white : BK.ink)),
+                  const SizedBox(height: 3),
+                  Text(c.unitLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: on ? Colors.white70 : BK.ink3)),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
       if (showPerUnit)
         Padding(
-          padding: const EdgeInsets.only(top: 6, left: 2),
+          padding: const EdgeInsets.only(top: 8, left: 2),
           child: Text('1 ${c.unitLabel} = $perUnit · total $total', style: const TextStyle(fontSize: 12, color: BK.ink3)),
         ),
     ]);
@@ -654,17 +679,22 @@ class _FlowState extends State<_Flow> {
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4, mainAxisExtent: 42, crossAxisSpacing: 8, mainAxisSpacing: 8),
         itemBuilder: (_, i) => _slotChip(slots[i].label,
-            available: slots[i].available, selected: c.slot == slots[i].label, onTap: () => c.selectSlot(slots[i].label)),
+            available: slots[i].available, past: slots[i].past, selected: c.slot == slots[i].label, onTap: () => c.selectSlot(slots[i].label)),
       ),
     ]);
   }
 
-  Widget _slotChip(String s, {required bool available, required bool selected, required VoidCallback onTap}) {
+  Widget _slotChip(String s, {required bool available, required bool past, required bool selected, required VoidCallback onTap}) {
     final Color bg, fg, border;
     if (selected) {
       bg = BK.accent;
       fg = Colors.white;
       border = BK.accent;
+    } else if (past) {
+      // Lewat waktu → abu-abu netral (beda dari "penuh").
+      bg = BK.card2;
+      fg = BK.ink3;
+      border = BK.line;
     } else if (!available) {
       bg = BK.critSoft;
       fg = BK.crit;
@@ -689,7 +719,7 @@ class _FlowState extends State<_Flow> {
           ),
           child: Text(s, style: TextStyle(
             fontSize: 12.5, fontWeight: FontWeight.w700,
-            decoration: available ? null : TextDecoration.lineThrough,
+            decoration: (!available && !past) ? TextDecoration.lineThrough : null,
             color: fg,
           )),
         ),
@@ -697,10 +727,6 @@ class _FlowState extends State<_Flow> {
     );
   }
 
-  Widget _stepBtn(IconData i, VoidCallback? onTap) => InkWell(
-        onTap: onTap, borderRadius: BorderRadius.circular(11),
-        child: Container(width: 44, height: 44, decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)), child: Icon(i, size: 20, color: onTap == null ? BK.ink3 : BK.ink)),
-      );
 
   Widget _row(String k, String v, {Color valueColor = BK.ink}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),

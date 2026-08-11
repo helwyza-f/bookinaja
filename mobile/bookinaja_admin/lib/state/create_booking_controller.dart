@@ -104,17 +104,20 @@ class CreateBookingController extends ChangeNotifier {
 
   bool get isToday => date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
 
-  /// Slot mulai (HH:mm) + status available — hanya untuk paket non-interday.
-  List<({String label, bool available})> get slots {
+  /// Slot mulai (HH:mm) + status — hanya untuk paket non-interday.
+  /// Ketersediaan dihitung per 1 unit (bukan durasi penuh) supaya slot tidak
+  /// berubah warna saat durasi diubah; durasi dibatasi terpisah (maxDuration).
+  /// `past` = slot sudah lewat (dibedakan visual dari `busy`).
+  List<({String label, bool available, bool past})> get slots {
     if (pkg == null || isInterday) return const [];
     final step = unitMinutes;
-    final out = <({String label, bool available})>[];
+    final out = <({String label, bool available, bool past})>[];
     final nowMin = DateTime.now().hour * 60 + DateTime.now().minute;
     for (int s = _openMin; s + step <= _closeMin; s += step) {
-      final end = s + step * duration;
+      final end = s + step;
       final overlaps = _busy.any((b) => s < b.endMin && end > b.startMin);
       final past = isToday && s < nowMin;
-      out.add((label: _fmt(s), available: !overlaps && !past && end <= _closeMin));
+      out.add((label: _fmt(s), available: !overlaps && !past, past: past));
     }
     return out;
   }
