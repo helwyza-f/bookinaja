@@ -700,6 +700,7 @@ class _DetailView extends StatelessWidget {
         title: 'Tambah F&B',
         load: repo.listMenu,
         idOf: (m) => m.id, labelOf: (m) => m.name, priceOf: (m) => m.price,
+        categoryOf: (m) => m.category,
       ),
     );
     if (picked != null && picked.isNotEmpty && context.mounted) {
@@ -1107,7 +1108,8 @@ class _CartPickerSheet<T> extends StatefulWidget {
   final String Function(T) idOf;
   final String Function(T) labelOf;
   final int Function(T) priceOf;
-  const _CartPickerSheet({required this.title, required this.load, required this.idOf, required this.labelOf, required this.priceOf});
+  final String Function(T)? categoryOf; // kalau ada → tampilkan chip kategori
+  const _CartPickerSheet({required this.title, required this.load, required this.idOf, required this.labelOf, required this.priceOf, this.categoryOf});
   @override
   State<_CartPickerSheet<T>> createState() => _CartPickerSheetState<T>();
 }
@@ -1116,6 +1118,17 @@ class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
   List<T>? _items;
   final Map<String, int> _qty = {}; // id → qty
   String _query = '';
+  String _cat = 'Semua';
+
+  List<String> get _categories {
+    if (widget.categoryOf == null || _items == null) return const [];
+    final set = <String>{'Semua'};
+    for (final it in _items!) {
+      final c = widget.categoryOf!(it).trim();
+      if (c.isNotEmpty) set.add(c);
+    }
+    return set.length > 1 ? set.toList() : const [];
+  }
 
   @override
   void initState() {
@@ -1140,7 +1153,12 @@ class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
     final count = _count();
     final all = _items ?? const [];
     final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty ? all : all.where((it) => widget.labelOf(it).toLowerCase().contains(q)).toList();
+    final cats = _categories;
+    final filtered = all.where((it) {
+      if (q.isNotEmpty && !widget.labelOf(it).toLowerCase().contains(q)) return false;
+      if (_cat != 'Semua' && widget.categoryOf != null && widget.categoryOf!(it) != _cat) return false;
+      return true;
+    }).toList();
     // Layout terpinned (bukan DraggableScrollableSheet) supaya CTA tetap di atas
     // keyboard saat mengetik pencarian.
     return Padding(
@@ -1175,6 +1193,32 @@ class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
                 ),
               ),
             ),
+            if (cats.isNotEmpty)
+              SizedBox(
+                height: 34,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  itemCount: cats.length,
+                  separatorBuilder: (_, i) => const SizedBox(width: 7),
+                  itemBuilder: (_, i) {
+                    final on = _cat == cats[i];
+                    return GestureDetector(
+                      onTap: () => setState(() => _cat = cats[i]),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        decoration: BoxDecoration(
+                          color: on ? BK.ink : BK.card,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: on ? BK.ink : BK.line),
+                        ),
+                        child: Text(cats[i], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: on ? Colors.white : BK.ink2)),
+                      ),
+                    );
+                  },
+                ),
+              ),
             Flexible(child: _items == null
                 ? const Center(child: Padding(padding: EdgeInsets.all(28), child: CircularProgressIndicator()))
                 : filtered.isEmpty
