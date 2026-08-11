@@ -332,13 +332,10 @@ class _FlowState extends State<_Flow> {
             Container(key: _durationKey),
             _durationBlock(c),
           ] else ...[
-            _label('SLOT MULAI'),
             if (c.busyLoading)
-              const Padding(padding: EdgeInsets.all(8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
+              const Padding(padding: EdgeInsets.all(18), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))))
             else
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final s in c.slots) _slotChip(s.label, available: s.available, selected: c.slot == s.label, onTap: () => c.selectSlot(s.label)),
-              ]),
+              _slotSection(c),
             if (c.slot != null) ...[
               Container(key: _durationKey),
               _durationBlock(c),
@@ -581,23 +578,117 @@ class _FlowState extends State<_Flow> {
         ),
       );
 
-  Widget _slotChip(String s, {required bool available, required bool selected, required VoidCallback onTap}) => Material(
-        color: selected ? BK.accent : BK.card,
-        borderRadius: BorderRadius.circular(11),
-        child: InkWell(
-          onTap: available ? onTap : null,
-          borderRadius: BorderRadius.circular(11),
-          child: Container(
-            width: 68, height: 44, alignment: Alignment.center,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(11), border: Border.all(color: selected ? BK.accent : BK.line)),
-            child: Text(s, style: TextStyle(
-              fontSize: 12.5, fontWeight: FontWeight.w700,
-              decoration: available ? null : TextDecoration.lineThrough,
-              color: !available ? BK.ink3 : (selected ? Colors.white : BK.ink2),
-            )),
-          ),
+  // Slot dikelompokkan per waktu (Pagi/Siang/Sore/Malam) dgn header berwarna,
+  // grid 4 kolom biar rapi & seimbang, plus hitung ketersediaan.
+  Widget _slotSection(CreateBookingController c) {
+    final slots = c.slots;
+    if (slots.isEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _label('SLOT MULAI'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(BK.radius), border: Border.all(color: BK.line)),
+          child: const Text('Belum ada slot untuk tanggal ini. Coba tanggal lain.', style: TextStyle(fontSize: 12.5, color: BK.ink3)),
         ),
-      );
+      ]);
+    }
+    final avail = slots.where((s) => s.available).length;
+    // urutan grup + meta warna/ikon.
+    const groups = [
+      (key: 'pagi', label: 'Pagi', icon: Icons.wb_twilight_rounded, color: Color(0xFFF5A524)),
+      (key: 'siang', label: 'Siang', icon: Icons.wb_sunny_rounded, color: Color(0xFFFB923C)),
+      (key: 'sore', label: 'Sore', icon: Icons.wb_cloudy_rounded, color: Color(0xFFEF6C4D)),
+      (key: 'malam', label: 'Malam', icon: Icons.nights_stay_rounded, color: Color(0xFF6366F1)),
+    ];
+
+    String bucket(String hhmm) {
+      final h = int.tryParse(hhmm.split(':').first) ?? 0;
+      if (h < 11) return 'pagi';
+      if (h < 15) return 'siang';
+      if (h < 18) return 'sore';
+      return 'malam';
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        _label('SLOT MULAI'),
+        const Spacer(),
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: avail > 0 ? BK.liveSoft : BK.critSoft, borderRadius: BorderRadius.circular(20)),
+          child: Text(avail > 0 ? '$avail slot tersedia' : 'penuh',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: avail > 0 ? BK.live : BK.crit)),
+        ),
+      ]),
+      for (final g in groups)
+        Builder(builder: (_) {
+          final items = slots.where((s) => bucket(s.label) == g.key).toList();
+          if (items.isEmpty) return const SizedBox.shrink();
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(height: 10),
+            Row(children: [
+              Container(
+                width: 22, height: 22, alignment: Alignment.center,
+                decoration: BoxDecoration(color: g.color.withValues(alpha: .14), borderRadius: BorderRadius.circular(7)),
+                child: Icon(g.icon, size: 13, color: g.color),
+              ),
+              const SizedBox(width: 8),
+              Text(g.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: BK.ink)),
+            ]),
+            const SizedBox(height: 8),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4, mainAxisExtent: 42, crossAxisSpacing: 8, mainAxisSpacing: 8),
+              itemBuilder: (_, i) => _slotChip(items[i].label, g.color,
+                  available: items[i].available, selected: c.slot == items[i].label, onTap: () => c.selectSlot(items[i].label)),
+            ),
+          ]);
+        }),
+    ]);
+  }
+
+  Widget _slotChip(String s, Color tint, {required bool available, required bool selected, required VoidCallback onTap}) {
+    final Color bg, fg, border;
+    if (selected) {
+      bg = tint;
+      fg = Colors.white;
+      border = tint;
+    } else if (!available) {
+      bg = BK.critSoft;
+      fg = BK.crit;
+      border = BK.critSoft;
+    } else {
+      bg = tint.withValues(alpha: .10);
+      fg = tint;
+      border = tint.withValues(alpha: .22);
+    }
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: available ? onTap : null,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: border, width: selected ? 1.5 : 1),
+            boxShadow: selected ? [BoxShadow(color: tint.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
+          ),
+          child: Text(s, style: TextStyle(
+            fontSize: 12.5, fontWeight: FontWeight.w700,
+            decoration: available ? null : TextDecoration.lineThrough,
+            color: fg,
+          )),
+        ),
+      ),
+    );
+  }
 
   Widget _stepBtn(IconData i, VoidCallback? onTap) => InkWell(
         onTap: onTap, borderRadius: BorderRadius.circular(11),
