@@ -1206,12 +1206,15 @@ class _CartPickerSheetState<T> extends State<_CartPickerSheet<T>> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14), disabledBackgroundColor: BK.line),
-                onPressed: count == 0 ? null : () => Navigator.pop(context, [
-                  for (final e in _qty.entries) (id: e.key, qty: e.value),
-                ]),
-                child: Text(count == 0 ? 'Pilih item dulu' : 'Tambah $count item · Rp${rupiah(total)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15), disabledBackgroundColor: BK.line, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  onPressed: count == 0 ? null : () => Navigator.pop(context, [
+                    for (final e in _qty.entries) (id: e.key, qty: e.value),
+                  ]),
+                  child: Text(count == 0 ? 'Pilih item dulu' : 'Tambah $count item · Rp${rupiah(total)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
               ),
             ),
           ]),
