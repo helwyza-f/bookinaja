@@ -4,6 +4,7 @@ class MenuItem {
   final String category;
   final int price;
   final bool available;
+  final String imageUrl;
 
   const MenuItem({
     required this.id,
@@ -11,7 +12,10 @@ class MenuItem {
     required this.category,
     required this.price,
     this.available = true,
+    this.imageUrl = '',
   });
+
+  bool get hasImage => imageUrl.trim().isNotEmpty;
 
   factory MenuItem.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
@@ -21,6 +25,7 @@ class MenuItem {
       category: '${j['category'] ?? j['category_name'] ?? 'Lainnya'}',
       price: money(j['price'] ?? j['unit_price']),
       available: j['available'] ?? j['is_available'] ?? true,
+      imageUrl: '${j['image_url'] ?? j['image'] ?? ''}'.trim() == 'null' ? '' : '${j['image_url'] ?? j['image'] ?? ''}'.trim(),
     );
   }
 }

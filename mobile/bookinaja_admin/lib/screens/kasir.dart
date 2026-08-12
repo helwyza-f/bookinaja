@@ -90,7 +90,7 @@ class _KasirScreenState extends State<KasirScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 0.92,
+                    childAspectRatio: 0.80,
                     children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
                   ),
           ),
@@ -174,13 +174,20 @@ class _MenuCard extends StatelessWidget {
       padding: const EdgeInsets.all(11),
       border: qty > 0 ? BK.accent : BK.line,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          height: 54,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFBE2B0), Color(0xFFF0C268)]),
-            borderRadius: BorderRadius.circular(12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 66,
+            width: double.infinity,
+            child: m.hasImage
+                ? Image.network(
+                    m.imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (ctx, child, progress) => progress == null ? child : const _MenuThumbPlaceholder(loading: true),
+                    errorBuilder: (ctx, _, _) => const _MenuThumbPlaceholder(),
+                  )
+                : const _MenuThumbPlaceholder(),
           ),
-          child: const Center(child: Icon(Icons.restaurant, color: Colors.white70, size: 22)),
         ),
         const SizedBox(height: 8),
         Text(m.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: BK.ink)),
@@ -216,6 +223,23 @@ class _MenuCard extends StatelessWidget {
           child: Icon(i, color: Colors.white, size: 18),
         ),
       );
+}
+
+class _MenuThumbPlaceholder extends StatelessWidget {
+  final bool loading;
+  const _MenuThumbPlaceholder({this.loading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFFBE2B0), Color(0xFFF0C268)])),
+      child: Center(
+        child: loading
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70))
+            : const Icon(Icons.restaurant, color: Colors.white70, size: 22),
+      ),
+    );
+  }
 }
 
 /// Sheet review keranjang → lanjut ke pembayaran.
@@ -388,6 +412,35 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     return true;
   }
 
+  Widget _methodTile(PosPaymentMethod method, bool on) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _method = method),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: on ? BK.accentSoft : BK.bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.4 : 1),
+          ),
+          child: Row(children: [
+            Icon(_iconFor(method), size: 20, color: on ? BK.accent : BK.ink2),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(method.label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: on ? BK.accent : BK.ink)),
+                if (!method.isCash)
+                  const Text('Butuh foto bukti · verifikasi admin', style: TextStyle(fontSize: 11, color: BK.ink3)),
+              ]),
+            ),
+            Icon(on ? Icons.check_circle_rounded : Icons.circle_outlined, size: 20, color: on ? BK.accent : BK.ink3),
+          ]),
+        ),
+      ),
+    );
+  }
+
   IconData _iconFor(PosPaymentMethod m) {
     if (m.isCash) return Icons.payments_rounded;
     final key = '${m.category}${m.code}'.toLowerCase();
@@ -432,49 +485,38 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           const SizedBox(height: 10),
           Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 2),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
             child: Row(children: [
-              const Text('Pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+              const Text('Pembayaran', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
               const Spacer(),
-              Text('Order ${o.orderNumber}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: BK.line)),
+                child: Text(o.orderNumber, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+              ),
             ]),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
-            child: Row(children: [
-              const Text('Total tagihan', style: TextStyle(fontSize: 13, color: BK.ink2)),
-              const Spacer(),
-              Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: BK.ink)),
-            ]),
-          ),
-          const Divider(height: 18, color: BK.line),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Metode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink2)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final method in _methods)
-                  GestureDetector(
-                    onTap: () => setState(() => _method = method),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: method.code == m?.code ? BK.accentSoft : BK.bg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: method.code == m?.code ? BK.accent : BK.line),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(_iconFor(method), size: 17, color: method.code == m?.code ? BK.accent : BK.ink2),
-                        const SizedBox(width: 7),
-                        Text(method.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: method.code == m?.code ? BK.accent : BK.ink)),
-                      ]),
-                    ),
-                  ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(14)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Total tagihan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BK.ink2)),
+                const SizedBox(height: 2),
+                Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: BK.ink)),
               ]),
-              const SizedBox(height: 16),
-              if (m != null && m.isCash) ..._cashFields(),
-              if (m != null && m.isManual) ..._manualFields(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('METODE PEMBAYARAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3, letterSpacing: 0.4)),
+              const SizedBox(height: 10),
+              for (final method in _methods) _methodTile(method, method.code == m?.code),
+              if (m != null && m.isCash) ...[const SizedBox(height: 16), ..._cashFields()],
+              if (m != null && m.isManual) ...[const SizedBox(height: 16), ..._manualFields()],
             ]),
           ),
           SafeArea(
@@ -532,13 +574,21 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           ),
       ]),
       if (_cashReceived > 0) ...[
-        const SizedBox(height: 10),
-        Row(children: [
-          Text(change >= 0 ? 'Kembalian' : 'Kurang', style: const TextStyle(fontSize: 13, color: BK.ink2)),
-          const Spacer(),
-          Text('Rp${rupiah(change.abs())}',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: change >= 0 ? BK.ink : BK.crit)),
-        ]),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: change >= 0 ? BK.bg : const Color(0x14D14D4D),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: change >= 0 ? BK.line : BK.crit),
+          ),
+          child: Row(children: [
+            Text(change >= 0 ? 'Kembalian' : 'Uang kurang', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+            const Spacer(),
+            Text('Rp${rupiah(change.abs())}',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: change >= 0 ? BK.ink : BK.crit)),
+          ]),
+        ),
       ],
       const SizedBox(height: 6),
     ];
@@ -595,8 +645,6 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
         ),
       ),
-      const SizedBox(height: 6),
-      const Text('Pembayaran non-tunai menunggu verifikasi admin.', style: TextStyle(fontSize: 11.5, color: BK.ink3)),
       const SizedBox(height: 6),
     ];
   }
