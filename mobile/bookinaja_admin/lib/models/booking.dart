@@ -37,6 +37,30 @@ class Booking {
 
   int get remaining => (total - paid).clamp(0, total);
 
+  Booking copyWith({
+    String? id,
+    String? code,
+    String? customer,
+    String? resource,
+    String? time,
+    BookingStatus? status,
+    int? total,
+    int? paid,
+    DateTime? startAt,
+  }) {
+    return Booking(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      customer: customer ?? this.customer,
+      resource: resource ?? this.resource,
+      time: time ?? this.time,
+      status: status ?? this.status,
+      total: total ?? this.total,
+      paid: paid ?? this.paid,
+      startAt: startAt ?? this.startAt,
+    );
+  }
+
   /// Map dari BookingDetail backend (GET /bookings).
   factory Booking.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;

@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/booking.dart';
+import '../realtime/realtime_bus.dart';
+import '../realtime/realtime_event.dart';
 import '../repositories/booking_repository.dart';
 import 'async_value.dart';
 
 /// Memuat & menyaring daftar booking.
 class BookingsController extends ChangeNotifier {
-  BookingsController(this._repo);
+  BookingsController(this._repo) {
+    _realtimeSub = RealtimeBus.instance.events.listen(_onRealtimeEvent);
+  }
   final BookingRepository _repo;
 
   AsyncValue<List<Booking>> _state = const AsyncValue.loading();
@@ -13,6 +18,8 @@ class BookingsController extends ChangeNotifier {
 
   int filter = 0; // 0 semua, 1 perlu aksi, 2 aktif, 3 lunas
   String query = ''; // cari nama / kode
+  StreamSubscription<RealtimeEvent>? _realtimeSub;
+  Timer? _refreshDebounce;
 
   List<Booking> get filtered {
     final all = _state.data ?? const [];
@@ -50,6 +57,74 @@ class BookingsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onRealtimeEvent(RealtimeEvent event) {
+    final type = event.type.toLowerCase();
+    if (type.isEmpty) return;
+    if (!(type.startsWith('booking.') || type.startsWith('payment.') || type.startsWith('session.') || type.startsWith('order.'))) return;
+    final patched = _patchLocal(event);
+    if (patched) {
+      notifyListeners();
+      return;
+    }
+    _scheduleReload();
+  }
+
+  bool _patchLocal(RealtimeEvent event) {
+    final id = '${event.refs['booking_id'] ?? event.entityId ?? ''}'.trim();
+    if (id.isEmpty || _state.data == null) return false;
+
+    final summary = event.summary;
+    final code = '${summary['booking_code'] ?? summary['code'] ?? ''}'.trim();
+    final customer = '${summary['customer_name'] ?? summary['customer'] ?? ''}'.trim();
+    final resource = '${summary['resource_name'] ?? summary['resource'] ?? ''}'.trim();
+    final statusRaw = '${summary['status'] ?? ''}'.trim().toLowerCase();
+    final paymentStatus = '${summary['payment_status'] ?? ''}'.trim().toLowerCase();
+    final total = _intOf(summary['grand_total'] ?? summary['total']);
+    final paid = _intOf(summary['paid_amount'] ?? summary['paid']);
+    final startTime = _dateOf(summary['start_time']);
+
+    final current = List<Booking>.from(_state.data ?? const []);
+    var changed = false;
+    final next = <Booking>[];
+    for (final item in current) {
+      if (item.id != id) {
+        next.add(item);
+        continue;
+      }
+      changed = true;
+      final patched = item.copyWith(
+        code: code.isNotEmpty ? code : null,
+        customer: customer.isNotEmpty ? customer : null,
+        resource: resource.isNotEmpty ? resource : null,
+        status: _bookingStatusFromEvent(item, statusRaw, paymentStatus),
+        total: total > 0 ? total : null,
+        paid: paid >= 0 ? paid : null,
+        startAt: startTime ?? item.startAt,
+      );
+      next.add(patched);
+    }
+    if (!changed) return false;
+    _state = AsyncValue.data(next);
+    return true;
+  }
+
+  BookingStatus _bookingStatusFromEvent(Booking current, String statusRaw, String paymentStatus) {
+    if (statusRaw.isNotEmpty) {
+      return bookingStatusFrom(statusRaw, paymentStatus: paymentStatus.isNotEmpty ? paymentStatus : null);
+    }
+    return current.status;
+  }
+
+  int _intOf(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+  DateTime? _dateOf(dynamic v) => DateTime.tryParse('${v ?? ''}')?.toLocal();
+
+  void _scheduleReload() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 350), () {
+      load();
+    });
+  }
+
   Future<void> load() async {
     _state = const AsyncValue.loading();
     notifyListeners();
@@ -59,5 +134,12 @@ class BookingsController extends ChangeNotifier {
       _state = AsyncValue.error(e);
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    _realtimeSub?.cancel();
+    super.dispose();
   }
 }

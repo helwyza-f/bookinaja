@@ -10,6 +10,8 @@ import 'repositories/customers_repository.dart';
 import 'repositories/ops_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/settings_repository.dart';
+import 'realtime/realtime_channels.dart';
+import 'realtime/realtime_client.dart';
 import 'state/auth_controller.dart';
 import 'state/bookings_controller.dart';
 import 'state/dashboard_controller.dart';
@@ -129,6 +131,14 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final workspaceSlug = context.watch<AuthController>().workspace?.slug ?? '';
+    if (workspaceSlug.isNotEmpty) {
+      RealtimeClient.instance.setChannels([
+        tenantBookingsChannel(workspaceSlug),
+        tenantDashboardChannel(workspaceSlug),
+        tenantDevicesChannel(workspaceSlug),
+      ], source: 'shell');
+    }
     const pages = [
       DashboardScreen(),
       BookingsScreen(),

@@ -31,6 +31,7 @@ class ApiClient {
   String? _token;
   String? _tenantSlug;
 
+  String? get token => _token;
   String? get tenantSlug => _tenantSlug;
 
   void setToken(String? token) => _token = token;

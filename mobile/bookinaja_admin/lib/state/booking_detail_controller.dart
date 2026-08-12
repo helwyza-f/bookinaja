@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/booking_detail.dart';
+import '../realtime/realtime_bus.dart';
+import '../realtime/realtime_event.dart';
 import '../repositories/booking_repository.dart';
 import 'async_value.dart';
 
 /// Detail satu booking + aksi operasional (start/end/confirm/cancel/DP/lunas).
 class BookingDetailController extends ChangeNotifier {
   BookingDetailController(this._repo, this.bookingId) {
+    _realtimeSub = RealtimeBus.instance.events.listen(_onRealtimeEvent);
     load();
   }
   final BookingRepository _repo;
@@ -15,6 +19,8 @@ class BookingDetailController extends ChangeNotifier {
   bool acting = false;
   String? actionError;
   bool changed = false; // true kalau ada aksi sukses → daftar perlu refresh
+  StreamSubscription<RealtimeEvent>? _realtimeSub;
+  Timer? _refreshDebounce;
 
   BookingDetail? get detail => state.data;
 
@@ -27,6 +33,71 @@ class BookingDetailController extends ChangeNotifier {
       state = AsyncValue.error(e);
     }
     notifyListeners();
+  }
+
+  void _onRealtimeEvent(RealtimeEvent event) {
+    final type = event.type.toLowerCase();
+    if (type.isEmpty) return;
+    if (!(type.startsWith('booking.') || type.startsWith('payment.') || type.startsWith('session.') || type.startsWith('order.'))) return;
+    final id = '${event.refs['booking_id'] ?? event.entityId ?? ''}'.trim();
+    if (id.isEmpty || id != bookingId) return;
+    if (_patchLocal(event)) {
+      notifyListeners();
+      return;
+    }
+    _scheduleReload();
+  }
+
+  bool _patchLocal(RealtimeEvent event) {
+    final current = state.data;
+    if (current == null) return false;
+    final summary = event.summary;
+    final status = '${summary['status'] ?? ''}'.trim().toLowerCase();
+    final payment = '${summary['payment_status'] ?? ''}'.trim().toLowerCase();
+    if (status.isEmpty && payment.isEmpty) return false;
+
+    state = AsyncValue.data(
+      BookingDetail(
+        id: current.id,
+        resourceId: current.resourceId,
+        statusRaw: status.isNotEmpty ? status : current.statusRaw,
+        paymentStatus: payment.isNotEmpty ? payment : current.paymentStatus,
+        customerName: '${summary['customer_name'] ?? summary['customer'] ?? current.customerName}',
+        customerPhone: '${summary['customer_phone'] ?? current.customerPhone}',
+        resourceName: '${summary['resource_name'] ?? summary['resource'] ?? current.resourceName}',
+        startTime: '${summary['start_time'] ?? current.startTime}',
+        endTime: '${summary['end_time'] ?? current.endTime}',
+        grandTotal: _intOf(summary['grand_total'] ?? summary['total'], current.grandTotal),
+        paidAmount: _intOf(summary['paid_amount'] ?? summary['paid'], current.paidAmount),
+        balanceDue: _intOf(summary['balance_due'], current.balanceDue),
+        depositAmount: _intOf(summary['deposit_amount'], current.depositAmount),
+        unitPrice: current.unitPrice,
+        unitDurationMin: current.unitDurationMin,
+        depositOverrideActive: summary['deposit_override_active'] == true ? true : current.depositOverrideActive,
+        depositOverrideReason: '${summary['deposit_override_reason'] ?? current.depositOverrideReason}',
+        depositOverrideBy: '${summary['deposit_override_by'] ?? current.depositOverrideBy}',
+        cancellationReason: '${summary['cancellation_reason'] ?? current.cancellationReason}',
+        paymentMode: '${summary['payment_mode'] ?? current.paymentMode}'.toLowerCase(),
+        enableFnb: current.enableFnb,
+        enableAddons: current.enableAddons,
+        attempts: current.attempts,
+        orders: current.orders,
+        options: current.options,
+        events: current.events,
+        paymentMethods: current.paymentMethods,
+      ),
+    );
+    return true;
+  }
+
+  void _scheduleReload() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 350), load);
+  }
+
+  int _intOf(dynamic v, int fallback) {
+    if (v is num) return v.round();
+    return int.tryParse('$v') ?? fallback;
   }
 
   Future<bool> _act(Future<void> Function() op) async {
@@ -88,4 +159,11 @@ class BookingDetailController extends ChangeNotifier {
           }
         }
       });
+
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    _realtimeSub?.cancel();
+    super.dispose();
+  }
 }

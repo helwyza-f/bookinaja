@@ -38,6 +38,7 @@ dependencies:
   # Foundation: state, networking, local storage
   provider: ^6.1.2
   http: ^1.2.2
+  web_socket_channel: ^3.0.1
   shared_preferences: ^2.3.2
   # Ambil foto bukti pembayaran (kamera/galeri) di sisi admin.
   image_picker: ^1.1.2

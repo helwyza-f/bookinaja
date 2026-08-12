@@ -2,6 +2,7 @@ import '../api/api_client.dart';
 import '../data/token_store.dart';
 import '../models/account.dart';
 import '../models/workspace.dart';
+import '../realtime/realtime_client.dart';
 
 /// Hasil restore sesi tersimpan.
 class RestoredSession {
@@ -21,6 +22,7 @@ class AuthRepository {
     final res = await _api.post('/auth/login', body: {'email': email, 'password': password});
     final result = AuthResult.fromJson(Map<String, dynamic>.from(res as Map));
     _api.setToken(result.token);
+    RealtimeClient.instance.updateContext(token: _api.token, tenantSlug: _api.tenantSlug);
     await _store.saveAccount(token: result.token, name: result.account.name, email: result.account.email);
     return result.account;
   }
@@ -37,6 +39,7 @@ class AuthRepository {
   /// Langkah 3 — pilih workspace: set konteks tenant untuk request admin.
   Future<void> selectWorkspace(Workspace w) async {
     _api.setTenant(w.slug); // token account tetap dipakai
+    RealtimeClient.instance.updateContext(token: _api.token, tenantSlug: _api.tenantSlug);
     await _store.saveWorkspace(slug: w.slug, name: w.name, role: w.role);
   }
 
@@ -48,6 +51,7 @@ class AuthRepository {
     if (saved == null) return null;
     _api.setToken(saved['token']);
     _api.setTenant((saved['ws_slug'] ?? '').isEmpty ? null : saved['ws_slug']);
+    RealtimeClient.instance.updateContext(token: _api.token, tenantSlug: _api.tenantSlug);
     final account = Account(id: '', name: saved['name'] ?? 'Admin', email: saved['email'] ?? '');
     final slug = saved['ws_slug'] ?? '';
     final workspace = slug.isEmpty
@@ -59,11 +63,13 @@ class AuthRepository {
   /// Keluar dari workspace (kembali ke pemilihan), sesi account tetap.
   Future<void> leaveWorkspace() async {
     _api.setTenant(null);
+    RealtimeClient.instance.updateContext(token: _api.token, tenantSlug: _api.tenantSlug);
     await _store.clearWorkspace();
   }
 
   Future<void> logout() async {
     await _store.clear();
     _api.clearAuth();
+    RealtimeClient.instance.updateContext(token: _api.token, tenantSlug: _api.tenantSlug);
   }
 }
