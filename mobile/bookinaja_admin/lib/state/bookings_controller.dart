@@ -79,8 +79,8 @@ class BookingsController extends ChangeNotifier {
     final resource = '${summary['resource_name'] ?? summary['resource'] ?? ''}'.trim();
     final statusRaw = '${summary['status'] ?? ''}'.trim().toLowerCase();
     final paymentStatus = '${summary['payment_status'] ?? ''}'.trim().toLowerCase();
-    final total = _intOf(summary['grand_total'] ?? summary['total']);
-    final paid = _intOf(summary['paid_amount'] ?? summary['paid']);
+    final total = _intOrNull(summary['grand_total'] ?? summary['total']);
+    final paid = _intOrNull(summary['paid_amount'] ?? summary['paid']);
     final startTime = _dateOf(summary['start_time']);
 
     final current = List<Booking>.from(_state.data ?? const []);
@@ -97,8 +97,8 @@ class BookingsController extends ChangeNotifier {
         customer: customer.isNotEmpty ? customer : null,
         resource: resource.isNotEmpty ? resource : null,
         status: _bookingStatusFromEvent(item, statusRaw, paymentStatus),
-        total: total > 0 ? total : null,
-        paid: paid >= 0 ? paid : null,
+        total: (total != null && total > 0) ? total : null,
+        paid: paid,
         startAt: startTime ?? item.startAt,
       );
       next.add(patched);
@@ -115,7 +115,11 @@ class BookingsController extends ChangeNotifier {
     return current.status;
   }
 
-  int _intOf(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+  int? _intOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.round();
+    return int.tryParse('$v');
+  }
   DateTime? _dateOf(dynamic v) => DateTime.tryParse('${v ?? ''}')?.toLocal();
 
   void _scheduleReload() {
