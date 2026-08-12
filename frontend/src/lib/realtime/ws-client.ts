@@ -20,7 +20,7 @@ function resolveRealtimeURL() {
 // auth_token) DAN customer (customer_auth) sekaligus. Kalau WS selalu memakai token
 // admin, langganan channel "customer:*" ditolak backend (butuh AuthType customer),
 // sehingga realtime di halaman customer mati.
-function resolveRealtimeToken(): string {
+export function resolveRealtimeToken(): string {
   const accountToken = getCookie("account_token");
   const adminToken = getCookie("auth_token");
   const customerToken = getCookie("customer_auth");

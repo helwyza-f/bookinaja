@@ -1,6 +1,6 @@
 "use client";
 
-import { buildRealtimeURL } from "@/lib/realtime/ws-client";
+import { buildRealtimeURL, resolveRealtimeToken } from "@/lib/realtime/ws-client";
 import type { RealtimeEvent } from "@/lib/realtime/event-types";
 import type { RealtimeStatus } from "@/lib/realtime/use-realtime";
 
@@ -28,6 +28,7 @@ class RealtimeManager {
   private subscriptions = new Map<string, Subscription>();
   private statusListeners = new Set<StatusListener>();
   private activeChannels = new Set<string>();
+  private connectionToken: string | null = null;
 
   subscribe(id: string, subscription: Subscription) {
     this.subscriptions.set(id, {
@@ -36,6 +37,7 @@ class RealtimeManager {
       onReconnect: subscription.onReconnect,
     });
     this.cancelIdleClose();
+    this.reconnectIfTokenChanged();
     this.ensureConnected();
     this.syncChannels();
     this.emitStatus();
@@ -58,6 +60,7 @@ class RealtimeManager {
       onReconnect: subscription.onReconnect,
     });
     this.cancelIdleClose();
+    this.reconnectIfTokenChanged();
     this.ensureConnected();
     this.syncChannels();
     this.emitStatus();
@@ -97,6 +100,26 @@ class RealtimeManager {
     this.emitStatus();
   }
 
+  // Kalau token/area berubah (mis. pindah admin↔customer di tab yang sama),
+  // socket lama masih terhubung dengan identitas lama sehingga langganan channel
+  // milik area baru ditolak backend. Bangun ulang koneksi dengan token baru.
+  private reconnectIfTokenChanged() {
+    if (!this.socket) return;
+    if (resolveRealtimeToken() === this.connectionToken) return;
+
+    const socket = this.socket;
+    this.socket = null; // cegah onclose lama memicu reconnect ke identitas lama
+    this.activeChannels.clear();
+    this.connectionToken = null;
+    this.clearReconnectTimer();
+    this.reconnectAttempt = 0;
+    try {
+      socket.close();
+    } catch {
+      // abaikan error saat menutup socket lama
+    }
+  }
+
   private ensureConnected() {
     if (this.subscriptions.size === 0) {
       return;
@@ -112,6 +135,7 @@ class RealtimeManager {
     this.clearReconnectTimer();
     this.setStatus(this.hadConnected ? "reconnecting" : "connecting", false);
 
+    this.connectionToken = resolveRealtimeToken();
     const socket = new WebSocket(buildRealtimeURL());
     this.socket = socket;
 
