@@ -15,8 +15,41 @@ function resolveRealtimeURL() {
   return url;
 }
 
+// Pilih token sesuai area yang sedang dibuka, mengikuti logika resolveRequestToken
+// di lib/api.ts. Penting karena satu browser bisa punya sesi admin (account_token/
+// auth_token) DAN customer (customer_auth) sekaligus. Kalau WS selalu memakai token
+// admin, langganan channel "customer:*" ditolak backend (butuh AuthType customer),
+// sehingga realtime di halaman customer mati.
+function resolveRealtimeToken(): string {
+  const accountToken = getCookie("account_token");
+  const adminToken = getCookie("auth_token");
+  const customerToken = getCookie("customer_auth");
+
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname;
+    if (
+      path === "/user" ||
+      path.startsWith("/user/") ||
+      path === "/me" ||
+      path.startsWith("/me/")
+    ) {
+      return String(customerToken || "");
+    }
+    if (
+      path === "/login" ||
+      path === "/admin" ||
+      path.startsWith("/admin/") ||
+      path.startsWith("/dashboard")
+    ) {
+      return String(accountToken || adminToken || "");
+    }
+  }
+
+  return String(accountToken || adminToken || customerToken || "");
+}
+
 export function buildRealtimeURL() {
-  const token = getCookie("account_token") || getCookie("auth_token") || getCookie("customer_auth");
+  const token = resolveRealtimeToken();
   const slug = getTenantSlugFromBrowser();
   const url = resolveRealtimeURL();
 
