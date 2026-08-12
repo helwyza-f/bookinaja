@@ -49,7 +49,7 @@ func (h *Hub) removeClient(c *Client) {
 }
 
 func (h *Hub) subscribe(c *Client, channel string) error {
-	channel = strings.TrimSpace(channel)
+	channel = canonicalChannel(c.principal, channel)
 	if channel == "" {
 		return fmt.Errorf("channel kosong")
 	}
@@ -69,7 +69,7 @@ func (h *Hub) subscribe(c *Client, channel string) error {
 }
 
 func (h *Hub) unsubscribe(c *Client, channel string) {
-	channel = strings.TrimSpace(channel)
+	channel = canonicalChannel(c.principal, channel)
 	if channel == "" {
 		return
 	}
@@ -120,6 +120,31 @@ func (h *Hub) Publish(channel string, event Event) error {
 	}
 
 	return nil
+}
+
+// canonicalChannel menormalkan segmen tenant pada nama channel ke tenant UUID
+// milik principal. Client mobile berlangganan memakai slug (mis.
+// "tenant:sport-center:bookings"), sedangkan publisher backend memakai UUID
+// ("tenant:<uuid>:bookings"). Tanpa normalisasi ini, key subscribe tidak akan
+// pernah cocok dengan channel publish sehingga event tidak terkirim.
+func canonicalChannel(principal *Principal, channel string) string {
+	channel = strings.TrimSpace(channel)
+	if channel == "" || principal == nil || principal.TenantID == "" {
+		return channel
+	}
+	if !strings.HasPrefix(channel, "tenant:") {
+		return channel
+	}
+	parts := strings.Split(channel, ":")
+	if len(parts) < 2 {
+		return channel
+	}
+	seg := strings.ToLower(strings.TrimSpace(parts[1]))
+	if seg == strings.ToLower(principal.TenantID) || (principal.TenantSlug != "" && seg == principal.TenantSlug) {
+		parts[1] = principal.TenantID
+		return strings.Join(parts, ":")
+	}
+	return channel
 }
 
 func validateChannel(principal *Principal, channel string) error {

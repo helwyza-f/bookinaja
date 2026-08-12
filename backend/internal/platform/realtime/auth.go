@@ -14,6 +14,7 @@ type Principal struct {
 	UserID     string
 	CustomerID string
 	TenantID   string
+	TenantSlug string
 	Role       string
 }
 
@@ -39,8 +40,9 @@ func Authenticate(c *gin.Context) (*Principal, error) {
 	}
 
 	principal := &Principal{
-		TenantID: normalizeClaimString(claims["tenant_id"]),
-		Role:     strings.TrimSpace(fmt.Sprintf("%v", claims["role"])),
+		TenantID:   normalizeClaimString(claims["tenant_id"]),
+		TenantSlug: resolveTenantSlug(c),
+		Role:       strings.TrimSpace(fmt.Sprintf("%v", claims["role"])),
 	}
 
 	if custID, ok := claims["customer_id"]; ok && custID != nil {
@@ -61,6 +63,15 @@ func Authenticate(c *gin.Context) (*Principal, error) {
 	}
 
 	return nil, fmt.Errorf("kredensial tidak valid")
+}
+
+// resolveTenantSlug mengambil slug tenant aktif untuk koneksi WS.
+// Prioritas: hasil resolve TenantIdentifier middleware, lalu query "slug".
+func resolveTenantSlug(c *gin.Context) string {
+	if slug := strings.TrimSpace(c.GetString("tenantSlug")); slug != "" {
+		return strings.ToLower(slug)
+	}
+	return strings.ToLower(strings.TrimSpace(c.Query("slug")))
 }
 
 func normalizeClaimString(value any) string {
