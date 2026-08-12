@@ -795,7 +795,7 @@ void _showResult(BuildContext context, PosController ctrl, PosResult r) {
     context: context,
     backgroundColor: BK.card,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => SafeArea(
+    builder: (sheetCtx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -819,7 +819,7 @@ void _showResult(BuildContext context, PosController ctrl, PosResult r) {
               style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
               onPressed: () {
                 ctrl.clearResult();
-                Navigator.of(context).pop();
+                Navigator.of(sheetCtx).pop();
               },
               child: const Text('Selesai', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
