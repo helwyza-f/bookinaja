@@ -173,7 +173,7 @@ func main() {
 	midtransSvc := midtranssvc.NewService(db, midtransRepo, realtimeHub, customerSvc)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 	smartDeviceHdl := smartdevice.NewHandler(smartDeviceSvc)
-	realtimeHdl := platformrealtime.NewHandler(realtimeHub)
+	realtimeHdl := platformrealtime.NewHandler(realtimeHub, accountRepo)
 	paymentGatewayHdl := paymentgateway.NewHandler(paymentgateway.NewService(paymentgateway.NewRepository(db)))
 
 	routerConfig := routecfg.Config{

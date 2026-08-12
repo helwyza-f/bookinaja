@@ -12,11 +12,13 @@ import (
 type Handler struct {
 	hub      *Hub
 	upgrader websocket.Upgrader
+	verifier TenantAccessVerifier
 }
 
-func NewHandler(hub *Hub) *Handler {
+func NewHandler(hub *Hub, verifier TenantAccessVerifier) *Handler {
 	return &Handler{
-		hub: hub,
+		hub:      hub,
+		verifier: verifier,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -26,7 +28,7 @@ func NewHandler(hub *Hub) *Handler {
 }
 
 func (h *Handler) ServeWS(c *gin.Context) {
-	principal, err := Authenticate(c)
+	principal, err := Authenticate(c, h.verifier)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return

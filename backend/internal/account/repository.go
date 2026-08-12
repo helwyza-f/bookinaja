@@ -944,6 +944,22 @@ type WorkspaceAdminContext struct {
 	SubscriptionStatus string         `db:"subscription_status"`
 }
 
+// HasTenantAccess melaporkan apakah akun adalah anggota aktif tenant tersebut.
+// Dipakai otorisasi WebSocket realtime (memenuhi realtime.TenantAccessVerifier).
+func (r *Repository) HasTenantAccess(ctx context.Context, accountID, tenantID string) (bool, error) {
+	aid, err := uuid.Parse(strings.TrimSpace(accountID))
+	if err != nil {
+		return false, nil
+	}
+	if _, err := r.GetWorkspaceAdminContext(ctx, aid, tenantID); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (r *Repository) GetWorkspaceAdminContext(ctx context.Context, accountID uuid.UUID, tenantID string) (*WorkspaceAdminContext, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {

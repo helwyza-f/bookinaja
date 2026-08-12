@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -18,7 +19,14 @@ type Principal struct {
 	Role       string
 }
 
-func Authenticate(c *gin.Context) (*Principal, error) {
+// TenantAccessVerifier memeriksa apakah sebuah akun benar-benar anggota tenant.
+// Dipakai saat token account memilih workspace lewat query slug pada koneksi WS,
+// agar akun tidak bisa berlangganan channel tenant lain hanya dengan menebak slug.
+type TenantAccessVerifier interface {
+	HasTenantAccess(ctx context.Context, accountID, tenantID string) (bool, error)
+}
+
+func Authenticate(c *gin.Context, verifier TenantAccessVerifier) (*Principal, error) {
 	tokenString, err := extractToken(c)
 	if err != nil {
 		return nil, err
@@ -55,9 +63,25 @@ func Authenticate(c *gin.Context) (*Principal, error) {
 		principal.AuthType = "admin"
 		principal.UserID = strings.TrimSpace(fmt.Sprintf("%v", userID))
 		if principal.TenantID == "" {
-			if activeTenantID := strings.TrimSpace(c.GetString("tenantID")); activeTenantID != "" {
-				principal.TenantID = activeTenantID
+			// Token account belum terikat tenant di klaim; tenant dipilih lewat
+			// slug (di-resolve oleh TenantIdentifier). Wajib verifikasi keanggotaan
+			// sebelum mengikat konteks realtime ke tenant tersebut.
+			activeTenantID := strings.TrimSpace(c.GetString("tenantID"))
+			if activeTenantID == "" {
+				return nil, fmt.Errorf("tenant websocket tidak ditemukan")
 			}
+			accountID := normalizeClaimString(claims["account_id"])
+			if accountID == "" {
+				return nil, fmt.Errorf("akun websocket tidak valid")
+			}
+			if verifier == nil {
+				return nil, fmt.Errorf("verifikasi akses tenant tidak tersedia")
+			}
+			allowed, err := verifier.HasTenantAccess(c.Request.Context(), accountID, activeTenantID)
+			if err != nil || !allowed {
+				return nil, fmt.Errorf("akun tidak punya akses ke tenant websocket")
+			}
+			principal.TenantID = activeTenantID
 		}
 		return principal, nil
 	}
