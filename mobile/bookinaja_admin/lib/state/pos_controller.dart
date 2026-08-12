@@ -157,6 +157,9 @@ class PosController extends ChangeNotifier {
   /// Riwayat transaksi kasir (untuk sheet riwayat).
   Future<List<PosOrder>> fetchHistory() => _repo.listRecentOrders();
 
+  /// Detail satu order kasir.
+  Future<PosOrder> fetchOrderDetail(String orderId) => _repo.getOrder(orderId);
+
   /// Batalkan order yang belum terbayar (mis. pembayaran manual ditolak).
   Future<void> cancelOrder(String orderId) => _repo.cancelOrder(orderId);
 

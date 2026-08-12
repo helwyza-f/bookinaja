@@ -43,6 +43,7 @@ class PosOrder {
   final String paymentMethod;
   final DateTime? createdAt;
   final List<PosPaymentMethod> methods;
+  final List<PosOrderLine> items;
 
   const PosOrder({
     required this.id,
@@ -53,6 +54,7 @@ class PosOrder {
     this.paymentMethod = '',
     this.createdAt,
     this.methods = const [],
+    this.items = const [],
   });
 
   factory PosOrder.fromJson(Map<String, dynamic> j) {
@@ -65,6 +67,14 @@ class PosOrder {
             .where((m) => m.code.isNotEmpty)
             .toList()
         : <PosPaymentMethod>[];
+    final rawItems = j['items'];
+    final items = (rawItems is List)
+        ? rawItems
+            .whereType<Map>()
+            .map((e) => PosOrderLine.fromJson(Map<String, dynamic>.from(e)))
+            .where((i) => i.name.isNotEmpty)
+            .toList()
+        : <PosOrderLine>[];
     final id = '${j['id'] ?? ''}';
     return PosOrder(
       id: id,
@@ -75,10 +85,17 @@ class PosOrder {
       paymentMethod: '${j['payment_method'] ?? ''}',
       createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
       methods: methods,
+      items: items,
     );
   }
 
-  PosOrder copyWith({List<PosPaymentMethod>? methods, int? grandTotal, String? paymentStatus, String? status}) {
+  PosOrder copyWith({
+    List<PosPaymentMethod>? methods,
+    List<PosOrderLine>? items,
+    int? grandTotal,
+    String? paymentStatus,
+    String? status,
+  }) {
     return PosOrder(
       id: id,
       orderNumber: orderNumber,
@@ -86,6 +103,34 @@ class PosOrder {
       status: status ?? this.status,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       methods: methods ?? this.methods,
+      items: items ?? this.items,
+    );
+  }
+}
+
+class PosOrderLine {
+  final String name;
+  final int quantity;
+  final int unitPrice;
+  final int subtotal;
+  final String? category;
+
+  const PosOrderLine({
+    required this.name,
+    required this.quantity,
+    required this.unitPrice,
+    required this.subtotal,
+    this.category,
+  });
+
+  factory PosOrderLine.fromJson(Map<String, dynamic> j) {
+    int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+    return PosOrderLine(
+      name: '${j['item_name'] ?? j['name'] ?? ''}',
+      quantity: money(j['quantity'] ?? 0),
+      unitPrice: money(j['price_at_purchase'] ?? j['unit_price'] ?? j['price'] ?? 0),
+      subtotal: money(j['subtotal'] ?? money(j['price_at_purchase'] ?? j['unit_price'] ?? j['price'] ?? 0) * money(j['quantity'] ?? 0)),
+      category: '${j['category'] ?? ''}'.trim().isEmpty ? null : '${j['category']}',
     );
   }
 }

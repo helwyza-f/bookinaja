@@ -767,12 +767,60 @@ export default function POSPage() {
       : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      const bookingId = String(event.refs?.booking_id || "");
+      const orderId = String(event.refs?.order_id || "");
+
+      if (bookingId) {
+        setActions((prev) =>
+          prev.map((item) =>
+            item.kind === "booking" && item.id === bookingId
+              ? {
+                  ...item,
+                  status:
+                    event.type === "session.completed"
+                      ? "completed"
+                      : (event.summary?.status as string) || item.status,
+                  payment_status:
+                    (event.summary?.payment_status as string) || item.payment_status,
+                  balance_due:
+                    typeof event.summary?.balance_due === "number"
+                      ? Number(event.summary.balance_due)
+                      : item.balance_due,
+                  total:
+                    typeof event.summary?.grand_total === "number"
+                      ? Number(event.summary.grand_total)
+                      : item.total,
+                }
+              : item,
+          ),
+        );
+      }
+      if (orderId) {
+        setActions((prev) =>
+          prev.map((item) =>
+            item.kind === "sales_order" && item.id === orderId
+              ? {
+                  ...item,
+                  status: (event.summary?.status as string) || item.status,
+                  payment_status:
+                    (event.summary?.payment_status as string) || item.payment_status,
+                  balance_due:
+                    typeof event.summary?.balance_due === "number"
+                      ? Number(event.summary.balance_due)
+                      : item.balance_due,
+                  total:
+                    typeof event.summary?.grand_total === "number"
+                      ? Number(event.summary.grand_total)
+                      : item.total,
+                }
+              : item,
+          ),
+        );
+      }
       fetchData();
       if (selectedAction) {
         void refreshSelectedAction(selectedAction.kind, selectedAction.data.id);
       }
-      const orderId = String(event.refs?.order_id || "");
-      const bookingId = String(event.refs?.booking_id || "");
       if (
         selectedAction?.kind === "sales_order" &&
         orderId &&

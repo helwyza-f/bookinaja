@@ -136,14 +136,16 @@ class _OperationsScreenState extends State<OperationsScreen>
     for (final r in resources) {
       final note = (r.note ?? '').toLowerCase();
       final hasNext = (r.nextBookingCustomerName ?? '').isNotEmpty;
+      final needsSettlement = _needsBookingSettlement(r);
       final isPriority =
-          r.state == ResourceState.live &&
+          needsSettlement ||
+          (r.state == ResourceState.live &&
           (note.contains('menunggu') ||
               note.contains('verifikasi') ||
               note.contains('perhatian') ||
               note.contains('urgent') ||
               note.contains('problem') ||
-              note.contains('issue'));
+              note.contains('issue')));
       final isReadySoon = r.state == ResourceState.idle && hasNext;
 
       if (isPriority) {
@@ -162,6 +164,32 @@ class _OperationsScreenState extends State<OperationsScreen>
     siap.sort(_sortResource);
     lainnya.sort(_sortResource);
     return (prioritas: prioritas, live: live, siap: siap, lainnya: lainnya);
+  }
+
+  bool _needsBookingSettlement(ResourceStatus resource) {
+    final candidates = [...resource.todayTimeline];
+    if (candidates.isEmpty) return false;
+    candidates.sort((a, b) {
+      final ad = DateTime.tryParse(a.endTime) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = DateTime.tryParse(b.endTime) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+    final latest = candidates.first;
+    final status = latest.status.toLowerCase();
+    final paymentStatus = latest.paymentStatus.toLowerCase();
+    final needsPayment = [
+      'pending',
+      'partial_paid',
+      'unpaid',
+      'failed',
+      'expired',
+      'awaiting_verification',
+    ].contains(paymentStatus);
+
+    if (!needsPayment) return false;
+    return status == 'completed' ||
+        resource.state != ResourceState.live ||
+        (resource.note ?? '').toLowerCase().contains('lewat');
   }
 
   int _sortResource(ResourceStatus a, ResourceStatus b) {

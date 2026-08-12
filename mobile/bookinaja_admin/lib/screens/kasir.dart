@@ -8,6 +8,7 @@ import '../ui/toast.dart';
 import '../models/menu_item.dart';
 import '../models/pos_order.dart';
 import '../state/pos_controller.dart';
+import 'kasir_history.dart';
 
 class KasirScreen extends StatefulWidget {
   const KasirScreen({super.key});
@@ -32,15 +33,30 @@ class _KasirScreenState extends State<KasirScreen> {
       appBar: AppBar(
         backgroundColor: BK.bg,
         elevation: 0,
-        title: const Text('Kasir', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
+        leadingWidth: 52,
+        titleSpacing: 0,
+        title: const Text(
+          'Kasir',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: BK.ink),
+        ),
         actions: [
-          TextButton.icon(
-            onPressed: () => _openHistory(context),
-            style: TextButton.styleFrom(foregroundColor: BK.ink2),
-            icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: const Text('Riwayat', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton.icon(
+              onPressed: () => _openHistory(context),
+              style: TextButton.styleFrom(
+                foregroundColor: BK.ink2,
+                backgroundColor: BK.card,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.receipt_long_rounded, size: 18),
+              label: const Text(
+                'Riwayat',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
         ],
       ),
       backgroundColor: BK.bg,
@@ -59,30 +75,54 @@ class _KasirScreenState extends State<KasirScreen> {
         ),
         data: (_) => Column(children: [
           _SearchBar(value: ctrl.query, onChanged: ctrl.setQuery),
-          SizedBox(
-            height: 46,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              itemCount: ctrl.categories.length,
-              separatorBuilder: (_, i) => const SizedBox(width: 7),
-              itemBuilder: (_, i) {
-                final cat = ctrl.categories[i];
-                final on = ctrl.category == cat;
-                return GestureDetector(
-                  onTap: () => ctrl.setCategory(cat),
-                  child: Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: on ? BK.ink : BK.card,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: on ? BK.ink : BK.line),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+            child: SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: ctrl.categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final cat = ctrl.categories[i];
+                  final on = ctrl.category == cat;
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => ctrl.setCategory(cat),
+                      borderRadius: BorderRadius.circular(999),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: on ? BK.ink : BK.card,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: on ? BK.ink : BK.line),
+                          boxShadow: on
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x120D1526),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ]
+                              : const [],
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: on ? Colors.white : BK.ink2,
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(cat, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? Colors.white : BK.ink2)),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
           Expanded(
@@ -95,10 +135,10 @@ class _KasirScreenState extends State<KasirScreen> {
                   )
                 : GridView.count(
                     crossAxisCount: 2,
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.74,
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.68,
                     children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
                   ),
           ),
@@ -144,158 +184,10 @@ class _KasirScreenState extends State<KasirScreen> {
   }
 
   Future<void> _openHistory(BuildContext context) async {
-    final ctrl = context.read<PosController>();
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: BK.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _HistorySheet(controller: ctrl),
-    );
-  }
-}
-
-class _HistorySheet extends StatefulWidget {
-  final PosController controller;
-  const _HistorySheet({required this.controller});
-  @override
-  State<_HistorySheet> createState() => _HistorySheetState();
-}
-
-class _HistorySheetState extends State<_HistorySheet> {
-  late Future<List<PosOrder>> _future = widget.controller.fetchHistory();
-
-  void _reload() => setState(() => _future = widget.controller.fetchHistory());
-
-  String _time(DateTime? d) {
-    if (d == null) return '';
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
-  }
-
-  ({String label, Color color}) _payBadge(PosOrder o) {
-    final s = o.paymentStatus.toLowerCase();
-    if (s == 'settled' || s == 'paid') return (label: 'Lunas', color: Colors.green);
-    if (s.contains('await') || s.contains('verif')) return (label: 'Verifikasi', color: BK.accent);
-    if (s == 'rejected') return (label: 'Ditolak', color: BK.crit);
-    return (label: o.paymentStatus.isEmpty ? 'Belum bayar' : o.paymentStatus, color: BK.ink3);
-  }
-
-  // Hanya order yang belum terbayar (mis. menunggu/ditolak verifikasi) yang bisa dibatalkan.
-  bool _cancelable(PosOrder o) => o.status.toLowerCase() == 'pending_payment';
-
-  Future<void> _cancel(PosOrder o) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Batalkan transaksi?'),
-        content: Text('Order ${o.orderNumber} akan dibatalkan dan tidak bisa dikembalikan.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Tidak')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: BK.crit),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Batalkan'),
-          ),
-        ],
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const KasirHistoryScreen(),
       ),
-    );
-    if (ok != true) return;
-    try {
-      await widget.controller.cancelOrder(o.id);
-      if (!mounted) return;
-      BkToast.success(context, 'Transaksi dibatalkan');
-      _reload();
-    } catch (e) {
-      if (!mounted) return;
-      BkToast.error(context, 'Gagal membatalkan: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.7,
-      maxChildSize: 0.92,
-      minChildSize: 0.4,
-      builder: (context, scrollController) => Column(children: [
-        const SizedBox(height: 10),
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 12, 6),
-          child: Row(children: [
-            const Text('Riwayat transaksi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
-            const Spacer(),
-            IconButton(onPressed: _reload, icon: const Icon(Icons.refresh_rounded, color: BK.ink2)),
-          ]),
-        ),
-        const Divider(height: 1, color: BK.line),
-        Expanded(
-          child: FutureBuilder<List<PosOrder>>(
-            future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: BK.accent));
-              }
-              if (snap.hasError) {
-                return StateView(
-                  icon: Icons.wifi_off_rounded,
-                  color: BK.crit,
-                  title: 'Gagal memuat riwayat',
-                  hint: '${snap.error}',
-                  action: FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.accent), onPressed: _reload, child: const Text('Coba lagi')),
-                );
-              }
-              final orders = snap.data ?? const [];
-              if (orders.isEmpty) {
-                return const StateView(icon: Icons.receipt_long_rounded, color: BK.ink3, title: 'Belum ada transaksi', hint: 'Transaksi kasir akan muncul di sini.');
-              }
-              return ListView.separated(
-                controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: orders.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, color: BK.line),
-                itemBuilder: (_, i) {
-                  final o = orders[i];
-                  final badge = _payBadge(o);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(children: [
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            Text(o.orderNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: badge.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                              child: Text(badge.label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: badge.color)),
-                            ),
-                          ]),
-                          const SizedBox(height: 3),
-                          Text(_time(o.createdAt), style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
-                        ]),
-                      ),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                        Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: BK.ink)),
-                        if (_cancelable(o))
-                          GestureDetector(
-                            onTap: () => _cancel(o),
-                            child: const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text('Batalkan', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.crit)),
-                            ),
-                          ),
-                      ]),
-                    ]),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ]),
     );
   }
 }
@@ -339,55 +231,144 @@ class _MenuCard extends StatelessWidget {
     final ctrl = context.watch<PosController>();
     final qty = ctrl.qtyOf(m.id);
     return BKCard(
-      padding: const EdgeInsets.all(11),
+      padding: EdgeInsets.zero,
       border: qty > 0 ? BK.accent : BK.line,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: m.hasImage
-                ? Image.network(
-                    m.imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (ctx, child, progress) => progress == null ? child : const _MenuThumbPlaceholder(loading: true),
-                    errorBuilder: (ctx, _, _) => const _MenuThumbPlaceholder(),
-                  )
-                : const _MenuThumbPlaceholder(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(m.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, height: 1.2, color: BK.ink)),
-        const SizedBox(height: 3),
-        Text('Rp${rupiah(m.price)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BK.ink2)),
-        const Spacer(),
-        qty == 0
-            ? SizedBox(
-                width: double.infinity,
-                height: 34,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: BK.accentSoft, foregroundColor: BK.accent, padding: EdgeInsets.zero),
-                  onPressed: () => ctrl.add(m),
-                  child: const Text('Tambah', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(BK.radius)),
+                child: AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: m.hasImage
+                      ? Image.network(
+                          m.imageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (ctx, child, progress) =>
+                              progress == null ? child : const _MenuThumbPlaceholder(loading: true),
+                          errorBuilder: (ctx, _, _) => const _MenuThumbPlaceholder(),
+                        )
+                      : const _MenuThumbPlaceholder(),
                 ),
-              )
-            : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                _stepBtn(Icons.remove, () => ctrl.remove(m)),
-                Text('$qty', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: BK.ink)),
-                _stepBtn(Icons.add, () => ctrl.add(m)),
-              ]),
-      ]),
+              ),
+              Positioned(
+                left: 10,
+                top: 10,
+                child: AnimatedOpacity(
+                  opacity: qty > 0 ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: BK.ink,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$qty item',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    m.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      height: 1.15,
+                      color: BK.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Rp${rupiah(m.price)}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: BK.ink2,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (qty == 0)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 38,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: BK.accentSoft,
+                          foregroundColor: BK.accent,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: () => ctrl.add(m),
+                        child: const Text(
+                          'Tambah',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: BK.accentSoft,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: BK.accent.withValues(alpha: .10)),
+                      ),
+                      child: Row(
+                        children: [
+                          _stepBtn(Icons.remove, () => ctrl.remove(m)),
+                          Expanded(
+                            child: Text(
+                              '$qty',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                color: BK.ink,
+                              ),
+                            ),
+                          ),
+                          _stepBtn(Icons.add, () => ctrl.add(m)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _stepBtn(IconData i, VoidCallback onTap) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 34,
-          height: 34,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(9)),
-          child: Icon(i, color: Colors.white, size: 18),
+          child: Icon(i, color: Colors.white, size: 17),
         ),
       );
 }

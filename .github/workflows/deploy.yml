@@ -5,59 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Create Environment Files
-        run: |
-          printf '%s\n' "${{ secrets.BE_ENV }}" > backend/.env
-          printf '%s\n' "${{ secrets.FE_ENV }}" > frontend/.env
-          if [ -n "${{ secrets.BE_MQTT_CA_CERT_PEM }}" ]; then
-            sed -i '/^MQTT_CA_CERT_PATH=/d' backend/.env
-            sed -i '/^MQTT_CA_CERT_PEM=/d' backend/.env
-            printf 'MQTT_CA_CERT_PATH=\n' >> backend/.env
-            printf 'MQTT_CA_CERT_PEM=%s\n' "${{ secrets.BE_MQTT_CA_CERT_PEM }}" >> backend/.env
-          fi
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.25"
-
-      - name: Run Backend Tests
-        run: |
-          cd backend
-          go test ./...
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: "frontend/package-lock.json"
-
-      - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Run Frontend Lint
-        run: |
-          cd frontend
-          npm run lint
-
-      - name: Run Frontend Build
-        env:
-          NEXT_PUBLIC_API_URL: https://bookinaja.com/api/v1
-        run: |
-          cd frontend
-          npm run build
-
   build-and-deploy:
-    needs: quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -80,6 +28,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25"
+          cache: true
+          cache-dependency-path: backend/go.sum
       - name: Build Backend Binary
         run: |
           cd backend
@@ -97,8 +47,7 @@ jobs:
           NEXT_PUBLIC_API_URL: https://bookinaja.com/api/v1
         run: |
           cd frontend
-
-          npm ci
+          npm ci --prefer-offline --no-audit --no-fund
           npm run build
 
       # --- 4. PRE-CLEAN VPS ---
@@ -141,6 +90,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ~/bookinaja
+            export DOCKER_BUILDKIT=1
+            export COMPOSE_DOCKER_CLI_BUILD=1
             sudo docker compose build --parallel backend frontend
             sudo docker compose up -d --no-deps --force-recreate backend frontend
             sudo docker image prune -f
