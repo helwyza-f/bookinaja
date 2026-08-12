@@ -91,13 +91,21 @@ class RealtimeClient {
       cancelOnError: true,
     );
 
-    scheduleMicrotask(() {
+    // Tunggu handshake WS benar-benar sukses sebelum menandai connected
+    // dan mengirim subscribe. Tanpa await ready, error handshake (mis. respons
+    // non-101 dari proxy) muncul sebagai unhandled exception dan status
+    // "connected" jadi palsu.
+    channel.ready.then((_) {
       if (_channel != channel) return;
-      _syncSubscriptions(forceResubscribe: true);
       _connecting = false;
       _reconnectAttempt = 0;
+      _syncSubscriptions(forceResubscribe: true);
       _log('connect:ready', 'subscribed=${_desiredChannels.join(",")}');
       RealtimeBus.instance.setStatus(RealtimeConnectionState.connected);
+    }).catchError((Object err) {
+      if (_channel != channel) return;
+      _log('connect:error', err.toString());
+      _handleDisconnect();
     });
   }
 
@@ -194,9 +202,14 @@ class RealtimeClient {
 
   Uri _buildUri() {
     final base = Uri.parse(AppConfig.apiBaseUrl);
+    final secure = base.scheme == 'https' || base.scheme == 'wss';
     final path = base.path.replaceAll(RegExp(r'/$'), '');
-    return base.replace(
-      scheme: base.scheme == 'https' ? 'wss' : 'ws',
+    // Bangun Uri secara eksplisit: base.replace(scheme: 'wss') tidak menyisakan
+    // port default sehingga menghasilkan authority "host:0" yang ditolak proxy.
+    return Uri(
+      scheme: secure ? 'wss' : 'ws',
+      host: base.host,
+      port: base.hasPort ? base.port : (secure ? 443 : 80),
       path: '$path/realtime/ws',
       queryParameters: {
         'token': _token!,
