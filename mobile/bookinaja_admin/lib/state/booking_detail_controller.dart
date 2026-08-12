@@ -41,10 +41,13 @@ class BookingDetailController extends ChangeNotifier {
     if (!(type.startsWith('booking.') || type.startsWith('payment.') || type.startsWith('session.') || type.startsWith('order.'))) return;
     final id = '${event.refs['booking_id'] ?? event.entityId ?? ''}'.trim();
     if (id.isEmpty || id != bookingId) return;
+    // Patch skalar (status/pembayaran/total) untuk update instan bila memungkinkan.
     if (_patchLocal(event)) {
       notifyListeners();
-      return;
     }
+    // Selalu reload penuh (silent) untuk merekonsiliasi koleksi bersarang:
+    // rincian order, attempt bukti bayar, dan timeline tidak terbawa di summary
+    // event sehingga hanya bisa didapat dari server.
     _scheduleReload();
   }
 
@@ -92,7 +95,19 @@ class BookingDetailController extends ChangeNotifier {
 
   void _scheduleReload() {
     _refreshDebounce?.cancel();
-    _refreshDebounce = Timer(const Duration(milliseconds: 350), load);
+    _refreshDebounce = Timer(const Duration(milliseconds: 350), _silentReload);
+  }
+
+  /// Reload detail dari server tanpa mengubah state ke loading, agar tidak
+  /// memunculkan spinner saat rekonsiliasi realtime. Data lama dipertahankan
+  /// bila reload gagal.
+  Future<void> _silentReload() async {
+    try {
+      state = AsyncValue.data(await _repo.getDetail(bookingId));
+      notifyListeners();
+    } catch (_) {
+      // pertahankan data saat ini bila reload gagal
+    }
   }
 
   int _intOf(dynamic v, int fallback) {
