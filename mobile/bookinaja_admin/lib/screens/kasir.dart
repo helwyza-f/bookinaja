@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../models/menu_item.dart';
+import '../models/pos_order.dart';
 import '../state/pos_controller.dart';
 
 class KasirScreen extends StatefulWidget {
@@ -21,23 +25,13 @@ class _KasirScreenState extends State<KasirScreen> {
     });
   }
 
-  Future<void> _checkout() async {
-    final c = context.read<PosController>();
-    final ok = await c.checkout();
-    if (!mounted) return;
-    if (ok) {
-      BkToast.success(context, 'Order ${c.lastOrderNumber ?? ''} dibayar', subtitle: 'Pembayaran tunai tercatat.');
-    } else {
-      BkToast.error(context, c.checkoutError ?? 'Gagal membuat order');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<PosController>();
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: BK.bg, elevation: 0,
+        backgroundColor: BK.bg,
+        elevation: 0,
         title: const Text('Kasir', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
         actions: [Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: Pill.acc('Walk-in')))],
       ),
@@ -45,10 +39,18 @@ class _KasirScreenState extends State<KasirScreen> {
       body: ctrl.menu.when(
         loading: () => const LoadingList(),
         error: (e) => StateView(
-          icon: Icons.wifi_off_rounded, color: BK.crit, title: 'Gagal memuat menu', hint: '$e',
-          action: FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.accent), onPressed: ctrl.load, child: const Text('Coba lagi')),
+          icon: Icons.wifi_off_rounded,
+          color: BK.crit,
+          title: 'Gagal memuat menu',
+          hint: '$e',
+          action: FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.accent),
+            onPressed: ctrl.load,
+            child: const Text('Coba lagi'),
+          ),
         ),
         data: (_) => Column(children: [
+          _SearchBar(value: ctrl.query, onChanged: ctrl.setQuery),
           SizedBox(
             height: 46,
             child: ListView.separated(
@@ -65,7 +67,8 @@ class _KasirScreenState extends State<KasirScreen> {
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: on ? BK.ink : BK.card, borderRadius: BorderRadius.circular(20),
+                      color: on ? BK.ink : BK.card,
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: on ? BK.ink : BK.line),
                     ),
                     child: Text(cat, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? Colors.white : BK.ink2)),
@@ -75,12 +78,21 @@ class _KasirScreenState extends State<KasirScreen> {
             ),
           ),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-              mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.92,
-              children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
-            ),
+            child: ctrl.visibleMenu.isEmpty
+                ? StateView(
+                    icon: Icons.restaurant_menu_rounded,
+                    color: BK.ink3,
+                    title: ctrl.query.isEmpty ? 'Menu kosong' : 'Tidak ada hasil',
+                    hint: ctrl.query.isEmpty ? 'Tambahkan item F&B lewat pengaturan.' : 'Coba kata kunci lain.',
+                  )
+                : GridView.count(
+                    crossAxisCount: 2,
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.92,
+                    children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
+                  ),
           ),
         ]),
       ),
@@ -90,26 +102,62 @@ class _KasirScreenState extends State<KasirScreen> {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 decoration: const BoxDecoration(color: BK.card, border: Border(top: BorderSide(color: BK.line))),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Row(children: [
-                    Text('${ctrl.cartCount} item', style: const TextStyle(fontSize: 13, color: BK.ink2)),
-                    const Spacer(),
+                child: Row(children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text('${ctrl.cartCount} item', style: const TextStyle(fontSize: 12, color: BK.ink2)),
                     Text('Rp${rupiah(ctrl.cartTotal)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
                   ]),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-                      onPressed: ctrl.submitting ? null : _checkout,
-                      child: ctrl.submitting
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Bayar & cetak nota', style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                    onPressed: () => _openCart(context),
+                    icon: const Icon(Icons.shopping_cart_rounded, size: 18),
+                    label: const Text('Lihat & bayar', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ]),
               ),
             ),
+    );
+  }
+
+  Future<void> _openCart(BuildContext context) async {
+    final ctrl = context.read<PosController>();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BK.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => ChangeNotifierProvider<PosController>.value(value: ctrl, child: const _CartSheet()),
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _SearchBar({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: TextField(
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 14, color: BK.ink),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Cari menu…',
+          hintStyle: const TextStyle(color: BK.ink3, fontSize: 14),
+          prefixIcon: const Icon(Icons.search_rounded, color: BK.ink3, size: 20),
+          filled: true,
+          fillColor: BK.bg,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+        ),
+      ),
     );
   }
 }
@@ -141,7 +189,8 @@ class _MenuCard extends StatelessWidget {
         const SizedBox(height: 8),
         qty == 0
             ? SizedBox(
-                width: double.infinity, height: 34,
+                width: double.infinity,
+                height: 34,
                 child: FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: BK.accentSoft, foregroundColor: BK.accent, padding: EdgeInsets.zero),
                   onPressed: () => ctrl.add(m),
@@ -161,9 +210,443 @@ class _MenuCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(9),
         child: Container(
-          width: 34, height: 34,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(9)),
           child: Icon(i, color: Colors.white, size: 18),
         ),
       );
 }
+
+/// Sheet review keranjang → lanjut ke pembayaran.
+class _CartSheet extends StatelessWidget {
+  const _CartSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.watch<PosController>();
+    final lines = ctrl.cart;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 10),
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 12, 4),
+          child: Row(children: [
+            const Text('Keranjang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+            const Spacer(),
+            if (lines.isNotEmpty)
+              TextButton(onPressed: () => ctrl.clearCart(), child: const Text('Kosongkan', style: TextStyle(color: BK.crit))),
+          ]),
+        ),
+        Flexible(
+          child: lines.isEmpty
+              ? const Padding(padding: EdgeInsets.all(28), child: Text('Keranjang kosong', style: TextStyle(color: BK.ink3)))
+              : ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: lines.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1, color: BK.line),
+                  itemBuilder: (_, i) {
+                    final l = lines[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(l.item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+                            const SizedBox(height: 2),
+                            Text('Rp${rupiah(l.item.price)} · Rp${rupiah(l.subtotal)}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+                          ]),
+                        ),
+                        _miniStep(Icons.remove, () => ctrl.remove(l.item)),
+                        SizedBox(width: 26, child: Text('${l.qty}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, color: BK.ink))),
+                        _miniStep(Icons.add, () => ctrl.add(l.item)),
+                      ]),
+                    );
+                  },
+                ),
+        ),
+        const Divider(height: 1, color: BK.line),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+          child: Row(children: [
+            const Text('Total', style: TextStyle(fontSize: 13, color: BK.ink2)),
+            const Spacer(),
+            Text('Rp${rupiah(ctrl.cartTotal)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
+          ]),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: (lines.isEmpty || ctrl.preparing)
+                    ? null
+                    : () async {
+                        final order = await ctrl.prepareOrder();
+                        if (!context.mounted) return;
+                        if (order == null) {
+                          BkToast.error(context, ctrl.checkoutError ?? 'Gagal menyiapkan order');
+                          return;
+                        }
+                        Navigator.of(context).pop(); // tutup cart sheet
+                        _openPayment(context, ctrl);
+                      },
+                child: ctrl.preparing
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _miniStep(IconData i, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: BK.line)),
+          child: Icon(i, size: 16, color: BK.ink),
+        ),
+      );
+}
+
+Future<void> _openPayment(BuildContext context, PosController ctrl) async {
+  final order = ctrl.pendingOrder;
+  if (order == null) return;
+  var paid = false;
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: BK.card,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => ChangeNotifierProvider<PosController>.value(
+      value: ctrl,
+      child: _PaymentSheet(order: order, onPaid: () => paid = true),
+    ),
+  );
+  // Sheet ditutup tanpa membayar → tutup order kosong di server.
+  if (!paid) ctrl.cancelPending();
+}
+
+class _PaymentSheet extends StatefulWidget {
+  final PosOrder order;
+  final VoidCallback onPaid;
+  const _PaymentSheet({required this.order, required this.onPaid});
+
+  @override
+  State<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends State<_PaymentSheet> {
+  PosPaymentMethod? _method;
+  final _cashCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  String? _proofPath;
+
+  late final List<PosPaymentMethod> _methods = _buildMethods(widget.order);
+
+  @override
+  void initState() {
+    super.initState();
+    _method = _methods.isNotEmpty ? _methods.first : null;
+  }
+
+  @override
+  void dispose() {
+    _cashCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  // Kasir hanya menerima tunai + metode manual (butuh bukti). Pastikan tunai selalu ada.
+  List<PosPaymentMethod> _buildMethods(PosOrder o) {
+    final list = o.methods.where((m) => m.isCash || m.isManual).toList();
+    if (!list.any((m) => m.isCash)) {
+      list.insert(0, const PosPaymentMethod(code: 'cash', label: 'Tunai', category: 'cash', verificationType: 'cash'));
+    }
+    list.sort((a, b) => (a.isCash ? 0 : 1).compareTo(b.isCash ? 0 : 1));
+    return list;
+  }
+
+  int get _cashReceived => int.tryParse(_cashCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+  int get _change => (_cashReceived - widget.order.grandTotal);
+
+  bool get _canConfirm {
+    final m = _method;
+    if (m == null) return false;
+    if (m.isManual) return _proofPath != null;
+    return true;
+  }
+
+  IconData _iconFor(PosPaymentMethod m) {
+    if (m.isCash) return Icons.payments_rounded;
+    final key = '${m.category}${m.code}'.toLowerCase();
+    if (key.contains('qris') || key.contains('qr')) return Icons.qr_code_rounded;
+    if (key.contains('transfer') || key.contains('bank') || key.contains('va')) return Icons.account_balance_rounded;
+    return Icons.receipt_long_rounded;
+  }
+
+  Future<void> _pickProof() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1600);
+    if (file == null) return;
+    setState(() => _proofPath = file.path);
+  }
+
+  Future<void> _confirm() async {
+    final ctrl = context.read<PosController>();
+    final m = _method!;
+    final ok = m.isCash
+        ? await ctrl.payCash(method: m.code, cashReceived: _cashReceived > 0 ? _cashReceived : null)
+        : await ctrl.payManual(method: m.code, proofPath: _proofPath!, note: _noteCtrl.text);
+    if (!mounted) return;
+    if (ok) {
+      widget.onPaid();
+      Navigator.of(context).pop();
+      final result = ctrl.lastResult;
+      if (result != null) _showResult(context, ctrl, result);
+    } else {
+      BkToast.error(context, ctrl.checkoutError ?? 'Pembayaran gagal');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.watch<PosController>();
+    final o = widget.order;
+    final m = _method;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 10),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 2),
+            child: Row(children: [
+              const Text('Pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+              const Spacer(),
+              Text('Order ${o.orderNumber}', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
+            child: Row(children: [
+              const Text('Total tagihan', style: TextStyle(fontSize: 13, color: BK.ink2)),
+              const Spacer(),
+              Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: BK.ink)),
+            ]),
+          ),
+          const Divider(height: 18, color: BK.line),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Metode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink2)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final method in _methods)
+                  GestureDetector(
+                    onTap: () => setState(() => _method = method),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: method.code == m?.code ? BK.accentSoft : BK.bg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: method.code == m?.code ? BK.accent : BK.line),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(_iconFor(method), size: 17, color: method.code == m?.code ? BK.accent : BK.ink2),
+                        const SizedBox(width: 7),
+                        Text(method.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: method.code == m?.code ? BK.accent : BK.ink)),
+                      ]),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 16),
+              if (m != null && m.isCash) ..._cashFields(),
+              if (m != null && m.isManual) ..._manualFields(),
+            ]),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: (!_canConfirm || ctrl.submitting) ? null : _confirm,
+                  child: ctrl.submitting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(
+                          m != null && m.isManual ? 'Kirim bukti & selesai' : 'Terima pembayaran',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  List<Widget> _cashFields() {
+    final change = _change;
+    return [
+      TextField(
+        controller: _cashCtrl,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (_) => setState(() {}),
+        style: const TextStyle(fontSize: 15, color: BK.ink, fontWeight: FontWeight.w700),
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: 'Uang diterima (opsional)',
+          prefixText: 'Rp ',
+          filled: true,
+          fillColor: BK.bg,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, children: [
+        for (final v in _quickCash())
+          ActionChip(
+            label: Text('Rp${rupiah(v)}', style: const TextStyle(fontSize: 12)),
+            backgroundColor: BK.bg,
+            side: const BorderSide(color: BK.line),
+            onPressed: () => setState(() => _cashCtrl.text = '$v'),
+          ),
+      ]),
+      if (_cashReceived > 0) ...[
+        const SizedBox(height: 10),
+        Row(children: [
+          Text(change >= 0 ? 'Kembalian' : 'Kurang', style: const TextStyle(fontSize: 13, color: BK.ink2)),
+          const Spacer(),
+          Text('Rp${rupiah(change.abs())}',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: change >= 0 ? BK.ink : BK.crit)),
+        ]),
+      ],
+      const SizedBox(height: 6),
+    ];
+  }
+
+  List<int> _quickCash() {
+    final t = widget.order.grandTotal;
+    final out = <int>{t};
+    for (final step in [5000, 10000, 20000, 50000, 100000]) {
+      final rounded = ((t / step).ceil()) * step;
+      if (rounded > t) out.add(rounded);
+    }
+    final list = out.toList()..sort();
+    return list.take(4).toList();
+  }
+
+  List<Widget> _manualFields() {
+    return [
+      GestureDetector(
+        onTap: _pickProof,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: BK.bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _proofPath == null ? BK.line : BK.accent),
+          ),
+          child: _proofPath == null
+              ? const Row(children: [
+                  Icon(Icons.add_a_photo_rounded, size: 20, color: BK.ink3),
+                  SizedBox(width: 10),
+                  Text('Ambil foto bukti pembayaran', style: TextStyle(fontSize: 13.5, color: BK.ink2, fontWeight: FontWeight.w600)),
+                ])
+              : Row(children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_proofPath!), width: 46, height: 46, fit: BoxFit.cover)),
+                  const SizedBox(width: 10),
+                  const Expanded(child: Text('Bukti terpilih. Ketuk untuk ganti.', style: TextStyle(fontSize: 13, color: BK.ink2))),
+                  const Icon(Icons.check_circle_rounded, color: BK.accent, size: 20),
+                ]),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: _noteCtrl,
+        style: const TextStyle(fontSize: 14, color: BK.ink),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Catatan (opsional)',
+          filled: true,
+          fillColor: BK.bg,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+        ),
+      ),
+      const SizedBox(height: 6),
+      const Text('Pembayaran non-tunai menunggu verifikasi admin.', style: TextStyle(fontSize: 11.5, color: BK.ink3)),
+      const SizedBox(height: 6),
+    ];
+  }
+}
+
+void _showResult(BuildContext context, PosController ctrl, PosResult r) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: BK.card,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(r.awaitingVerification ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
+              color: r.awaitingVerification ? BK.accent : Colors.green, size: 48),
+          const SizedBox(height: 10),
+          Text(r.awaitingVerification ? 'Menunggu verifikasi' : 'Pembayaran diterima',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+          const SizedBox(height: 4),
+          Text('Order ${r.orderNumber}', style: const TextStyle(fontSize: 13, color: BK.ink3)),
+          const SizedBox(height: 14),
+          _resultRow('Total', 'Rp${rupiah(r.total)}'),
+          if (!r.awaitingVerification && r.cashReceived != null) ...[
+            _resultRow('Tunai diterima', 'Rp${rupiah(r.cashReceived!)}'),
+            _resultRow('Kembalian', 'Rp${rupiah(r.change)}', strong: true),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: () {
+                ctrl.clearResult();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Selesai', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
+      ),
+    ),
+  );
+}
+
+Widget _resultRow(String k, String v, {bool strong = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Text(k, style: const TextStyle(fontSize: 13, color: BK.ink2)),
+        const Spacer(),
+        Text(v, style: TextStyle(fontSize: strong ? 16 : 14, fontWeight: strong ? FontWeight.w800 : FontWeight.w700, color: BK.ink)),
+      ]),
+    );
