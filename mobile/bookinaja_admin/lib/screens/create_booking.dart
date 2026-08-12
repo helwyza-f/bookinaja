@@ -60,7 +60,9 @@ class _FlowState extends State<_Flow> {
     _crmDebounce?.cancel();
     _crmDebounce = Timer(const Duration(milliseconds: 800), () async {
       if (!mounted) return;
-      final name = await context.read<CreateBookingController>().validatePhoneNumber(_phone.text);
+      final name = await context
+          .read<CreateBookingController>()
+          .validatePhoneNumber(_phone.text);
       if (!mounted) return;
       if (name != null && _name.text.trim().isEmpty) {
         _name.text = name; // auto-fill kalau nama masih kosong
@@ -85,7 +87,12 @@ class _FlowState extends State<_Flow> {
   void _scrollTo(GlobalKey key) {
     final ctx = key.currentContext;
     if (ctx == null) return;
-    Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic, alignment: 0.02);
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      alignment: 0.02,
+    );
   }
 
   @override
@@ -100,6 +107,10 @@ class _FlowState extends State<_Flow> {
   }
 
   void _back(CreateBookingController c) {
+    if (c.initialResourceId.isNotEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
     if (c.resource != null) {
       _scrolledSchedule = false;
       _scrolledDuration = false;
@@ -123,20 +134,26 @@ class _FlowState extends State<_Flow> {
 
   Future<void> _pickFromList(CreateBookingController c) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final selected = await showModalBottomSheet<({String name, String phone, String tier})>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CustomerPickerSheet(load: c.customerList),
-    );
+    final selected =
+        await showModalBottomSheet<({String name, String phone, String tier})>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _CustomerPickerSheet(load: c.customerList),
+        );
     if (selected == null || !mounted) return;
     _phone.text = selected.phone;
     _name.text = selected.name;
-    c.pickCustomer(name: selected.name, phone: selected.phone, tier: selected.tier);
+    c.pickCustomer(
+      name: selected.name,
+      phone: selected.phone,
+      tier: selected.tier,
+    );
   }
 
   Future<void> _submit(CreateBookingController c) async {
-    if (_name.text.trim().isEmpty) return _snack('Nama customer wajib diisi', BK.crit);
+    if (_name.text.trim().isEmpty)
+      return _snack('Nama customer wajib diisi', BK.crit);
     final booking = await c.submit(name: _name.text, phone: _phone.text);
     if (!mounted) return;
     if (booking != null) {
@@ -154,9 +171,10 @@ class _FlowState extends State<_Flow> {
     final onResourceStep = c.resource == null;
     if (!onResourceStep) _autoScroll(c);
     return PopScope(
-      canPop: onResourceStep,
+      canPop: onResourceStep || c.initialResourceId.isNotEmpty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
+          if (c.initialResourceId.isNotEmpty) return;
           _scrolledSchedule = false;
           _scrolledDuration = false;
           c.clearResource();
@@ -165,10 +183,22 @@ class _FlowState extends State<_Flow> {
       child: Scaffold(
         backgroundColor: BK.bg,
         appBar: AppBar(
-          backgroundColor: BK.bg, elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => _back(c)),
-          title: Text(onResourceStep ? 'Pilih resource' : (c.resource?.resourceName ?? 'Booking'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+          backgroundColor: BK.bg,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => _back(c),
+          ),
+          title: Text(
+            onResourceStep
+                ? 'Pilih resource'
+                : (c.resource?.resourceName ?? 'Booking'),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: BK.ink,
+            ),
+          ),
         ),
         body: onResourceStep ? _resourceStep(c) : _builderStep(c),
         bottomNavigationBar: onResourceStep ? null : _submitBar(c),
@@ -181,70 +211,140 @@ class _FlowState extends State<_Flow> {
     return c.resources.when(
       loading: () => const LoadingList(),
       error: (e) => StateView(
-        icon: Icons.wifi_off_rounded, color: BK.crit, title: 'Gagal memuat resource', hint: '$e',
-        action: FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.accent), onPressed: c.load, child: const Text('Coba lagi')),
+        icon: Icons.wifi_off_rounded,
+        color: BK.crit,
+        title: 'Gagal memuat resource',
+        hint: '$e',
+        action: FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: BK.accent),
+          onPressed: c.load,
+          child: const Text('Coba lagi'),
+        ),
       ),
       data: (list) {
         if (list.isEmpty) {
-          return const StateView(icon: Icons.inventory_2_outlined, color: BK.ink3, title: 'Belum ada resource', hint: 'Buat resource & paket dulu lewat web.');
+          return const StateView(
+            icon: Icons.inventory_2_outlined,
+            color: BK.ink3,
+            title: 'Belum ada resource',
+            hint: 'Buat resource & paket dulu lewat web.',
+          );
         }
         final q = _resQuery.trim().toLowerCase();
         final filtered = q.isEmpty
             ? list
-            : list.where((r) => r.resourceName.toLowerCase().contains(q) || r.category.toLowerCase().contains(q)).toList();
-        return Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              onChanged: (v) => setState(() => _resQuery = v),
-              decoration: InputDecoration(
-                hintText: 'Cari resource / kategori…',
-                prefixIcon: const Icon(Icons.search, size: 20, color: BK.ink3),
-                isDense: true,
-                filled: true, fillColor: BK.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: BK.line)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: BK.line)),
+            : list
+                  .where(
+                    (r) =>
+                        r.resourceName.toLowerCase().contains(q) ||
+                        r.category.toLowerCase().contains(q),
+                  )
+                  .toList();
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                onChanged: (v) => setState(() => _resQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Cari resource / kategori…',
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: BK.ink3,
+                  ),
+                  isDense: true,
+                  filled: true,
+                  fillColor: BK.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(13),
+                    borderSide: const BorderSide(color: BK.line),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(13),
+                    borderSide: const BorderSide(color: BK.line),
+                  ),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: filtered.isEmpty
-                ? const StateView(icon: Icons.search_off, color: BK.ink3, title: 'Tidak ketemu', hint: 'Coba kata kunci lain.')
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, i) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _resourceCard(filtered[i], () => c.selectResource(filtered[i])),
-                  ),
-          ),
-        ]);
+            Expanded(
+              child: filtered.isEmpty
+                  ? const StateView(
+                      icon: Icons.search_off,
+                      color: BK.ink3,
+                      title: 'Tidak ketemu',
+                      hint: 'Coba kata kunci lain.',
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, i) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) => _resourceCard(
+                        filtered[i],
+                        () => c.selectResource(filtered[i]),
+                      ),
+                    ),
+            ),
+          ],
+        );
       },
     );
   }
 
   Widget _resourceCard(ResourceEntry r, VoidCallback onTap) {
     final prices = r.packages.map((p) => p.price).toList()..sort();
-    final priceLabel = prices.length == 1 ? 'Rp${rupiah(prices.first)}' : 'mulai Rp${rupiah(prices.first)}';
+    final priceLabel = prices.length == 1
+        ? 'Rp${rupiah(prices.first)}'
+        : 'mulai Rp${rupiah(prices.first)}';
     return InkWell(
       borderRadius: BorderRadius.circular(BK.radius),
       onTap: onTap,
       child: BKCard(
-        child: Row(children: [
-          Container(
-            width: 44, height: 44, alignment: Alignment.center,
-            decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(12)),
-            child: Text(r.resourceName.trim().isNotEmpty ? r.resourceName.trim()[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.accent)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(r.resourceName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: BK.ink)),
-            const SizedBox(height: 2),
-            Text('${r.packages.length} paket · $priceLabel${r.category.isNotEmpty ? ' · ${r.category}' : ''}',
-                style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
-          ])),
-          const Icon(Icons.arrow_forward_ios, size: 15, color: BK.ink3),
-        ]),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: BK.accentSoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                r.resourceName.trim().isNotEmpty
+                    ? r.resourceName.trim()[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: BK.accent,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    r.resourceName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: BK.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${r.packages.length} paket · $priceLabel${r.category.isNotEmpty ? ' · ${r.category}' : ''}',
+                    style: const TextStyle(fontSize: 11.5, color: BK.ink3),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 15, color: BK.ink3),
+          ],
+        ),
       ),
     );
   }
@@ -259,33 +359,64 @@ class _FlowState extends State<_Flow> {
         _stepLabel('01', 'Customer'),
         BKCard(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: Column(children: [
-            Row(children: [
-              const Icon(Icons.phone_outlined, size: 19, color: BK.ink3),
-              const SizedBox(width: 12),
-              Expanded(child: TextField(
-                controller: _phone, keyboardType: TextInputType.phone,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: BK.ink),
-                decoration: const InputDecoration(hintText: 'Nomor WhatsApp', border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 14)),
-              )),
-              const SizedBox(width: 8),
-              _phoneStatusIcon(c.phoneStatus),
-            ]),
-            const Divider(height: 1, color: BK.line),
-            Row(children: [
-              const Icon(Icons.person_outline, size: 19, color: BK.ink3),
-              const SizedBox(width: 12),
-              Expanded(child: TextField(
-                controller: _name, textCapitalization: TextCapitalization.words,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: BK.ink),
-                decoration: const InputDecoration(hintText: 'Nama customer', border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 14)),
-              )),
-              if (c.foundCustomer != null && c.foundCustomer!.tier.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                _tierChip(c.foundCustomer!.tier),
-              ],
-            ]),
-          ]),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.phone_outlined, size: 19, color: BK.ink3),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: BK.ink,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Nomor WhatsApp',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _phoneStatusIcon(c.phoneStatus),
+                ],
+              ),
+              const Divider(height: 1, color: BK.line),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline, size: 19, color: BK.ink3),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: BK.ink,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Nama customer',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  if (c.foundCustomer != null &&
+                      c.foundCustomer!.tier.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    _tierChip(c.foundCustomer!.tier),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         _phoneHint(c),
@@ -294,21 +425,35 @@ class _FlowState extends State<_Flow> {
           width: double.infinity,
           child: TextButton.icon(
             style: TextButton.styleFrom(
-              foregroundColor: BK.accent, backgroundColor: BK.accentSoft,
+              foregroundColor: BK.accent,
+              backgroundColor: BK.accentSoft,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => _pickFromList(c),
             icon: const Icon(Icons.people_alt_outlined, size: 18),
-            label: const Text('Pilih dari daftar pelanggan', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text(
+              'Pilih dari daftar pelanggan',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
 
         _stepLabel('02', 'Paket'),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final p in r.packages)
-            _choice('${p.name} · Rp${rupiah(p.price)}/${p.unitLabel}', c.pkg?.itemId == p.itemId, () => c.selectPackage(p)),
-        ]),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final p in r.packages)
+              _choice(
+                '${p.name} · Rp${rupiah(p.price)}/${p.unitLabel}',
+                c.pkg?.itemId == p.itemId,
+                () => c.selectPackage(p),
+              ),
+          ],
+        ),
 
         if (c.pkg != null) ...[
           Container(key: _scheduleKey),
@@ -316,7 +461,14 @@ class _FlowState extends State<_Flow> {
           _dateRow(c),
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 2),
-            child: Text(_fullDate(c.date), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+            child: Text(
+              _fullDate(c.date),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: BK.ink2,
+              ),
+            ),
           ),
 
           // Urutan mengikuti web: pilih SLOT dulu, baru DURASI (paket interday
@@ -326,20 +478,42 @@ class _FlowState extends State<_Flow> {
               padding: const EdgeInsets.only(top: 14),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(12)),
-                child: Row(children: [
-                  const Icon(Icons.info_outline, size: 18, color: BK.accent),
-                  const SizedBox(width: 9),
-                  Expanded(child: Text('Paket ${c.unitLabel} mulai otomatis di jam buka tenant — tanpa pilih slot jam.',
-                      style: const TextStyle(fontSize: 12, color: BK.accent, fontWeight: FontWeight.w600))),
-                ]),
+                decoration: BoxDecoration(
+                  color: BK.accentSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18, color: BK.accent),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'Paket ${c.unitLabel} mulai otomatis di jam buka tenant — tanpa pilih slot jam.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BK.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Container(key: _durationKey),
             _durationBlock(c),
           ] else ...[
             if (c.busyLoading)
-              const Padding(padding: EdgeInsets.all(18), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))))
+              const Padding(
+                padding: EdgeInsets.all(18),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
             else
               _slotSection(c),
             if (c.slot != null) ...[
@@ -352,10 +526,18 @@ class _FlowState extends State<_Flow> {
 
           if (c.addons.isNotEmpty && (c.isInterday || c.slot != null)) ...[
             _label('ADD-ON'),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final a in c.addons)
-                _choice('${a.name} · Rp${rupiah(a.price)}', c.selectedAddonIds.contains(a.itemId), () => c.toggleAddon(a.itemId)),
-            ]),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final a in c.addons)
+                  _choice(
+                    '${a.name} · Rp${rupiah(a.price)}',
+                    c.selectedAddonIds.contains(a.itemId),
+                    () => c.toggleAddon(a.itemId),
+                  ),
+              ],
+            ),
           ],
 
           if (c.isInterday || c.slot != null) ...[
@@ -363,27 +545,88 @@ class _FlowState extends State<_Flow> {
             _promoRow(c),
 
             _label('RINGKASAN'),
-            BKCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(c.pkg!.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
-                  const SizedBox(height: 2),
-                  Text('${c.duration} ${c.unitLabel} × Rp${rupiah(c.pkg!.price)}', style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
-                ])),
-                const SizedBox(width: 10),
-                Text('Rp${rupiah(c.pkg!.price * c.duration)}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
-              ]),
-              for (final a in c.addons.where((a) => c.selectedAddonIds.contains(a.itemId)))
-                Padding(padding: const EdgeInsets.only(top: 9), child: _row(a.name, 'Rp${rupiah(a.price)}')),
-              if (c.promo?.valid ?? false)
-                Padding(padding: const EdgeInsets.only(top: 9), child: _row('Promo ${c.promo!.label}', '− Rp${rupiah(c.promo!.discount)}', valueColor: BK.live)),
-              const Divider(height: 22, color: BK.line),
-              Row(children: [
-                const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: BK.ink)),
-                const Spacer(),
-                Text('Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: BK.accent)),
-              ]),
-            ])),
+            BKCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.pkg!.name,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: BK.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${c.duration} ${c.unitLabel} × Rp${rupiah(c.pkg!.price)}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: BK.ink3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Rp${rupiah(c.pkg!.price * c.duration)}',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: BK.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  for (final a in c.addons.where(
+                    (a) => c.selectedAddonIds.contains(a.itemId),
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 9),
+                      child: _row(a.name, 'Rp${rupiah(a.price)}'),
+                    ),
+                  if (c.promo?.valid ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 9),
+                      child: _row(
+                        'Promo ${c.promo!.label}',
+                        '− Rp${rupiah(c.promo!.discount)}',
+                        valueColor: BK.live,
+                      ),
+                    ),
+                  const Divider(height: 22, color: BK.line),
+                  Row(
+                    children: [
+                      const Text(
+                        'Total',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: BK.ink,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Rp${rupiah(c.grandTotal)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          color: BK.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ],
       ],
@@ -392,76 +635,169 @@ class _FlowState extends State<_Flow> {
 
   // Ikon status validasi nomor WA (mengikuti web: spinner/valid/invalid).
   Widget _phoneStatusIcon(PhoneStatus s) => switch (s) {
-        PhoneStatus.validating => const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: BK.accent)),
-        PhoneStatus.valid => const Icon(Icons.verified_outlined, size: 20, color: BK.live),
-        PhoneStatus.invalid => const Icon(Icons.error_outline, size: 20, color: BK.crit),
-        PhoneStatus.idle => const Icon(Icons.smartphone_outlined, size: 20, color: BK.ink3),
-      };
+    PhoneStatus.validating => const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2, color: BK.accent),
+    ),
+    PhoneStatus.valid => const Icon(
+      Icons.verified_outlined,
+      size: 20,
+      color: BK.live,
+    ),
+    PhoneStatus.invalid => const Icon(
+      Icons.error_outline,
+      size: 20,
+      color: BK.crit,
+    ),
+    PhoneStatus.idle => const Icon(
+      Icons.smartphone_outlined,
+      size: 20,
+      color: BK.ink3,
+    ),
+  };
 
   Widget _phoneHint(CreateBookingController c) {
     final (icon, text, color) = switch (c.phoneStatus) {
-      PhoneStatus.validating => (Icons.sync, 'Mengecek nomor WhatsApp…', BK.ink3),
-      PhoneStatus.invalid => (Icons.error_outline, 'Nomor WhatsApp tidak valid.', BK.crit),
-      PhoneStatus.valid when c.isReturning => (Icons.check_circle_outline, 'Pelanggan terdaftar.', BK.live),
-      PhoneStatus.valid => (Icons.check_circle_outline, 'Nomor terverifikasi.', BK.live),
-      PhoneStatus.idle => (Icons.info_outline, 'Nota & akses booking dikirim ke nomor ini.', BK.ink3),
+      PhoneStatus.validating => (
+        Icons.sync,
+        'Mengecek nomor WhatsApp…',
+        BK.ink3,
+      ),
+      PhoneStatus.invalid => (
+        Icons.error_outline,
+        'Nomor WhatsApp tidak valid.',
+        BK.crit,
+      ),
+      PhoneStatus.valid when c.isReturning => (
+        Icons.check_circle_outline,
+        'Pelanggan terdaftar.',
+        BK.live,
+      ),
+      PhoneStatus.valid => (
+        Icons.check_circle_outline,
+        'Nomor terverifikasi.',
+        BK.live,
+      ),
+      PhoneStatus.idle => (
+        Icons.info_outline,
+        'Nota & akses booking dikirim ke nomor ini.',
+        BK.ink3,
+      ),
     };
     return Padding(
       padding: const EdgeInsets.only(left: 2),
-      child: Row(children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 5),
-        Expanded(child: Text(text, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w500))),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _tierChip(String tier) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(20)),
-        child: Text(tier.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: Color(0xFFB8860B))),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: BK.pendSoft,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      tier.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.4,
+        color: Color(0xFFB8860B),
+      ),
+    ),
+  );
 
   // Strip 14 hari + tombol kalender untuk tanggal jauh.
-  Widget _dateRow(CreateBookingController c) => Row(children: [
-        Expanded(
-          child: SizedBox(
-            height: 64,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: 14,
-              separatorBuilder: (_, i) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final d = DateTime.now().add(Duration(days: i));
-                final on = c.date.year == d.year && c.date.month == d.month && c.date.day == d.day;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(13),
-                  onTap: () => c.setDate(d),
-                  child: Container(
-                    width: 54,
-                    decoration: BoxDecoration(color: on ? BK.accent : BK.card, borderRadius: BorderRadius.circular(13), border: Border.all(color: on ? BK.accent : BK.line)),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text(_dow(d.weekday), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: on ? Colors.white70 : BK.ink3)),
-                      const SizedBox(height: 2),
-                      Text('${d.day}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: on ? Colors.white : BK.ink)),
-                    ]),
+  Widget _dateRow(CreateBookingController c) => Row(
+    children: [
+      Expanded(
+        child: SizedBox(
+          height: 64,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: 14,
+            separatorBuilder: (_, i) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final d = DateTime.now().add(Duration(days: i));
+              final on =
+                  c.date.year == d.year &&
+                  c.date.month == d.month &&
+                  c.date.day == d.day;
+              return InkWell(
+                borderRadius: BorderRadius.circular(13),
+                onTap: () => c.setDate(d),
+                child: Container(
+                  width: 54,
+                  decoration: BoxDecoration(
+                    color: on ? BK.accent : BK.card,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: on ? BK.accent : BK.line),
                   ),
-                );
-              },
-            ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _dow(d.weekday),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: on ? Colors.white70 : BK.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${d.day}',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: on ? Colors.white : BK.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
-        const SizedBox(width: 8),
-        InkWell(
-          borderRadius: BorderRadius.circular(13),
-          onTap: () => _pickDate(c),
-          child: Container(
-            width: 48, height: 64,
-            decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(13), border: Border.all(color: BK.line)),
-            child: const Icon(Icons.calendar_month_outlined, size: 22, color: BK.accent),
+      ),
+      const SizedBox(width: 8),
+      InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () => _pickDate(c),
+        child: Container(
+          width: 48,
+          height: 64,
+          decoration: BoxDecoration(
+            color: BK.card,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: BK.line),
+          ),
+          child: const Icon(
+            Icons.calendar_month_outlined,
+            size: 22,
+            color: BK.accent,
           ),
         ),
-      ]);
+      ),
+    ],
+  );
 
   Future<void> _pickDate(CreateBookingController c) async {
     final now = DateTime.now();
@@ -476,8 +812,11 @@ class _FlowState extends State<_Flow> {
   }
 
   // Baris input promo + tombol Pakai, dengan status hasil.
-  Widget _promoRow(CreateBookingController c) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
+  Widget _promoRow(CreateBookingController c) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
           Expanded(
             child: TextField(
               controller: _promo,
@@ -486,70 +825,187 @@ class _FlowState extends State<_Flow> {
               decoration: InputDecoration(
                 hintText: 'KODE PROMO',
                 isDense: true,
-                filled: true, fillColor: BK.card,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                filled: true,
+                fillColor: BK.card,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: BK.line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: BK.line),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
           if (c.promo?.valid ?? false)
             OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: BK.crit, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13)),
-              onPressed: () { _promo.clear(); c.applyPromo(''); },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: BK.crit,
+                side: const BorderSide(color: BK.line),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+              ),
+              onPressed: () {
+                _promo.clear();
+                c.applyPromo('');
+              },
               child: const Text('Hapus'),
             )
           else
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13)),
-              onPressed: c.checkingPromo ? null : () => c.applyPromo(_promo.text),
+              style: FilledButton.styleFrom(
+                backgroundColor: BK.accent,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
+              ),
+              onPressed: c.checkingPromo
+                  ? null
+                  : () => c.applyPromo(_promo.text),
               child: c.checkingPromo
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Pakai', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Pakai',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
             ),
-        ]),
-        if (c.promo != null && !c.promo!.valid && c.promo!.message.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 6, left: 2), child: Text(c.promo!.message, style: const TextStyle(fontSize: 12, color: BK.crit))),
-        if (c.promo?.valid ?? false)
-          Padding(padding: const EdgeInsets.only(top: 6, left: 2), child: Text('Promo ${c.promo!.label} aktif · potongan Rp${rupiah(c.promo!.discount)}', style: const TextStyle(fontSize: 12, color: BK.live, fontWeight: FontWeight.w600))),
-      ]);
-
-  Widget _submitBar(CreateBookingController c) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15), disabledBackgroundColor: BK.line),
-            onPressed: c.canSubmit ? () => _submit(c) : null,
-            child: c.submitting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(c.pkg == null
-                    ? 'Pilih paket dulu'
-                    : (!c.isInterday && c.slot == null)
-                        ? 'Pilih slot dulu'
-                        : 'Buat booking · Rp${rupiah(c.grandTotal)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+      if (c.promo != null && !c.promo!.valid && c.promo!.message.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 2),
+          child: Text(
+            c.promo!.message,
+            style: const TextStyle(fontSize: 12, color: BK.crit),
           ),
         ),
-      );
+      if (c.promo?.valid ?? false)
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 2),
+          child: Text(
+            'Promo ${c.promo!.label} aktif · potongan Rp${rupiah(c.promo!.discount)}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: BK.live,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+    ],
+  );
 
-  Widget _label(String t) => Padding(padding: const EdgeInsets.fromLTRB(2, 16, 2, 8), child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)));
+  Widget _submitBar(CreateBookingController c) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: BK.accent,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          disabledBackgroundColor: BK.line,
+        ),
+        onPressed: c.canSubmit ? () => _submit(c) : null,
+        child: c.submitting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                c.pkg == null
+                    ? 'Pilih paket dulu'
+                    : (!c.isInterday && c.slot == null)
+                    ? 'Pilih slot dulu'
+                    : 'Buat booking · Rp${rupiah(c.grandTotal)}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+      ),
+    ),
+  );
+
+  Widget _label(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+    child: Text(
+      t,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1,
+        color: BK.ink3,
+      ),
+    ),
+  );
 
   // Judul step bernomor (mengikuti web: 01 / 02 / 03 …).
   Widget _stepLabel(String num, String title) => Padding(
-        padding: const EdgeInsets.fromLTRB(0, 16, 2, 8),
-        child: Row(children: [
-          Container(
-            width: 22, height: 22, alignment: Alignment.center,
-            decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(7)),
-            child: Text(num, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+    padding: const EdgeInsets.fromLTRB(0, 16, 2, 8),
+    child: Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: BK.accent,
+            borderRadius: BorderRadius.circular(7),
           ),
-          const SizedBox(width: 8),
-          Text(title.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: BK.ink)),
-        ]),
-      );
+          child: Text(
+            num,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: BK.ink,
+          ),
+        ),
+      ],
+    ),
+  );
 
-  String _fullDate(DateTime d) => '${_dow(d.weekday)}, ${d.day} ${_month(d.month)} ${d.year}';
-  String _month(int m) => const ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][m - 1];
+  String _fullDate(DateTime d) =>
+      '${_dow(d.weekday)}, ${d.day} ${_month(d.month)} ${d.year}';
+  String _month(int m) => const [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+  ][m - 1];
 
   // Menit → label manusiawi. 90 → "1j 30m", 60 → "1 jam", 45 → "45 menit".
   String _humanMinutes(int m) {
@@ -565,104 +1021,238 @@ class _FlowState extends State<_Flow> {
   Widget _durationBlock(CreateBookingController c) {
     final perUnit = _humanMinutes(c.unitMinutes);
     // "1 jam = 1 jam" redundan; tampilkan hanya kalau unit bukan jam.
-    final showPerUnit = !c.isInterday && c.unitLabel != 'jam' && perUnit.isNotEmpty;
+    final showPerUnit =
+        !c.isInterday && c.unitLabel != 'jam' && perUnit.isNotEmpty;
     final total = _humanMinutes(c.unitMinutes * c.duration);
     final maxDur = c.maxDuration;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        _label('DURASI (${c.unitLabel})'),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-          decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(20)),
-          child: Text('maks $maxDur ${c.unitLabel}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
-        ),
-      ]),
-      SizedBox(
-        height: 56,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: maxDur,
-          separatorBuilder: (_, i) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final val = i + 1;
-            final on = c.duration == val;
-            return GestureDetector(
-              onTap: () => c.setDuration(val),
-              child: Container(
-                width: 62,
-                decoration: BoxDecoration(
-                  color: on ? BK.accent : BK.card,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.5 : 1),
-                  boxShadow: on ? [BoxShadow(color: BK.accent.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text('$val', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1, color: on ? Colors.white : BK.ink)),
-                  const SizedBox(height: 3),
-                  Text(c.unitLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: on ? Colors.white70 : BK.ink3)),
-                ]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _label('DURASI (${c.unitLabel})'),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: BK.accentSoft,
+                borderRadius: BorderRadius.circular(20),
               ),
-            );
-          },
+              child: Text(
+                'maks $maxDur ${c.unitLabel}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: BK.accent,
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      if (showPerUnit)
-        Padding(
-          padding: const EdgeInsets.only(top: 8, left: 2),
-          child: Text('1 ${c.unitLabel} = $perUnit · total $total', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+        SizedBox(
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: maxDur,
+            separatorBuilder: (_, i) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final val = i + 1;
+              final on = c.duration == val;
+              return GestureDetector(
+                onTap: () => c.setDuration(val),
+                child: Container(
+                  width: 62,
+                  decoration: BoxDecoration(
+                    color: on ? BK.accent : BK.card,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: on ? BK.accent : BK.line,
+                      width: on ? 1.5 : 1,
+                    ),
+                    boxShadow: on
+                        ? [
+                            BoxShadow(
+                              color: BK.accent.withValues(alpha: .30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$val',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                          color: on ? Colors.white : BK.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        c.unitLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: on ? Colors.white70 : BK.ink3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-    ]);
+        if (showPerUnit)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 2),
+            child: Text(
+              '1 ${c.unitLabel} = $perUnit · total $total',
+              style: const TextStyle(fontSize: 12, color: BK.ink3),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _choice(String t, bool on, VoidCallback onTap) => Material(
-        color: on ? BK.accentSoft : BK.card,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
+    color: on ? BK.accentSoft : BK.card,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: on ? BK.accent : BK.line)),
-            child: Text(t, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: on ? BK.accent : BK.ink2)),
+          border: Border.all(color: on ? BK.accent : BK.line),
+        ),
+        child: Text(
+          t,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: on ? BK.accent : BK.ink2,
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   // Kartu rangkuman jadwal: waktu mulai → selesai (mengikuti web).
   Widget _scheduleSummary(CreateBookingController c) {
     final s = c.startAt!, e = c.endAt!;
-    String hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    String hm(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(BK.radius)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: const [
-            Icon(Icons.schedule, size: 15, color: BK.accent),
-            SizedBox(width: 7),
-            Text('RANGKUMAN JADWAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: BK.accent)),
-          ]),
-          const SizedBox(height: 12),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('MULAI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: BK.ink3)),
-              const SizedBox(height: 2),
-              Text(hm(s), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink, height: 1)),
-              const SizedBox(height: 3),
-              Text(_fullDate(s), style: const TextStyle(fontSize: 11, color: BK.ink2)),
-            ])),
-            const Padding(padding: EdgeInsets.only(top: 16), child: Icon(Icons.arrow_forward_rounded, size: 16, color: BK.ink3)),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              const Text('SELESAI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: BK.ink3)),
-              const SizedBox(height: 2),
-              Text(hm(e), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.accent, height: 1)),
-              const SizedBox(height: 3),
-              Text(_fullDate(e), style: const TextStyle(fontSize: 11, color: BK.ink2), textAlign: TextAlign.end),
-            ])),
-          ]),
-        ]),
+        decoration: BoxDecoration(
+          color: BK.accentSoft,
+          borderRadius: BorderRadius.circular(BK.radius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.schedule, size: 15, color: BK.accent),
+                SizedBox(width: 7),
+                Text(
+                  'RANGKUMAN JADWAL',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: BK.accent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'MULAI',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: BK.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hm(s),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: BK.ink,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _fullDate(s),
+                        style: const TextStyle(fontSize: 11, color: BK.ink2),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: BK.ink3,
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'SELESAI',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: BK.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hm(e),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: BK.accent,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _fullDate(e),
+                        style: const TextStyle(fontSize: 11, color: BK.ink2),
+                        textAlign: TextAlign.end,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -672,43 +1262,82 @@ class _FlowState extends State<_Flow> {
   Widget _slotSection(CreateBookingController c) {
     final slots = c.slots;
     if (slots.isEmpty) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label('SLOT MULAI'),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(BK.radius), border: Border.all(color: BK.line)),
-          child: const Text('Belum ada slot untuk tanggal ini. Coba tanggal lain.', style: TextStyle(fontSize: 12.5, color: BK.ink3)),
-        ),
-      ]);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label('SLOT MULAI'),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: BK.card,
+              borderRadius: BorderRadius.circular(BK.radius),
+              border: Border.all(color: BK.line),
+            ),
+            child: const Text(
+              'Belum ada slot untuk tanggal ini. Coba tanggal lain.',
+              style: TextStyle(fontSize: 12.5, color: BK.ink3),
+            ),
+          ),
+        ],
+      );
     }
     final avail = slots.where((s) => s.available).length;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        _label('SLOT MULAI'),
-        const Spacer(),
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: avail > 0 ? BK.liveSoft : BK.critSoft, borderRadius: BorderRadius.circular(20)),
-          child: Text(avail > 0 ? '$avail slot tersedia' : 'penuh',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: avail > 0 ? BK.live : BK.crit)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _label('SLOT MULAI'),
+            const Spacer(),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: avail > 0 ? BK.liveSoft : BK.critSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                avail > 0 ? '$avail slot tersedia' : 'penuh',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: avail > 0 ? BK.live : BK.crit,
+                ),
+              ),
+            ),
+          ],
         ),
-      ]),
-      const SizedBox(height: 4),
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: slots.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4, mainAxisExtent: 42, crossAxisSpacing: 8, mainAxisSpacing: 8),
-        itemBuilder: (_, i) => _slotChip(slots[i].label,
-            available: slots[i].available, past: slots[i].past, selected: c.slot == slots[i].label, onTap: () => c.selectSlot(slots[i].label)),
-      ),
-    ]);
+        const SizedBox(height: 4),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: slots.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            mainAxisExtent: 42,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemBuilder: (_, i) => _slotChip(
+            slots[i].label,
+            available: slots[i].available,
+            past: slots[i].past,
+            selected: c.slot == slots[i].label,
+            onTap: () => c.selectSlot(slots[i].label),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _slotChip(String s, {required bool available, required bool past, required bool selected, required VoidCallback onTap}) {
+  Widget _slotChip(
+    String s, {
+    required bool available,
+    required bool past,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
     final Color bg, fg, border;
     if (selected) {
       bg = BK.accent;
@@ -739,34 +1368,61 @@ class _FlowState extends State<_Flow> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(11),
             border: Border.all(color: border, width: selected ? 1.5 : 1),
-            boxShadow: selected ? [BoxShadow(color: BK.accent.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 3))] : null,
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: BK.accent.withValues(alpha: .30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
           ),
-          child: Text(s, style: TextStyle(
-            fontSize: 12.5, fontWeight: FontWeight.w700,
-            decoration: (!available && !past) ? TextDecoration.lineThrough : null,
-            color: fg,
-          )),
+          child: Text(
+            s,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              decoration: (!available && !past)
+                  ? TextDecoration.lineThrough
+                  : null,
+              color: fg,
+            ),
+          ),
         ),
       ),
     );
   }
 
-
   Widget _row(String k, String v, {Color valueColor = BK.ink}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(children: [
-          Expanded(child: Text(k, style: const TextStyle(fontSize: 13, color: BK.ink2))),
-          Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: valueColor)),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(k, style: const TextStyle(fontSize: 13, color: BK.ink2)),
+        ),
+        Text(
+          v,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: valueColor,
+          ),
+        ),
+      ],
+    ),
+  );
 
-  String _dow(int weekday) => const ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][weekday - 1];
+  String _dow(int weekday) =>
+      const ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][weekday - 1];
 }
 
 /// Bottom sheet pemilih pelanggan dari daftar CRM (cari nama/nomor).
 class _CustomerPickerSheet extends StatefulWidget {
   const _CustomerPickerSheet({required this.load});
-  final Future<List<({String id, String name, String phone, String tier})>> Function() load;
+  final Future<List<({String id, String name, String phone, String tier})>>
+  Function()
+  load;
 
   @override
   State<_CustomerPickerSheet> createState() => _CustomerPickerSheetState();
@@ -796,7 +1452,12 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   Widget build(BuildContext context) {
     final q = _q.trim().toLowerCase();
     final items = (_all ?? [])
-        .where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || c.phone.contains(q))
+        .where(
+          (c) =>
+              q.isEmpty ||
+              c.name.toLowerCase().contains(q) ||
+              c.phone.contains(q),
+        )
         .toList();
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -804,51 +1465,90 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scroll) => Container(
-        decoration: const BoxDecoration(color: BK.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Column(children: [
-          const SizedBox(height: 10),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(3))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              onChanged: (v) => setState(() => _q = v),
-              decoration: InputDecoration(
-                hintText: 'Cari nama / nomor',
-                isDense: true,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        decoration: const BoxDecoration(
+          color: BK.bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: BK.line,
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-          ),
-          Expanded(
-            child: _error != null
-                ? Center(child: Text('Gagal memuat: $_error', style: const TextStyle(color: BK.crit)))
-                : _all == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : items.isEmpty
-                        ? const Center(child: Text('Tidak ada pelanggan', style: TextStyle(color: BK.ink3)))
-                        : ListView.separated(
-                            controller: scroll,
-                            itemCount: items.length,
-                            separatorBuilder: (_, _) => const Divider(height: 1, color: BK.line),
-                            itemBuilder: (_, i) {
-                              final c = items[i];
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: BK.accentSoft,
-                                  child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
-                                      style: const TextStyle(color: BK.accent, fontWeight: FontWeight.w700)),
-                                ),
-                                title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text(c.phone),
-                                trailing: c.tier.isNotEmpty ? Pill.mut(c.tier) : null,
-                                onTap: () => Navigator.pop(context, (name: c.name, phone: c.phone, tier: c.tier)),
-                              );
-                            },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                onChanged: (v) => setState(() => _q = v),
+                decoration: InputDecoration(
+                  hintText: 'Cari nama / nomor',
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _error != null
+                  ? Center(
+                      child: Text(
+                        'Gagal memuat: $_error',
+                        style: const TextStyle(color: BK.crit),
+                      ),
+                    )
+                  : _all == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : items.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Tidak ada pelanggan',
+                        style: TextStyle(color: BK.ink3),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scroll,
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1, color: BK.line),
+                      itemBuilder: (_, i) {
+                        final c = items[i];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: BK.accentSoft,
+                            child: Text(
+                              c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                color: BK.accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-          ),
-        ]),
+                          title: Text(
+                            c.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(c.phone),
+                          trailing: c.tier.isNotEmpty ? Pill.mut(c.tier) : null,
+                          onTap: () => Navigator.pop(context, (
+                            name: c.name,
+                            phone: c.phone,
+                            tier: c.tier,
+                          )),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

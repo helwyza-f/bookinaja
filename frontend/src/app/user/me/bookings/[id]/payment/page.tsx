@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, CreditCard, ImagePlus, Landmark, QrCode, RefreshCw, Upload, Wallet } from "lucide-react";
-import { loadTenantSnap, waitForSnap, fetchTenantGatewayConfig } from "@/lib/snap-loader";
+import { waitForSnap, loadTenantSnap } from "@/lib/snap-loader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,22 +34,15 @@ export default function BookingPaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastBackgroundRefreshRef = useRef(0);
-  const [gatewayReady, setGatewayReady] = useState(false);
-  // Sudah selesai cek konfigurasi gateway tenant? Sebelum ini true, jangan
-  // memutuskan "metode tidak tersedia" (mencegah redirect prematur saat
-  // gatewayReady masih false karena fetch async belum selesai).
-  const [gatewayChecked, setGatewayChecked] = useState(false);
-
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
   const supportsMethodForScope = useCallback(
     (method: any) => {
       if (!method || method.is_active === false) return false;
       if (scope === "deposit" && method.code === "cash") return false;
-      if (method.verification_type === "auto" && !gatewayReady) return false;
       return true;
     },
-    [scope, gatewayReady],
+    [scope],
   );
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
@@ -82,17 +75,19 @@ export default function BookingPaymentPage() {
     let cancelled = false;
     const init = async () => {
       try {
-        const config = await fetchTenantGatewayConfig(String(booking.tenant_id));
-        if (!cancelled) setGatewayReady(Boolean(config?.configured));
+        const configRes = await api.get(`/public/payment-gateway/${booking.tenant_id}`);
+        const config = configRes.data?.data;
         if (config?.configured && config.provider === "midtrans") {
           await loadTenantSnap(String(booking.tenant_id));
         }
-      } finally {
-        if (!cancelled) setGatewayChecked(true);
+      } catch {
+        // Gateway tidak wajib untuk membuka halaman DP manual.
       }
     };
     void init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [booking?.tenant_id]);
 
   const customerID = String(booking?.customer_id || "");
@@ -233,11 +228,11 @@ export default function BookingPaymentPage() {
   const pendingAttemptStatus = String(pendingManualAttempt?.status || "").toLowerCase();
 
   useEffect(() => {
-    if (!booking || !gatewayChecked || !paymentAccessError) return;
+    if (!booking || !paymentAccessError) return;
     router.replace(
       `/user/me/bookings/${params.id}/live${paymentAccessNoticeCode ? `?notice=${paymentAccessNoticeCode}` : ""}`,
     );
-  }, [booking, gatewayChecked, params.id, paymentAccessError, paymentAccessNoticeCode, router]);
+  }, [booking, params.id, paymentAccessError, paymentAccessNoticeCode, router]);
 
   const paymentStatusLabel =
     paymentStatus === "awaiting_verification"
@@ -475,7 +470,7 @@ export default function BookingPaymentPage() {
     }
   };
 
-  if (loading || !gatewayChecked || paymentAccessError) {
+  if (loading || paymentAccessError) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
         <Skeleton className="h-20 rounded-[1.5rem]" />

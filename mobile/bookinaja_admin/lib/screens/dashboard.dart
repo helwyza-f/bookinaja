@@ -38,7 +38,7 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(width: 9),
                 _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
                 const SizedBox(width: 9),
-                _QuickAction(Icons.sensors, 'Ops', BK.pend, onTap: () => _go(context, const OperationsScreen())),
+                _QuickAction(Icons.sensors, 'POS', BK.pend, onTap: () => _go(context, const OperationsScreen())),
                 const SizedBox(width: 9),
                 _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _soon(context, 'Laporan')),
               ],

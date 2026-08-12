@@ -32,15 +32,18 @@ void main() {
   final api = ApiClient();
   final tokenStore = TokenStore();
 
-  runApp(BookinajaAdmin(
-    authController: AuthController(AuthRepository(api, tokenStore))..bootstrap(),
-    bookingRepo: BookingRepository(api),
-    posRepo: PosRepository(api),
-    customersRepo: CustomersRepository(api),
-    opsRepo: OpsRepository(api),
-    catalogRepo: CatalogRepository(api),
-    settingsRepo: SettingsRepository(api),
-  ));
+  runApp(
+    BookinajaAdmin(
+      authController: AuthController(AuthRepository(api, tokenStore))
+        ..bootstrap(),
+      bookingRepo: BookingRepository(api),
+      posRepo: PosRepository(api),
+      customersRepo: CustomersRepository(api),
+      opsRepo: OpsRepository(api),
+      catalogRepo: CatalogRepository(api),
+      settingsRepo: SettingsRepository(api),
+    ),
+  );
 }
 
 class BookinajaAdmin extends StatelessWidget {
@@ -75,7 +78,9 @@ class BookinajaAdmin extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BookingsController(bookingRepo)),
         ChangeNotifierProvider(create: (_) => DashboardController(bookingRepo)),
         ChangeNotifierProvider(create: (_) => PosController(posRepo)),
-        ChangeNotifierProvider(create: (_) => CustomersController(customersRepo)),
+        ChangeNotifierProvider(
+          create: (_) => CustomersController(customersRepo),
+        ),
         ChangeNotifierProvider(create: (_) => OpsController(opsRepo)),
       ],
       child: MaterialApp(
@@ -147,8 +152,12 @@ class _HomeShellState extends State<HomeShell> {
       MoreHubScreen(),
     ];
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: _i, children: pages),
-      bottomNavigationBar: _NavBar(index: _i, onTap: (v) => setState(() => _i = v)),
+      bottomNavigationBar: _NavBar(
+        index: _i,
+        onTap: (v) => setState(() => _i = v),
+      ),
     );
   }
 }
@@ -163,7 +172,7 @@ class _NavBar extends StatelessWidget {
   static const _items = <({IconData off, IconData on, String label})>[
     (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home'),
     (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking'),
-    (off: Icons.sensors_outlined, on: Icons.sensors, label: 'Ops'),
+    (off: Icons.sensors_outlined, on: Icons.sensors, label: 'POS'),
     (off: Icons.people_outline, on: Icons.people, label: 'Customer'),
     (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya'),
   ];
@@ -174,15 +183,23 @@ class _NavBar extends StatelessWidget {
       decoration: const BoxDecoration(
         color: BK.card,
         border: Border(top: BorderSide(color: BK.line)),
-        boxShadow: [BoxShadow(color: Color(0x0A0D1526), blurRadius: 16, offset: Offset(0, -3))],
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A0D1526),
+            blurRadius: 16,
+            offset: Offset(0, -3),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          child: Row(children: [
-            for (int i = 0; i < _items.length; i++) Expanded(child: _item(i)),
-          ]),
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+          child: Row(
+            children: [
+              for (int i = 0; i < _items.length; i++) Expanded(child: _item(i)),
+            ],
+          ),
         ),
       ),
     );
@@ -191,27 +208,50 @@ class _NavBar extends StatelessWidget {
   Widget _item(int i) {
     final it = _items[i];
     final on = i == index;
-    return InkWell(
-      onTap: () => onTap(i),
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            width: 46, height: 30, alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: on ? BK.accentSoft : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(on ? it.on : it.off, size: 21, color: on ? BK.accent : BK.ink3),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onTap(i),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: on ? BK.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
           ),
-          const SizedBox(height: 3),
-          Text(it.label,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? BK.accent : BK.ink3)),
-        ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: on ? BK.card : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  on ? it.on : it.off,
+                  size: 21,
+                  color: on ? BK.accent : BK.ink3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                it.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                  color: on ? BK.accent : BK.ink3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
