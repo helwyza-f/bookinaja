@@ -33,6 +33,7 @@ export default function BookingPaymentPage() {
   const [proofUploading, setProofUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [gatewayConfigured, setGatewayConfigured] = useState<boolean | null>(null);
   const lastBackgroundRefreshRef = useRef(0);
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
@@ -40,9 +41,10 @@ export default function BookingPaymentPage() {
     (method: any) => {
       if (!method || method.is_active === false) return false;
       if (scope === "deposit" && method.code === "cash") return false;
+      if (method.verification_type === "auto" && gatewayConfigured === false) return false;
       return true;
     },
-    [scope],
+    [gatewayConfigured, scope],
   );
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
@@ -72,22 +74,20 @@ export default function BookingPaymentPage() {
 
   useEffect(() => {
     if (!booking?.tenant_id) return;
-    let cancelled = false;
     const init = async () => {
       try {
         const configRes = await api.get(`/public/payment-gateway/${booking.tenant_id}`);
         const config = configRes.data?.data;
+        setGatewayConfigured(Boolean(config?.configured));
         if (config?.configured && config.provider === "midtrans") {
           await loadTenantSnap(String(booking.tenant_id));
         }
       } catch {
+        setGatewayConfigured(false);
         // Gateway tidak wajib untuk membuka halaman DP manual.
       }
     };
     void init();
-    return () => {
-      cancelled = true;
-    };
   }, [booking?.tenant_id]);
 
   const customerID = String(booking?.customer_id || "");
