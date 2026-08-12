@@ -146,10 +146,10 @@ class PosController extends ChangeNotifier {
         url = await _repo.uploadProof(proofPath);
       }
       await _repo.submitManual(id, method: method, proofUrl: url, note: note);
+      // Dicatat staff kasir → backend auto-verify, langsung dianggap lunas.
       _finalize(PosResult(
         orderNumber: order.orderNumber,
         total: order.grandTotal,
-        awaitingVerification: true,
       ));
     });
   }
