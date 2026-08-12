@@ -101,14 +101,18 @@ class PosController extends ChangeNotifier {
     _menu = const AsyncValue.loading();
     notifyListeners();
     try {
-      final results = await Future.wait([
-        _repo.listMenu(),
-        _repo.listPaymentMethods(),
-      ]);
-      _menu = AsyncValue.data(results[0] as List<MenuItem>);
-      paymentMethods = results[1] as List<PosPaymentMethod>;
+      _menu = AsyncValue.data(await _repo.listMenu());
     } catch (e) {
       _menu = AsyncValue.error(e);
+      notifyListeners();
+      return;
+    }
+    // Metode bayar bersifat best-effort: kegagalan (mis. backend lama) tidak
+    // boleh mematikan layar kasir — jatuh ke tunai saja.
+    try {
+      paymentMethods = await _repo.listPaymentMethods();
+    } catch (_) {
+      paymentMethods = const [];
     }
     notifyListeners();
   }
