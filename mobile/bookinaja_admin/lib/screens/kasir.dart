@@ -130,13 +130,17 @@ class _KasirScreenState extends State<KasirScreen> {
 
   Future<void> _openCart(BuildContext context) async {
     final ctrl = context.read<PosController>();
-    await showModalBottomSheet<void>(
+    // Cart sheet mengembalikan true bila kasir menekan "Lanjut ke pembayaran".
+    final proceed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: BK.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => ChangeNotifierProvider<PosController>.value(value: ctrl, child: const _CartSheet()),
     );
+    // Payment + result dipicu dari context KasirScreen yang stabil (bukan dari
+    // context sheet yang sudah ditutup) agar tombol Selesai selalu bisa ditekan.
+    if (proceed == true && context.mounted) await _openPayment(context, ctrl);
   }
 
   Future<void> _openHistory(BuildContext context) async {
@@ -474,10 +478,7 @@ class _CartSheet extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
                 onPressed: lines.isEmpty
                     ? null
-                    : () {
-                        Navigator.of(context).pop(); // tutup cart sheet
-                        _openPayment(context, ctrl);
-                      },
+                    : () => Navigator.of(context).pop(true), // tutup cart sheet & lanjut bayar
                 child: const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
@@ -513,6 +514,10 @@ Future<void> _openPayment(BuildContext context, PosController ctrl) async {
       child: _PaymentSheet(total: ctrl.cartTotal, methods: ctrl.paymentMethods),
     ),
   );
+  // Struk ditampilkan dari context KasirScreen yang stabil, setelah payment
+  // sheet benar-benar tertutup — berlaku untuk tunai maupun manual (transfer/QRIS).
+  final result = ctrl.lastResult;
+  if (result != null && context.mounted) _showResult(context, ctrl, result);
 }
 
 class _PaymentSheet extends StatefulWidget {
@@ -612,9 +617,9 @@ class _PaymentSheetState extends State<_PaymentSheet> {
         : await ctrl.payManual(method: m.code, proofPath: _proofPath, note: _noteCtrl.text);
     if (!mounted) return;
     if (ok) {
+      // Cukup tutup payment sheet; struk ditampilkan oleh _openPayment dari
+      // context yang stabil setelah sheet ini tertutup.
       Navigator.of(context).pop();
-      final result = ctrl.lastResult;
-      if (result != null) _showResult(context, ctrl, result);
     } else {
       BkToast.error(context, ctrl.checkoutError ?? 'Pembayaran gagal');
     }
