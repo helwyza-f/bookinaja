@@ -548,6 +548,40 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 	if err := s.repo.CreatePaymentAttempt(ctx, attempt); err != nil {
 		return PaymentCheckoutRes{}, err
 	}
+
+	// Dicatat langsung oleh staff kasir → settle seketika (auto-verified),
+	// tidak perlu langkah verifikasi terpisah.
+	if input.AutoVerify {
+		if err := s.repo.ApplyManualSettlementPayment(ctx, orderID, method.Code); err != nil {
+			return PaymentCheckoutRes{}, err
+		}
+		adminNote := strings.TrimSpace(input.Note)
+		if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "verified", nil, &adminNote); err != nil {
+			return PaymentCheckoutRes{}, err
+		}
+		s.notifyOrderChange(ctx, tenantID, orderID, "payment.manual.verified", map[string]any{
+			"method_code": method.Code,
+			"attempt_id":  attempt.ID.String(),
+			"flow":        "direct_sale",
+		})
+		if order.OrderKind == "menu" || order.OrderKind == "direct_sale" {
+			s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
+				"flow": "direct_sale",
+			})
+		}
+		return PaymentCheckoutRes{
+			Amount:       order.BalanceDue,
+			Currency:     "IDR",
+			SalesOrderID: orderID.String(),
+			DisplayLabel: "Pelunasan",
+			MethodCode:   method.Code,
+			MethodLabel:  method.DisplayName,
+			Status:       "settled",
+			Instructions: method.Instructions,
+			Reference:    reference,
+		}, nil
+	}
+
 	if err := s.repo.MarkOrderAwaitingVerification(ctx, orderID); err != nil {
 		return PaymentCheckoutRes{}, err
 	}

@@ -127,6 +127,9 @@ type ManualPaymentInput struct {
 	Method   string `json:"method"`
 	Note     string `json:"note"`
 	ProofURL string `json:"proof_url"`
+	// AutoVerify: pembayaran dicatat langsung oleh staff di kasir (bukan
+	// diajukan customer), jadi settle seketika tanpa menunggu verifikasi.
+	AutoVerify bool `json:"auto_verify"`
 }
 
 type PaymentVerificationInput struct {

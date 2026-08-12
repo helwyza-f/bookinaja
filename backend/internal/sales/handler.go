@@ -495,6 +495,8 @@ func (h *Handler) SubmitManualPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
 		return
 	}
+	// Dicatat oleh staff kasir → settle seketika, tak menunggu verifikasi.
+	req.AutoVerify = true
 	res, err := h.service.SubmitManualPayment(c.Request.Context(), tenantID, orderID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -524,6 +526,8 @@ func (h *Handler) CustomerSubmitManualPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
 		return
 	}
+	// Diajukan customer → wajib lewat verifikasi admin.
+	req.AutoVerify = false
 	res, err := h.service.SubmitManualPayment(c.Request.Context(), order.TenantID, orderID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

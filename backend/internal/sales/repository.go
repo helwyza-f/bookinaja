@@ -585,9 +585,12 @@ func (r *Repository) RestoreOrderPaymentStatus(ctx context.Context, orderID uuid
 }
 
 func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, orderID uuid.UUID, methodCode string) error {
+	// Sama seperti SettleCash: walk-in (menu/direct_sale) langsung 'completed'
+	// agar tidak menggantung di 'paid'; booking/public tetap 'paid'.
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE sales_orders
-		SET status = 'paid',
+		SET status = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed' ELSE 'paid' END,
+			completed_at = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
 			payment_status = 'settled',
 			payment_method = $2,
 			paid_amount = grand_total,
