@@ -28,7 +28,7 @@ class DashboardController extends ChangeNotifier {
   void _onRealtimeEvent(RealtimeEvent event) {
     final type = event.type.toLowerCase();
     if (type.isEmpty) return;
-    if (!(type.startsWith('booking.') || type.startsWith('payment.') || type.startsWith('session.') || type.startsWith('device.'))) return;
+    if (!(type.startsWith('booking.') || type.startsWith('payment.') || type.startsWith('session.') || type.startsWith('order.') || type.startsWith('device.'))) return;
     if (_patchLocal(event)) {
       notifyListeners();
       return;
