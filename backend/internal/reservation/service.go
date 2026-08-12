@@ -551,6 +551,9 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	if err := validateBookingTransition(booking.Status, status, booking.PaymentStatus, booking.DepositAmount, booking.DepositOverrideActive); err != nil {
 		return err
 	}
+	if status == "no_show" && time.Now().Before(booking.StartTime) {
+		return errors.New("BELUM WAKTUNYA — JADWAL BOOKING BELUM LEWAT")
+	}
 
 	if err := s.repo.UpdateStatus(ctx, bID, tID, status, actor); err != nil {
 		return err
@@ -591,6 +594,61 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	}
 
 	return nil
+}
+
+// Reschedule memindahkan jam/tanggal booking (resource tetap sama) tanpa
+// menyentuh status atau histori pembayaran. Hanya booking yang belum berjalan
+// (pending/confirmed) yang boleh dijadwal ulang — sesi yang sudah aktif harus
+// diselesaikan/dibatalkan lewat jalur normal.
+func (s *Service) Reschedule(ctx context.Context, id, tenantID string, newStart, newEnd time.Time, reason string, actor ActorContext) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("booking tidak valid")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("tenant tidak valid")
+	}
+	if !newEnd.After(newStart) {
+		return errors.New("JAM SELESAI HARUS SETELAH JAM MULAI")
+	}
+
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil {
+		return err
+	}
+	if booking.Status != "pending" && booking.Status != "confirmed" {
+		return errors.New("BOOKING YANG SUDAH BERJALAN/SELESAI/BATAL TIDAK BISA DIJADWAL ULANG")
+	}
+
+	if err := s.repo.RescheduleBooking(ctx, bID, tID, newStart, newEnd, reason, actor); err != nil {
+		return err
+	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
+
+	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil {
+		s.emitBookingRealtime(ctx, "booking.rescheduled", updated, map[string]any{
+			"actor_type":    actor.Type,
+			"actor_user_id": actorIDString(actor.UserID),
+			"actor_name":    actor.Name,
+			"actor_role":    actor.Role,
+		})
+	}
+	return nil
+}
+
+// UpdateInternalNote menyimpan catatan bebas admin pada booking (mis. untuk
+// komunikasi antar-shift), tidak terlihat oleh customer.
+func (s *Service) UpdateInternalNote(ctx context.Context, id, tenantID, note string, actor ActorContext) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("booking tidak valid")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("tenant tidak valid")
+	}
+	return s.repo.UpdateInternalNote(ctx, bID, tID, note, actor)
 }
 
 func (s *Service) Delete(ctx context.Context, id, tenantID string, actor ActorContext) error {
@@ -972,6 +1030,8 @@ func mapBookingRealtimeType(status string) string {
 		return "session.completed"
 	case "cancelled":
 		return "booking.cancelled"
+	case "no_show":
+		return "booking.no_show"
 	default:
 		return "booking.updated"
 	}
@@ -1767,6 +1827,12 @@ func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, 
 	if nextStatus == "completed" {
 		if currentStatus != "active" {
 			return errors.New("HANYA SESI AKTIF YANG BISA DISELESAIKAN")
+		}
+		return nil
+	}
+	if nextStatus == "no_show" {
+		if currentStatus != "confirmed" && currentStatus != "active" {
+			return errors.New("HANYA BOOKING CONFIRMED/AKTIF YANG BISA DITANDAI TIDAK HADIR")
 		}
 		return nil
 	}

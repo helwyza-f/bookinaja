@@ -83,6 +83,8 @@ class BookingDetailController extends ChangeNotifier {
         paymentMode: '${summary['payment_mode'] ?? current.paymentMode}'.toLowerCase(),
         enableFnb: current.enableFnb,
         enableAddons: current.enableAddons,
+        internalNote: current.internalNote,
+        rescheduleCount: current.rescheduleCount,
         attempts: current.attempts,
         orders: current.orders,
         options: current.options,
@@ -138,6 +140,10 @@ class BookingDetailController extends ChangeNotifier {
   Future<bool> start() => _act(() => _repo.updateStatus(bookingId, 'active'));
   Future<bool> end() => _act(() => _repo.updateStatus(bookingId, 'completed'));
   Future<bool> cancel({String reason = ''}) => _act(() => _repo.updateStatus(bookingId, 'cancelled', reason: reason));
+  Future<bool> markNoShow() => _act(() => _repo.updateStatus(bookingId, 'no_show'));
+  Future<bool> reschedule({required DateTime start, required DateTime end, String reason = ''}) =>
+      _act(() => _repo.reschedule(bookingId, startLocal: start, endLocal: end, reason: reason));
+  Future<bool> updateNote(String note) => _act(() => _repo.updateNote(bookingId, note));
   Future<bool> recordDeposit() => _act(() => _repo.recordDeposit(bookingId));
   Future<bool> settle() => _act(() => _repo.settleCash(bookingId));
   Future<bool> overrideDeposit({String reason = ''}) => _act(() => _repo.overrideDeposit(bookingId, reason: reason));

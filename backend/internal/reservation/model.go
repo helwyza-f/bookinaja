@@ -44,6 +44,10 @@ type Booking struct {
 	SettledAt             *time.Time `db:"settled_at" json:"settled_at"`
 	LastStatusChangedAt   *time.Time `db:"last_status_changed_at" json:"last_status_changed_at"`
 	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
+	InternalNote          *string    `db:"internal_note" json:"internal_note,omitempty"`
+	RescheduledAt         *time.Time `db:"rescheduled_at" json:"rescheduled_at,omitempty"`
+	RescheduleCount       int        `db:"reschedule_count" json:"reschedule_count"`
+	NoShowAt              *time.Time `db:"no_show_at" json:"no_show_at,omitempty"`
 }
 
 type BookingOption struct {

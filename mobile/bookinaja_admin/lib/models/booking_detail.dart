@@ -162,6 +162,8 @@ class BookingDetail {
   final String paymentMode; // partial | none | full
   final bool enableFnb;
   final bool enableAddons;
+  final String internalNote;
+  final int rescheduleCount;
   final List<PaymentAttempt> attempts;
   final List<OrderLine> orders;
   final List<OrderLine> options;
@@ -191,6 +193,8 @@ class BookingDetail {
     this.paymentMode = 'partial',
     this.enableFnb = true,
     this.enableAddons = true,
+    this.internalNote = '',
+    this.rescheduleCount = 0,
     this.attempts = const [],
     this.orders = const [],
     this.options = const [],
@@ -226,6 +230,16 @@ class BookingDetail {
   bool get canOverrideDeposit => canRecordDeposit;
   bool get canExtend => isActive;
   bool get canSendReceipt => isPaymentSettled;
+  // Reschedule hanya untuk booking yang belum berjalan — sesi aktif/selesai/batal
+  // harus lewat cancel/complete biasa, bukan pindah jadwal diam-diam.
+  bool get canReschedule => statusRaw == 'pending' || statusRaw == 'confirmed';
+  // No-show: hanya booking yang sudah confirmed/aktif dan jadwal mulainya
+  // sudah lewat (mencerminkan aturan backend).
+  bool get canMarkNoShow {
+    if (statusRaw != 'confirmed' && statusRaw != 'active') return false;
+    final start = startLocal;
+    return start != null && start.isBefore(DateTime.now());
+  }
 
   // Metode manual (transfer/e-wallet dgn verifikasi manual) yang tersedia utk
   // dicatatkan admin atas nama customer → menghasilkan attempt awaiting_verification.
@@ -243,6 +257,7 @@ class BookingDetail {
         'completed' => 'Selesai',
         'confirmed' => 'Siap mulai',
         'cancelled' => 'Dibatalkan',
+        'no_show' => 'Tidak hadir',
         _ => 'Menunggu',
       };
 
@@ -299,6 +314,8 @@ class BookingDetail {
       enableAddons: (j['controller_features'] is Map)
           ? (j['controller_features'] as Map)['enable_addons'] != false
           : true,
+      internalNote: '${j['internal_note'] ?? ''}',
+      rescheduleCount: (j['reschedule_count'] is num) ? (j['reschedule_count'] as num).toInt() : 0,
       attempts: rawAttempts.whereType<Map>().map((e) => PaymentAttempt.fromJson(Map<String, dynamic>.from(e))).toList(),
       orders: asList(j['orders']).whereType<Map>().map((e) => OrderLine.fnb(Map<String, dynamic>.from(e))).toList(),
       options: asList(j['options']).whereType<Map>().map((e) => OrderLine.option(Map<String, dynamic>.from(e))).toList(),

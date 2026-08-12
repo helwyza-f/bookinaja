@@ -1169,6 +1169,10 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 			cancelled_at = CASE
 				WHEN $1::text = 'cancelled' AND cancelled_at IS NULL THEN NOW()
 				ELSE cancelled_at
+			END,
+			no_show_at = CASE
+				WHEN $1::text = 'no_show' AND no_show_at IS NULL THEN NOW()
+				ELSE no_show_at
 			END
 		WHERE id = $2 AND tenant_id = $3`
 	if _, err := r.db.ExecContext(ctx, query, status, id, tenantID); err != nil {
@@ -1194,6 +1198,9 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	case "cancelled":
 		eventType = "booking.cancelled"
 		title = "Booking dibatalkan"
+	case "no_show":
+		eventType = "booking.no_show"
+		title = "Booking ditandai tidak hadir"
 	}
 	if err := r.CreateBookingEvent(ctx, r.db, BookingEventInput{
 		BookingID:   id,
@@ -1208,6 +1215,110 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 		Title:       title,
 		Description: fmt.Sprintf("Status berubah dari %s ke %s.", before.Status, status),
 		Metadata:    map[string]any{"from_status": before.Status, "to_status": status},
+	}); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
+}
+
+// RescheduleBooking memindahkan jadwal booking (jam/tanggal) pada resource yang
+// sama tanpa mengubah status/histori pembayaran. Durasi baru boleh berbeda dari
+// durasi lama, tapi resource_id tetap sama (ganti resource dianggap kasus lain).
+func (r *Repository) RescheduleBooking(ctx context.Context, id, tenantID uuid.UUID, newStart, newEnd time.Time, reason string, actor ActorContext) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var before Booking
+	if err := tx.GetContext(ctx, &before, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1 FOR UPDATE`, id, tenantID); err != nil {
+		return err
+	}
+
+	var count int
+	checkQuery := `
+		SELECT COUNT(*) FROM bookings
+		WHERE resource_id = $1 AND id != $2 AND tenant_id = $3
+		AND status NOT IN ('cancelled', 'rejected')
+		AND start_time < $5 AND end_time > $4`
+	if err := tx.GetContext(ctx, &count, checkQuery, before.ResourceID, id, tenantID, newStart, newEnd); err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("SLOT WAKTU BARU SUDAH TERISI")
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE bookings
+		SET start_time = $1,
+			end_time = $2,
+			rescheduled_at = NOW(),
+			reschedule_count = reschedule_count + 1,
+			last_status_changed_at = NOW()
+		WHERE id = $3 AND tenant_id = $4`,
+		newStart, newEnd, id, tenantID,
+	); err != nil {
+		return err
+	}
+
+	desc := fmt.Sprintf("Jadwal dipindah dari %s ke %s.", before.StartTime.Format(time.RFC3339), newStart.Format(time.RFC3339))
+	if strings.TrimSpace(reason) != "" {
+		desc += " Alasan: " + strings.TrimSpace(reason)
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &before.CustomerID,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
+		EventType:   "booking.rescheduled",
+		Title:       "Jadwal booking dipindah",
+		Description: desc,
+		Metadata: map[string]any{
+			"old_start_time": before.StartTime,
+			"old_end_time":   before.EndTime,
+			"new_start_time": newStart,
+			"new_end_time":   newEnd,
+			"reason":         reason,
+		},
+	}); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
+}
+
+// UpdateInternalNote menyimpan catatan bebas admin (tidak terlihat customer).
+func (r *Repository) UpdateInternalNote(ctx context.Context, id, tenantID uuid.UUID, note string, actor ActorContext) error {
+	var before Booking
+	if err := r.db.GetContext(ctx, &before, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
+	if _, err := r.db.ExecContext(ctx, `UPDATE bookings SET internal_note = NULLIF($1, '') WHERE id = $2 AND tenant_id = $3`, strings.TrimSpace(note), id, tenantID); err != nil {
+		return err
+	}
+	if err := r.CreateBookingEvent(ctx, r.db, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &before.CustomerID,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
+		EventType:   "booking.note_updated",
+		Title:       "Catatan booking diperbarui",
+		Description: "Admin memperbarui catatan internal booking.",
+		Metadata:    map[string]any{"note": note},
 	}); err != nil {
 		return err
 	}

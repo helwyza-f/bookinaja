@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../ui/toast.dart';
 import '../state/auth_controller.dart';
 import 'kasir.dart';
+import 'customers.dart';
 import 'cancellation_settings.dart';
 
 class MoreHubScreen extends StatelessWidget {
@@ -25,8 +26,14 @@ class MoreHubScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const Text('OPERASIONAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
+          // Kasir disembunyikan total saat mode F&B "Matikan" — tenant itu
+          // pakai app POS lain (mis. Majoo), Bookinaja fokus booking saja.
+          if (auth.kasirEnabled)
+            _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
+            }),
+          _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
           }),
           _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () => _soon(context, 'Menu F&B')),
           _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () => _soon(context, 'Biaya')),

@@ -37,6 +37,11 @@ class PosController extends ChangeNotifier {
   bool submitting = false; // sedang melunasi/mengirim bukti
   String? checkoutError;
 
+  // Order yang sudah dibuat untuk cart saat ini tapi belum lunas (mis.
+  // settle/submit gagal di tengah jalan). Dipakai ulang saat retry agar
+  // tidak menumpuk order duplikat/orphan.
+  String? _pendingOrderId;
+
   // Metode bayar tenant, dimuat sekali bersama menu (bukan dari order),
   // sehingga order hanya dibuat saat kasir menekan tombol bayar.
   List<PosPaymentMethod> paymentMethods = const [];
@@ -74,6 +79,7 @@ class PosController extends ChangeNotifier {
   }
 
   void add(MenuItem item) {
+    _discardPendingOrder();
     _cart.update(item.id, (l) {
       l.qty++;
       return l;
@@ -84,6 +90,7 @@ class PosController extends ChangeNotifier {
   void remove(MenuItem item) {
     final line = _cart[item.id];
     if (line == null) return;
+    _discardPendingOrder();
     if (line.qty <= 1) {
       _cart.remove(item.id);
     } else {
@@ -94,7 +101,26 @@ class PosController extends ChangeNotifier {
 
   void clearCart() {
     _cart.clear();
+    _discardPendingOrder();
     notifyListeners();
+  }
+
+  /// Buat order untuk cart saat ini, atau pakai ulang order yang sudah
+  /// dibuat sebelumnya (bila retry setelah settle/submit gagal).
+  Future<String> _ensureOrder() async {
+    final existing = _pendingOrderId;
+    if (existing != null) return existing;
+    final id = await _repo.createMenuOrder(cart);
+    _pendingOrderId = id;
+    return id;
+  }
+
+  /// Batalkan order pending (best-effort) tanpa memblokir UI.
+  void _discardPendingOrder() {
+    final id = _pendingOrderId;
+    if (id == null) return;
+    _pendingOrderId = null;
+    _repo.cancelOrder(id).catchError((_) {});
   }
 
   Future<void> load() async {
@@ -123,7 +149,7 @@ class PosController extends ChangeNotifier {
   Future<bool> payCash({String method = 'cash', int? cashReceived}) async {
     if (_cart.isEmpty) return false;
     return _run(() async {
-      final id = await _repo.createMenuOrder(cart);
+      final id = await _ensureOrder();
       final order = await _repo.getOrder(id);
       await _repo.settleCash(id, method: method);
       _finalize(PosResult(
@@ -139,7 +165,7 @@ class PosController extends ChangeNotifier {
   Future<bool> payManual({required String method, String? proofPath, String? note}) async {
     if (_cart.isEmpty) return false;
     return _run(() async {
-      final id = await _repo.createMenuOrder(cart);
+      final id = await _ensureOrder();
       final order = await _repo.getOrder(id);
       String? url;
       if (proofPath != null && proofPath.trim().isNotEmpty) {
@@ -182,6 +208,7 @@ class PosController extends ChangeNotifier {
 
   void _finalize(PosResult result) {
     lastResult = result;
+    _pendingOrderId = null;
     _cart.clear();
   }
 

@@ -299,6 +299,10 @@ class _DetailView extends StatelessWidget {
               if (d.isActive && (d.enableFnb || d.enableAddons))
                 _catalogButtons(context, d, disabled),
               if (d.canOverrideDeposit) _overrideLink(context, disabled),
+              if (d.canReschedule)
+                _primary('Jadwalkan ulang', BK.accent, disabled ? null : () => _rescheduleSheet(context, d), outline: true),
+              if (d.canMarkNoShow)
+                _primary('Tandai tidak hadir', BK.crit, disabled ? null : () => _confirmNoShow(context), outline: true),
             ];
             if (acts.isEmpty) return const SizedBox.shrink();
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [_groupLabel('Sesi'), ...acts]);
@@ -346,6 +350,9 @@ class _DetailView extends StatelessWidget {
             ),
           ],
         ])),
+
+        _sectionLabel('Catatan internal'),
+        _notesCard(context, d, disabled),
 
         // Riwayat pembayaran (attempt yang sudah diverifikasi / ditolak)
         if (d.historyAttempts.isNotEmpty) ...[
@@ -415,6 +422,114 @@ class _DetailView extends StatelessWidget {
       await _run(context, () => c.cancel(reason: reasonCtrl.text.trim()), 'Booking dibatalkan');
     }
     reasonCtrl.dispose();
+  }
+
+  Future<void> _confirmNoShow(BuildContext context) async {
+    final c = context.read<BookingDetailController>();
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Tandai tidak hadir?'),
+        content: Text('Booking ${c.detail?.customerName ?? fallback.customer} akan ditandai no-show. Pembayaran yang sudah masuk tidak berubah — pakai ini kalau customer tidak datang tanpa kabar.', style: const TextStyle(fontSize: 13)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Kembali')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.crit), onPressed: () => Navigator.pop(context, true), child: const Text('Ya, tandai')),
+        ],
+      ),
+    );
+    if (yes == true && context.mounted) {
+      await _run(context, c.markNoShow, 'Booking ditandai tidak hadir');
+    }
+  }
+
+  /// Pindah jadwal: pilih tanggal → jam mulai baru. Durasi dipertahankan sama
+  /// seperti booking asal (geser jam/tanggal, bukan ubah lama sesi).
+  Future<void> _rescheduleSheet(BuildContext context, BookingDetail d) async {
+    final c = context.read<BookingDetailController>();
+    final now = DateTime.now();
+    final currentStart = d.startLocal ?? now;
+    final duration = (d.endLocal != null && d.startLocal != null)
+        ? d.endLocal!.difference(d.startLocal!)
+        : const Duration(hours: 1);
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: currentStart.isBefore(now) ? now : currentStart,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !context.mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(currentStart),
+    );
+    if (time == null || !context.mounted) return;
+
+    final newStart = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final newEnd = newStart.add(duration);
+
+    final reason = await _askReason(
+      context,
+      'Pindah jadwal',
+      'Alasan',
+      description: 'Jadwal baru: ${_fmtDate(newStart)} · ${_fmtTime(newStart)}–${_fmtTime(newEnd)}.',
+      hint: 'mis. Customer minta geser jam',
+      confirmLabel: 'Pindahkan jadwal',
+    );
+    if (reason == null || !context.mounted) return;
+
+    await _run(context, () => c.reschedule(start: newStart, end: newEnd, reason: reason), 'Jadwal dipindah');
+  }
+
+  String _fmtDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  String _fmtTime(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  Widget _notesCard(BuildContext context, BookingDetail d, bool disabled) {
+    return BKCard(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: Text(
+            d.internalNote.isEmpty ? 'Belum ada catatan. Pakai ini untuk komunikasi antar-shift (mis. permintaan khusus customer).' : d.internalNote,
+            style: TextStyle(fontSize: 12.5, height: 1.4, color: d.internalNote.isEmpty ? BK.ink3 : BK.ink2, fontStyle: d.internalNote.isEmpty ? FontStyle.italic : FontStyle.normal),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.edit_note_rounded, size: 20, color: BK.ink3),
+          onPressed: disabled ? null : () => _editNote(context, d),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _editNote(BuildContext context, BookingDetail d) async {
+    final c = context.read<BookingDetailController>();
+    final ctrl = TextEditingController(text: d.internalNote);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Catatan internal'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 4,
+          minLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: 'mis. Customer bawa anak kecil, titip kursi tambahan', border: OutlineInputBorder(borderRadius: BorderRadius.circular(11)), isDense: true),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.accent), onPressed: () => Navigator.pop(context, true), child: const Text('Simpan')),
+        ],
+      ),
+    );
+    if (saved == true && context.mounted) {
+      await _run(context, () => c.updateNote(ctrl.text.trim()), 'Catatan disimpan');
+    }
+    ctrl.dispose();
   }
 
   Widget _heroPill(IconData icon, String label) => Container(

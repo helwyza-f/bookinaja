@@ -46,6 +46,22 @@ class AuthRepository {
   /// Slug workspace terakhir yang dibuka (buat auto-pilih saat login).
   Future<String?> lastWorkspaceSlug() => _store.lastWorkspaceSlug();
 
+  /// GET /admin/me/bootstrap — ambil fitur tenant aktif (mis. mode F&B:
+  /// integrated/standalone/off) untuk menentukan gating nav Kasir.
+  /// Default 'integrated' bila gagal (backend lama / offline) agar Kasir
+  /// tetap terlihat sebagai quick action, bukan tiba-tiba hilang.
+  Future<String> fetchFnbMode() async {
+    try {
+      final res = await _api.get('/admin/me/bootstrap');
+      final features = (res is Map && res['features'] is Map) ? res['features'] as Map : const {};
+      final mode = '${features['fnb_mode'] ?? ''}';
+      if (mode == 'standalone' || mode == 'off' || mode == 'integrated') return mode;
+      return 'integrated';
+    } catch (_) {
+      return 'integrated';
+    }
+  }
+
   Future<RestoredSession?> restore() async {
     final saved = await _store.read();
     if (saved == null) return null;

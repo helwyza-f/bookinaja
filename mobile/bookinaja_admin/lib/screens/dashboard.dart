@@ -18,6 +18,7 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dash = context.watch<DashboardController>();
+    final auth = context.watch<AuthController>();
     return SafeArea(
       child: RefreshIndicator(
         color: BK.accent,
@@ -36,8 +37,13 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () => _go(context, const CreateBookingScreen())),
                 const SizedBox(width: 9),
-                _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
-                const SizedBox(width: 9),
+                // Kasir hanya tampil sebagai quick action di mode "Nyatu dengan
+                // booking" — di mode standalone dia sudah jadi tab bottom nav,
+                // dan di mode "Matikan" tidak ditampilkan sama sekali.
+                if (auth.showKasirQuickAction) ...[
+                  _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
+                  const SizedBox(width: 9),
+                ],
                 _QuickAction(Icons.sensors, 'POS', BK.pend, onTap: () => _go(context, const OperationsScreen())),
                 const SizedBox(width: 9),
                 _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _soon(context, 'Laporan')),
@@ -541,6 +547,7 @@ Widget _statusPill(BookingStatus status) {
     BookingStatus.dp => ('DP', BK.accent, BK.accentSoft),
     BookingStatus.paid => ('Lunas', BK.live, BK.liveSoft),
     BookingStatus.cancelled => ('Batal', BK.crit, BK.critSoft),
+    BookingStatus.noShow => ('No-show', BK.ink3, BK.card2),
     BookingStatus.pending => ('Pending', BK.ink3, BK.card2),
   };
   return Container(

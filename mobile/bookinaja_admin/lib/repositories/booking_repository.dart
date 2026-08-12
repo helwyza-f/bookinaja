@@ -77,6 +77,7 @@ class BookingRepository {
         BookingStatus.live => 'active',
         BookingStatus.paid => 'completed',
         BookingStatus.cancelled => 'cancelled',
+        BookingStatus.noShow => 'no_show',
         BookingStatus.dp => 'confirmed',
         BookingStatus.review => 'pending',
         BookingStatus.pending => 'pending',
@@ -118,6 +119,29 @@ class BookingRepository {
       return;
     }
     await _api.put('/bookings/$id/status', body: {'status': status, if (reason.isNotEmpty) 'reason': reason});
+  }
+
+  /// Pindah jadwal booking yang belum berjalan (pending/confirmed).
+  /// PUT /bookings/:id/reschedule {start_time, end_time, reason}.
+  Future<void> reschedule(String id, {required DateTime startLocal, required DateTime endLocal, String reason = ''}) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return;
+    }
+    await _api.put('/bookings/$id/reschedule', body: {
+      'start_time': startLocal.toUtc().toIso8601String(),
+      'end_time': endLocal.toUtc().toIso8601String(),
+      if (reason.isNotEmpty) 'reason': reason,
+    });
+  }
+
+  /// Simpan catatan internal admin (tidak terlihat customer). PUT /bookings/:id/note.
+  Future<void> updateNote(String id, String note) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return;
+    }
+    await _api.put('/bookings/$id/note', body: {'note': note});
   }
 
   /// Catat DP (cash). POST /bookings/:id/record-deposit.

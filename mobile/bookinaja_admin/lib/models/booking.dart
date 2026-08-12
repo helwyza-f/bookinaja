@@ -1,10 +1,11 @@
 /// Status booking dinormalisasi untuk UI.
-enum BookingStatus { pending, dp, live, review, paid, cancelled }
+enum BookingStatus { pending, dp, live, review, paid, cancelled, noShow }
 
 BookingStatus bookingStatusFrom(String raw, {String? paymentStatus}) {
   final s = raw.toLowerCase();
   final p = (paymentStatus ?? '').toLowerCase();
   if (s == 'cancelled' || s == 'canceled') return BookingStatus.cancelled;
+  if (s == 'no_show') return BookingStatus.noShow;
   if (s == 'ongoing' || s == 'active' || s == 'live') return BookingStatus.live;
   if (p == 'review' || p == 'pending_verification') return BookingStatus.review;
   if (p == 'partial' || p == 'dp' || p == 'deposit') return BookingStatus.dp;

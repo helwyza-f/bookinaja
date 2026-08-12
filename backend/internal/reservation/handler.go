@@ -658,6 +658,48 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIPERBARUI"})
 }
 
+// Reschedule memindahkan jam/tanggal booking yang belum berjalan.
+func (h *Handler) Reschedule(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+
+	var req struct {
+		StartTime time.Time `json:"start_time" binding:"required"`
+		EndTime   time.Time `json:"end_time" binding:"required"`
+		Reason    string    `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JADWAL BARU TIDAK VALID"})
+		return
+	}
+
+	if err := h.service.Reschedule(c.Request.Context(), id, tenantID, req.StartTime, req.EndTime, req.Reason, h.adminActor(c)); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "JADWAL BERHASIL DIPINDAH"})
+}
+
+// UpdateNote menyimpan catatan internal admin pada booking.
+func (h *Handler) UpdateNote(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+
+	var req struct {
+		Note string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "CATATAN TIDAK VALID"})
+		return
+	}
+
+	if err := h.service.UpdateInternalNote(c.Request.Context(), id, tenantID, req.Note, h.adminActor(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "CATATAN TERSIMPAN"})
+}
+
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)

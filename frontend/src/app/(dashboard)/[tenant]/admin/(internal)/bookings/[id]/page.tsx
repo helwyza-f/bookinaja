@@ -168,6 +168,9 @@ type BookingDetail = {
   options?: BookingOption[];
   orders?: BookingOrder[];
   events?: BookingEvent[];
+  internal_note?: string;
+  reschedule_count?: number;
+  no_show_at?: string;
 };
 
 function patchBookingDetailFromEvent(
@@ -260,6 +263,9 @@ function adminSessionStatusMeta(status?: string) {
   }
   if (normalized === "cancelled") {
     return { label: "Dibatalkan", className: "bg-red-500 text-white" };
+  }
+  if (normalized === "no_show") {
+    return { label: "Tidak Hadir", className: "bg-slate-500 text-white" };
   }
   return { label: "Menunggu", className: "bg-amber-500 text-white" };
 }
@@ -657,6 +663,12 @@ export default function BookingDetailPage() {
   const [overrideDepositReason, setOverrideDepositReason] = useState(
     "Booking dijalankan tanpa DP.",
   );
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
   const hasPendingManualVerification = pendingManualAttempts.length > 0;
   const isPaymentSettled =
     booking?.payment_status === "settled" ||
@@ -721,6 +733,15 @@ export default function BookingDetailPage() {
   const canDeleteBooking = hasPermission(adminUser, "bookings.delete");
   const canCancel =
     (status === "pending" || status === "confirmed") && canCancelBooking;
+  const canUpdateBooking = hasPermission(adminUser, "bookings.update");
+  const canReschedule =
+    (status === "pending" || status === "confirmed") && canUpdateBooking;
+  const canEditNote = canUpdateBooking;
+  const canMarkNoShow =
+    (status === "confirmed" || status === "active") &&
+    canCancelBooking &&
+    Boolean(booking?.start_time) &&
+    parseISO(booking?.start_time || "") < now;
   const canSettleCash = hasPermission(adminUser, "pos.cash.settle");
   const canExtendSession = hasPermission(adminUser, "sessions.extend");
   const canManageLiveOrders = hasPermission(adminUser, "pos.order.add");
@@ -754,7 +775,10 @@ export default function BookingDetailPage() {
     canSettle ||
     (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
     canCancel ||
-    canDeleteBooking;
+    canDeleteBooking ||
+    canReschedule ||
+    canEditNote ||
+    canMarkNoShow;
   const showLiveController = status === "active" && Boolean(booking?.id);
   const canAddFnb = showLiveController && enableFnb && canManageLiveOrders;
   const canAddAddon = showLiveController && enableAddons && canManageLiveOrders;
@@ -949,13 +973,44 @@ export default function BookingDetailPage() {
       ],
     });
   }
-  if (canCancel || canDeleteBooking) {
+  if (canCancel || canDeleteBooking || canReschedule || canEditNote || canMarkNoShow) {
     adminActions.push({
       key: "cancel",
       title: "Aksi lain",
       description: "Koreksi data.",
       icon: MoreVertical,
       menuItems: [
+        ...(canReschedule
+          ? [
+              {
+                key: "reschedule-booking",
+                label: "Jadwalkan ulang",
+                icon: Calendar,
+                onClick: () => openRescheduleDialog(),
+              },
+            ]
+          : []),
+        ...(canEditNote
+          ? [
+              {
+                key: "edit-note",
+                label: "Catatan internal",
+                icon: Receipt,
+                onClick: () => openNoteDialog(),
+              },
+            ]
+          : []),
+        ...(canMarkNoShow
+          ? [
+              {
+                key: "no-show",
+                label: "Tandai tidak hadir",
+                icon: Clock,
+                onClick: () => handleMarkNoShow(),
+                className: "text-red-600",
+              },
+            ]
+          : []),
         ...(canCancel
           ? [
               {
@@ -1215,6 +1270,71 @@ export default function BookingDetailPage() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleReschedule = async () => {
+    if (!booking || !rescheduleDate || !rescheduleTime) return;
+    const newStart = new Date(`${rescheduleDate}T${rescheduleTime}:00`);
+    if (Number.isNaN(newStart.getTime())) {
+      toast.error("Tanggal/jam tidak valid");
+      return;
+    }
+    const durationMs = parseISO(booking.end_time).getTime() - parseISO(booking.start_time).getTime();
+    const newEnd = new Date(newStart.getTime() + Math.max(durationMs, 0));
+
+    setUpdating(true);
+    try {
+      await api.put(`/bookings/${params.id}/reschedule`, {
+        start_time: newStart.toISOString(),
+        end_time: newEnd.toISOString(),
+        reason: String(rescheduleReason || "").trim(),
+      });
+      toast.success("Jadwal berhasil dipindah");
+      setRescheduleDialogOpen(false);
+      fetchDetail();
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Gagal memindah jadwal");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleUpdateNote = async () => {
+    setUpdating(true);
+    try {
+      await api.put(`/bookings/${params.id}/note`, { note: String(noteText || "").trim() });
+      toast.success("Catatan tersimpan");
+      setNoteDialogOpen(false);
+      fetchDetail();
+    } catch {
+      toast.error("Gagal menyimpan catatan");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleMarkNoShow = () => {
+    const confirmed = window.confirm(
+      "Tandai booking ini sebagai tidak hadir (no-show)? Pembayaran yang sudah masuk tidak berubah.",
+    );
+    if (!confirmed) return;
+    void handleUpdateStatus("no_show");
+  };
+
+  const openRescheduleDialog = () => {
+    if (booking?.start_time) {
+      const start = parseISO(booking.start_time);
+      setRescheduleDate(format(start, "yyyy-MM-dd"));
+      setRescheduleTime(format(start, "HH:mm"));
+    }
+    setRescheduleReason("");
+    setRescheduleDialogOpen(true);
+  };
+
+  const openNoteDialog = () => {
+    setNoteText(String(booking?.internal_note || ""));
+    setNoteDialogOpen(true);
   };
 
   const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
@@ -1962,6 +2082,87 @@ export default function BookingDetailPage() {
                 </Button>
                 <Button type="button" className="rounded-2xl bg-amber-500 text-white hover:bg-amber-600" onClick={() => void handleOverrideDeposit()} disabled={updating || !String(overrideDepositReason || "").trim()}>
                   {updating ? "Memproses..." : "Aktifkan tanpa DP"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+            <DialogContent
+              className="overflow-hidden rounded-3xl p-0 sm:max-w-lg"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
+              <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
+                <DialogTitle>Jadwalkan ulang</DialogTitle>
+                <DialogDescription>
+                  Pindah jam/tanggal booking. Durasi sesi dipertahankan sama seperti sekarang. Histori pembayaran tidak berubah.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 px-6 py-5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-900">Tanggal baru</label>
+                    <input
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(event) => setRescheduleDate(event.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-900">Jam mulai baru</label>
+                    <input
+                      type="time"
+                      value={rescheduleTime}
+                      onChange={(event) => setRescheduleTime(event.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900">Alasan (opsional)</label>
+                  <textarea
+                    value={rescheduleReason}
+                    onChange={(event) => setRescheduleReason(event.target.value)}
+                    className="min-h-[80px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Contoh: Customer minta geser jam"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => setRescheduleDialogOpen(false)} disabled={updating}>
+                  Batal
+                </Button>
+                <Button type="button" className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleReschedule()} disabled={updating || !rescheduleDate || !rescheduleTime}>
+                  {updating ? "Memproses..." : "Pindahkan jadwal"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+            <DialogContent
+              className="overflow-hidden rounded-3xl p-0 sm:max-w-lg"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
+              <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
+                <DialogTitle>Catatan internal</DialogTitle>
+                <DialogDescription>
+                  Catatan bebas untuk komunikasi antar-shift. Tidak terlihat oleh customer.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 px-6 py-5">
+                <textarea
+                  value={noteText}
+                  onChange={(event) => setNoteText(event.target.value)}
+                  className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Contoh: Customer bawa anak kecil, titip kursi tambahan."
+                />
+              </div>
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => setNoteDialogOpen(false)} disabled={updating}>
+                  Batal
+                </Button>
+                <Button type="button" className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleUpdateNote()} disabled={updating}>
+                  {updating ? "Memproses..." : "Simpan"}
                 </Button>
               </div>
             </DialogContent>

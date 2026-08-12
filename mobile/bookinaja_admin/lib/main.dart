@@ -24,7 +24,7 @@ import 'screens/workspace_picker_screen.dart';
 import 'screens/dashboard.dart';
 import 'screens/bookings.dart';
 import 'screens/operations.dart';
-import 'screens/customers.dart';
+import 'screens/kasir.dart';
 import 'screens/more_hub.dart';
 
 void main() {
@@ -136,7 +136,8 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final workspaceSlug = context.watch<AuthController>().workspace?.slug ?? '';
+    final auth = context.watch<AuthController>();
+    final workspaceSlug = auth.workspace?.slug ?? '';
     if (workspaceSlug.isNotEmpty) {
       RealtimeClient.instance.setChannels([
         tenantBookingsChannel(workspaceSlug),
@@ -144,18 +145,23 @@ class _HomeShellState extends State<HomeShell> {
         tenantDevicesChannel(workspaceSlug),
       ], source: 'shell');
     }
-    const pages = [
-      DashboardScreen(),
-      BookingsScreen(),
-      OperationsScreen(),
-      CustomersScreen(),
-      MoreHubScreen(),
+    // Kasir hanya naik jadi tab bottom nav saat mode F&B "POS Menu terpisah"
+    // (standalone) — di mode lain dia tetap quick action / tile More hub saja.
+    final showKasirTab = auth.showKasirTab;
+    final pages = [
+      const DashboardScreen(),
+      const BookingsScreen(),
+      if (showKasirTab) const KasirScreen(),
+      const OperationsScreen(),
+      const MoreHubScreen(),
     ];
+    if (_i >= pages.length) _i = 0;
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: _i, children: pages),
       bottomNavigationBar: _NavBar(
         index: _i,
+        showKasir: showKasirTab,
         onTap: (v) => setState(() => _i = v),
       ),
     );
@@ -166,16 +172,23 @@ class _HomeShellState extends State<HomeShell> {
 /// dalam kotak accentSoft (senada chip/avatar app), label selalu tampil.
 class _NavBar extends StatelessWidget {
   final int index;
+  final bool showKasir;
   final ValueChanged<int> onTap;
-  const _NavBar({required this.index, required this.onTap});
+  const _NavBar({required this.index, required this.showKasir, required this.onTap});
 
-  static const _items = <({IconData off, IconData on, String label})>[
-    (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home'),
-    (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking'),
-    (off: Icons.sensors_outlined, on: Icons.sensors, label: 'POS'),
-    (off: Icons.people_outline, on: Icons.people, label: 'Customer'),
-    (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya'),
-  ];
+  static const _home = (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home');
+  static const _booking = (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking');
+  static const _kasir = (off: Icons.shopping_cart_outlined, on: Icons.shopping_cart, label: 'Kasir');
+  static const _ops = (off: Icons.sensors_outlined, on: Icons.sensors, label: 'POS');
+  static const _more = (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya');
+
+  List<({IconData off, IconData on, String label})> get _items => [
+        _home,
+        _booking,
+        if (showKasir) _kasir,
+        _ops,
+        _more,
+      ];
 
   @override
   Widget build(BuildContext context) {

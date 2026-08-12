@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/account.dart';
 import '../models/workspace.dart';
@@ -16,6 +17,10 @@ class AuthController extends ChangeNotifier {
   String? _error;
   AsyncValue<List<Workspace>> _workspaces = const AsyncValue.loading();
 
+  // Mode F&B tenant aktif: integrated (nempel booking), standalone (kasir
+  // berdiri sendiri), atau off (kasir dimatikan, F&B ditangani app lain).
+  String _fnbMode = 'integrated';
+
   Account? get account => _account;
   Workspace? get workspace => _workspace;
   bool get isLoggedIn => _account != null;
@@ -25,6 +30,19 @@ class AuthController extends ChangeNotifier {
   String? get error => _error;
   AsyncValue<List<Workspace>> get workspaces => _workspaces;
 
+  String get fnbMode => _fnbMode;
+  /// Kasir dipromosikan jadi tab utama bottom nav (mode "POS Menu terpisah").
+  bool get showKasirTab => _fnbMode == 'standalone';
+  /// Kasir tetap ada sebagai quick action saja (mode "Nyatu dengan booking").
+  bool get showKasirQuickAction => _fnbMode == 'integrated';
+  /// Kasir dimatikan total (mode "Matikan") — sembunyikan screen & entrypoint.
+  bool get kasirEnabled => _fnbMode != 'off';
+
+  Future<void> _refreshFnbMode() async {
+    _fnbMode = await _repo.fetchFnbMode();
+    notifyListeners();
+  }
+
   Future<void> bootstrap() async {
     final restored = await _repo.restore();
     if (restored != null) {
@@ -33,6 +51,7 @@ class AuthController extends ChangeNotifier {
     }
     _booting = false;
     notifyListeners();
+    if (_workspace != null) unawaited(_refreshFnbMode());
   }
 
   /// Langkah 1: login account.
@@ -66,6 +85,7 @@ class AuthController extends ChangeNotifier {
       if (match.isNotEmpty) {
         await _repo.selectWorkspace(match.first);
         _workspace = match.first;
+        await _refreshFnbMode();
       }
     } catch (_) {
       // Gagal ambil workspace di sini bukan fatal — picker akan coba lagi.
@@ -89,12 +109,14 @@ class AuthController extends ChangeNotifier {
     await _repo.selectWorkspace(w);
     _workspace = w;
     notifyListeners();
+    await _refreshFnbMode();
   }
 
   /// Kembali ke pemilihan workspace (sesi account tetap).
   Future<void> switchWorkspace() async {
     await _repo.leaveWorkspace();
     _workspace = null;
+    _fnbMode = 'integrated';
     notifyListeners();
   }
 
@@ -102,6 +124,7 @@ class AuthController extends ChangeNotifier {
     await _repo.logout();
     _account = null;
     _workspace = null;
+    _fnbMode = 'integrated';
     notifyListeners();
   }
 }

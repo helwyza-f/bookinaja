@@ -791,14 +791,14 @@ export default function BookingsPage() {
               >
                 All Status
               </SelectItem>
-              {["pending", "confirmed", "active", "completed", "cancelled"].map(
+              {["pending", "confirmed", "active", "completed", "cancelled", "no_show"].map(
                 (s) => (
                   <SelectItem
                     key={s}
                     value={s}
                     className="text-xs font-semibold py-3 rounded-xl"
                   >
-                    {s === "active" ? "active / perlu pelunasan" : s}
+                    {s === "active" ? "active / perlu pelunasan" : s === "no_show" ? "no-show" : s}
                   </SelectItem>
                 ),
               )}

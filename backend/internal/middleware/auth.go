@@ -432,6 +432,8 @@ func RequireBookingStatusPermission() gin.HandlerFunc {
 			required = []string{tenant.PermissionSessionsComplete}
 		case "cancelled":
 			required = []string{tenant.PermissionBookingsCancel}
+		case "no_show":
+			required = []string{tenant.PermissionBookingsCancel}
 		default:
 			required = []string{tenant.PermissionBookingsUpdate}
 		}

@@ -202,6 +202,8 @@ Pill statusPill(BookingStatus s) {
       return Pill.live('Lunas');
     case BookingStatus.cancelled:
       return Pill.mut('Batal');
+    case BookingStatus.noShow:
+      return Pill.mut('No-show');
     case BookingStatus.pending:
       return Pill.acc('Pending');
   }
