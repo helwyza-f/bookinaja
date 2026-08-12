@@ -328,8 +328,8 @@ func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (
 	return order, cust, sessionToken, nil
 }
 
-func (s *Service) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string) ([]Order, error) {
-	return s.repo.ListByTenant(ctx, tenantID, limit, status, search)
+func (s *Service) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string, kinds []string) ([]Order, error) {
+	return s.repo.ListByTenant(ctx, tenantID, limit, status, search, kinds)
 }
 
 func (s *Service) ListOpenByTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]Order, error) {
@@ -636,6 +636,13 @@ func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, i
 	s.notifyOrderChange(ctx, tenantID, orderID, "payment.cash.settled", map[string]any{
 		"flow": "direct_sale",
 	})
+	// Walk-in tunai langsung tertutup di SettleCash (lihat repo). Emit
+	// order.completed agar POS feed & dashboard membuangnya dari daftar aktif.
+	if order.OrderKind == "menu" || order.OrderKind == "direct_sale" {
+		s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
+			"flow": "direct_sale",
+		})
+	}
 	return nil
 }
 
@@ -654,6 +661,26 @@ func (s *Service) Close(ctx context.Context, tenantID, orderID uuid.UUID) error 
 		return err
 	}
 	s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
+		"flow": "direct_sale",
+	})
+	return nil
+}
+
+func (s *Service) Cancel(ctx context.Context, tenantID, orderID uuid.UUID) error {
+	order, err := s.repo.GetByID(ctx, tenantID, orderID)
+	if err != nil {
+		return errors.New("sales order not found")
+	}
+	if order.Status == "cancelled" {
+		return nil
+	}
+	if order.Status != "open" && order.Status != "pending_payment" {
+		return errors.New("hanya order yang belum terbayar bisa dibatalkan")
+	}
+	if err := s.repo.Cancel(ctx, tenantID, orderID); err != nil {
+		return err
+	}
+	s.notifyOrderChange(ctx, tenantID, orderID, "order.cancelled", map[string]any{
 		"flow": "direct_sale",
 	})
 	return nil
@@ -795,6 +822,12 @@ func (s *Service) emitOrderRealtime(eventType string, order *Order, meta map[str
 		_ = s.realtime.Publish(platformrealtime.CustomerOrdersChannel(customerID), event)
 		_ = s.realtime.Publish(platformrealtime.CustomerOrderChannel(customerID, order.ID.String()), event)
 	}
+}
+
+// ListPaymentMethods mengembalikan metode bayar tenant tanpa perlu membuat
+// order lebih dulu — dipakai kasir mobile agar order hanya dibuat saat bayar.
+func (s *Service) ListPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]OrderPaymentMethod, error) {
+	return s.listTenantPaymentMethods(ctx, tenantID)
 }
 
 func (s *Service) listTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]OrderPaymentMethod, error) {

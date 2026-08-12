@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type Repository struct {
@@ -175,7 +176,7 @@ func (r *Repository) HydrateOrderPayments(ctx context.Context, order *Order, met
 	return nil
 }
 
-func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string) ([]Order, error) {
+func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string, kinds []string) ([]Order, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -192,6 +193,12 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit
 		WHERE so.tenant_id = $1`
 	args := []any{tenantID}
 	argIndex := 2
+
+	if len(kinds) > 0 {
+		query += fmt.Sprintf(" AND so.order_kind = ANY($%d)", argIndex)
+		args = append(args, pq.Array(kinds))
+		argIndex++
+	}
 
 	if status = strings.TrimSpace(status); status != "" && strings.ToLower(status) != "all" {
 		query += fmt.Sprintf(" AND LOWER(so.status) = LOWER($%d)", argIndex)
@@ -381,10 +388,15 @@ func (r *Repository) UpdateCheckout(ctx context.Context, tenantID, orderID uuid.
 }
 
 func (r *Repository) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, paymentMethod, notes string) error {
+	// Walk-in tunai (F&B menu & direct-sale) tidak punya tahap pelunasan
+	// berikutnya: bayar = selesai. Langsung tutup ke 'completed' dalam satu
+	// transaksi agar tidak menggantung di 'paid' (lihat POS action feed).
+	// Order booking/public tetap berhenti di 'paid' — penutupannya lewat Close.
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE sales_orders
 		SET
-			status = 'paid',
+			status = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed' ELSE 'paid' END,
+			completed_at = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
 			payment_status = 'settled',
 			payment_method = $3,
 			notes = $4,
@@ -392,6 +404,22 @@ func (r *Repository) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID
 			balance_due = 0,
 			updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2`, orderID, tenantID, paymentMethod, notes)
+	return err
+}
+
+// Cancel membatalkan order yang belum terbayar (open/pending_payment) — mis.
+// pembayaran manual ditolak atau kasir membatalkan. Tidak menyentuh order yang
+// sudah paid/completed (uang sudah masuk).
+func (r *Repository) Cancel(ctx context.Context, tenantID, orderID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE sales_orders
+		SET
+			status = 'cancelled',
+			payment_status = 'cancelled',
+			updated_at = NOW()
+		WHERE id = $1
+		  AND tenant_id = $2
+		  AND status IN ('open', 'pending_payment')`, orderID, tenantID)
 	return err
 }
 
