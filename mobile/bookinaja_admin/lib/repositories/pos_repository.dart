@@ -43,6 +43,15 @@ class PosRepository {
     return PosOrder.fromJson(_asMap(res));
   }
 
+  /// Riwayat transaksi kasir terbaru.
+  Future<List<PosOrder>> listRecentOrders({int limit = 40}) async {
+    final res = await _api.get('/sales-orders?limit=$limit');
+    final items = (res is Map && res['items'] is List)
+        ? res['items'] as List
+        : (res is List ? res : const []);
+    return items.whereType<Map>().map((e) => PosOrder.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
   /// Lunasi tunai.
   Future<void> settleCash(String orderId, {String method = 'cash', String? notes}) async {
     await _api.post('/sales-orders/$orderId/settle-cash', body: {
@@ -59,11 +68,12 @@ class PosRepository {
     return url;
   }
 
-  /// Kirim pembayaran manual (transfer/QRIS) + bukti → menunggu verifikasi.
-  Future<void> submitManual(String orderId, {required String method, required String proofUrl, String? note}) async {
+  /// Kirim pembayaran manual (transfer/QRIS) → menunggu verifikasi.
+  /// [proofUrl] & [note] opsional.
+  Future<void> submitManual(String orderId, {required String method, String? proofUrl, String? note}) async {
     await _api.post('/sales-orders/$orderId/manual-payment', body: {
       'method': method,
-      'proof_url': proofUrl,
+      if (proofUrl != null && proofUrl.trim().isNotEmpty) 'proof_url': proofUrl.trim(),
       if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
     });
   }

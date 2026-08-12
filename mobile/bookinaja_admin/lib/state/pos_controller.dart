@@ -159,12 +159,15 @@ class PosController extends ChangeNotifier {
     });
   }
 
-  /// Bayar non-tunai: unggah bukti lalu kirim sebagai pembayaran manual.
-  Future<bool> payManual({required String method, required String proofPath, String? note}) async {
+  /// Bayar non-tunai: (opsional) unggah bukti lalu kirim sebagai pembayaran manual.
+  Future<bool> payManual({required String method, String? proofPath, String? note}) async {
     final order = _pendingOrder ?? await prepareOrder();
     if (order == null) return false;
     return _run(() async {
-      final url = await _repo.uploadProof(proofPath);
+      String? url;
+      if (proofPath != null && proofPath.trim().isNotEmpty) {
+        url = await _repo.uploadProof(proofPath);
+      }
       await _repo.submitManual(order.id, method: method, proofUrl: url, note: note);
       _finalize(PosResult(
         orderNumber: order.orderNumber,
@@ -173,6 +176,9 @@ class PosController extends ChangeNotifier {
       ));
     });
   }
+
+  /// Riwayat transaksi kasir (untuk sheet riwayat).
+  Future<List<PosOrder>> fetchHistory() => _repo.listRecentOrders();
 
   Future<bool> _run(Future<void> Function() op) async {
     submitting = true;

@@ -40,6 +40,8 @@ class PosOrder {
   final int grandTotal;
   final String status;
   final String paymentStatus;
+  final String paymentMethod;
+  final DateTime? createdAt;
   final List<PosPaymentMethod> methods;
 
   const PosOrder({
@@ -48,6 +50,8 @@ class PosOrder {
     required this.grandTotal,
     required this.status,
     required this.paymentStatus,
+    this.paymentMethod = '',
+    this.createdAt,
     this.methods = const [],
   });
 
@@ -68,6 +72,8 @@ class PosOrder {
       grandTotal: money(j['grand_total']),
       status: '${j['status'] ?? ''}',
       paymentStatus: '${j['payment_status'] ?? ''}',
+      paymentMethod: '${j['payment_method'] ?? ''}',
+      createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
       methods: methods,
     );
   }
