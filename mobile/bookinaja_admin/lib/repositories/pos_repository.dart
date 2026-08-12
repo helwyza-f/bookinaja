@@ -37,19 +37,38 @@ class PosRepository {
     return id;
   }
 
+  /// Metode bayar tenant (tanpa perlu membuat order lebih dulu).
+  Future<List<PosPaymentMethod>> listPaymentMethods() async {
+    if (AppConfig.useDemoData) return const [];
+    final res = await _api.get('/sales-orders/payment-methods');
+    final items = (res is Map && res['items'] is List)
+        ? res['items'] as List
+        : (res is List ? res : const []);
+    return items
+        .whereType<Map>()
+        .map((e) => PosPaymentMethod.fromJson(Map<String, dynamic>.from(e)))
+        .where((m) => m.code.isNotEmpty)
+        .toList();
+  }
+
   /// Ambil order lengkap (termasuk payment_methods & grand_total dari server).
   Future<PosOrder> getOrder(String orderId) async {
     final res = await _api.get('/sales-orders/$orderId');
     return PosOrder.fromJson(_asMap(res));
   }
 
-  /// Riwayat transaksi kasir terbaru.
+  /// Riwayat transaksi kasir terbaru — hanya order walk-in (menu & direct-sale),
+  /// dan sembunyikan order 'open' yang belum jadi transaksi.
   Future<List<PosOrder>> listRecentOrders({int limit = 40}) async {
-    final res = await _api.get('/sales-orders?limit=$limit');
+    final res = await _api.get('/sales-orders?limit=$limit&kind=menu,direct_sale');
     final items = (res is Map && res['items'] is List)
         ? res['items'] as List
         : (res is List ? res : const []);
-    return items.whereType<Map>().map((e) => PosOrder.fromJson(Map<String, dynamic>.from(e))).toList();
+    return items
+        .whereType<Map>()
+        .map((e) => PosOrder.fromJson(Map<String, dynamic>.from(e)))
+        .where((o) => o.status.toLowerCase() != 'open')
+        .toList();
   }
 
   /// Lunasi tunai.
@@ -68,6 +87,11 @@ class PosRepository {
     return url;
   }
 
+  /// Batalkan order yang belum terbayar (open/pending_payment).
+  Future<void> cancelOrder(String orderId) async {
+    await _api.post('/sales-orders/$orderId/cancel');
+  }
+
   /// Kirim pembayaran manual (transfer/QRIS) → menunggu verifikasi.
   /// [proofUrl] & [note] opsional.
   Future<void> submitManual(String orderId, {required String method, String? proofUrl, String? note}) async {
@@ -78,12 +102,4 @@ class PosRepository {
     });
   }
 
-  /// Tutup order yang belum dibayar (mis. kasir batal) — best-effort.
-  Future<void> closeOrder(String orderId) async {
-    try {
-      await _api.post('/sales-orders/$orderId/close');
-    } catch (_) {
-      // abaikan; order terbuka tetap bisa diselesaikan nanti dari web.
-    }
-  }
 }

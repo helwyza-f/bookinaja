@@ -34,12 +34,12 @@ class PosController extends ChangeNotifier {
   String category = 'Semua';
   String query = '';
 
-  bool preparing = false; // sedang membuat/memuat order untuk pembayaran
   bool submitting = false; // sedang melunasi/mengirim bukti
   String? checkoutError;
 
-  PosOrder? _pendingOrder; // order yang sudah dibuat tapi belum lunas
-  PosOrder? get pendingOrder => _pendingOrder;
+  // Metode bayar tenant, dimuat sekali bersama menu (bukan dari order),
+  // sehingga order hanya dibuat saat kasir menekan tombol bayar.
+  List<PosPaymentMethod> paymentMethods = const [];
 
   PosResult? lastResult;
 
@@ -73,20 +73,7 @@ class PosController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Setiap perubahan keranjang membatalkan order yang sudah disiapkan agar
-  // pembayaran tidak menyelesaikan order dengan isi yang sudah berbeda.
-  void _invalidatePending() {
-    final stale = _pendingOrder;
-    _pendingOrder = null;
-    checkoutError = null;
-    if (stale != null) {
-      // biarkan order lama terbuka di server (bisa ditutup dari web); best-effort.
-      _repo.closeOrder(stale.id);
-    }
-  }
-
   void add(MenuItem item) {
-    _invalidatePending();
     _cart.update(item.id, (l) {
       l.qty++;
       return l;
@@ -97,7 +84,6 @@ class PosController extends ChangeNotifier {
   void remove(MenuItem item) {
     final line = _cart[item.id];
     if (line == null) return;
-    _invalidatePending();
     if (line.qty <= 1) {
       _cart.remove(item.id);
     } else {
@@ -107,7 +93,6 @@ class PosController extends ChangeNotifier {
   }
 
   void clearCart() {
-    _invalidatePending();
     _cart.clear();
     notifyListeners();
   }
@@ -119,38 +104,28 @@ class PosController extends ChangeNotifier {
       _menu = AsyncValue.data(await _repo.listMenu());
     } catch (e) {
       _menu = AsyncValue.error(e);
+      notifyListeners();
+      return;
     }
-    notifyListeners();
-  }
-
-  /// Siapkan order untuk pembayaran: buat di server (sekali) lalu ambil detail
-  /// lengkap (metode bayar + grand_total). Dipakai ulang bila sudah ada.
-  Future<PosOrder?> prepareOrder() async {
-    if (_cart.isEmpty) return null;
-    if (_pendingOrder != null) return _pendingOrder;
-    preparing = true;
-    checkoutError = null;
-    notifyListeners();
+    // Metode bayar bersifat best-effort: kegagalan (mis. backend lama) tidak
+    // boleh mematikan layar kasir — jatuh ke tunai saja.
     try {
-      final id = await _repo.createMenuOrder(cart);
-      _pendingOrder = await _repo.getOrder(id);
-      preparing = false;
-      notifyListeners();
-      return _pendingOrder;
-    } catch (e) {
-      checkoutError = e.toString();
-      preparing = false;
-      notifyListeners();
-      return null;
+      paymentMethods = await _repo.listPaymentMethods();
+    } catch (_) {
+      paymentMethods = const [];
     }
+    notifyListeners();
   }
 
-  /// Lunasi tunai. [cashReceived] hanya untuk hitung kembalian di struk (opsional).
+  /// Lunasi tunai: buat order lalu langsung settle dalam satu aksi, sehingga
+  /// tidak ada order menggantung bila kasir mengubah keranjang atau membatalkan.
+  /// [cashReceived] hanya untuk hitung kembalian di struk (opsional).
   Future<bool> payCash({String method = 'cash', int? cashReceived}) async {
-    final order = _pendingOrder ?? await prepareOrder();
-    if (order == null) return false;
+    if (_cart.isEmpty) return false;
     return _run(() async {
-      await _repo.settleCash(order.id, method: method);
+      final id = await _repo.createMenuOrder(cart);
+      final order = await _repo.getOrder(id);
+      await _repo.settleCash(id, method: method);
       _finalize(PosResult(
         orderNumber: order.orderNumber,
         total: order.grandTotal,
@@ -159,16 +134,18 @@ class PosController extends ChangeNotifier {
     });
   }
 
-  /// Bayar non-tunai: (opsional) unggah bukti lalu kirim sebagai pembayaran manual.
+  /// Bayar non-tunai: buat order, (opsional) unggah bukti, lalu kirim sebagai
+  /// pembayaran manual — semuanya dalam satu aksi konfirmasi.
   Future<bool> payManual({required String method, String? proofPath, String? note}) async {
-    final order = _pendingOrder ?? await prepareOrder();
-    if (order == null) return false;
+    if (_cart.isEmpty) return false;
     return _run(() async {
+      final id = await _repo.createMenuOrder(cart);
+      final order = await _repo.getOrder(id);
       String? url;
       if (proofPath != null && proofPath.trim().isNotEmpty) {
         url = await _repo.uploadProof(proofPath);
       }
-      await _repo.submitManual(order.id, method: method, proofUrl: url, note: note);
+      await _repo.submitManual(id, method: method, proofUrl: url, note: note);
       _finalize(PosResult(
         orderNumber: order.orderNumber,
         total: order.grandTotal,
@@ -179,6 +156,9 @@ class PosController extends ChangeNotifier {
 
   /// Riwayat transaksi kasir (untuk sheet riwayat).
   Future<List<PosOrder>> fetchHistory() => _repo.listRecentOrders();
+
+  /// Batalkan order yang belum terbayar (mis. pembayaran manual ditolak).
+  Future<void> cancelOrder(String orderId) => _repo.cancelOrder(orderId);
 
   Future<bool> _run(Future<void> Function() op) async {
     submitting = true;
@@ -200,16 +180,6 @@ class PosController extends ChangeNotifier {
   void _finalize(PosResult result) {
     lastResult = result;
     _cart.clear();
-    _pendingOrder = null;
-  }
-
-  /// Batalkan pembayaran yang belum selesai — tutup order kosong di server.
-  void cancelPending() {
-    final order = _pendingOrder;
-    _pendingOrder = null;
-    checkoutError = null;
-    if (order != null) _repo.closeOrder(order.id);
-    notifyListeners();
   }
 
   void clearResult() {

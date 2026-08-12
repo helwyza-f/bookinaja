@@ -234,7 +234,30 @@ func (h *Handler) List(c *gin.Context) {
 			limit = parsed
 		}
 	}
-	items, err := h.service.ListByTenant(c.Request.Context(), tenantID, limit, c.Query("status"), c.Query("search"))
+	var kinds []string
+	if raw := strings.TrimSpace(c.Query("kind")); raw != "" {
+		allowed := map[string]bool{"menu": true, "direct_sale": true, "booking": true, "public": true}
+		for _, k := range strings.Split(raw, ",") {
+			if k = strings.TrimSpace(k); allowed[k] {
+				kinds = append(kinds, k)
+			}
+		}
+	}
+	items, err := h.service.ListByTenant(c.Request.Context(), tenantID, limit, c.Query("status"), c.Query("search"), kinds)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) ListPaymentMethods(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	items, err := h.service.ListPaymentMethods(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -565,4 +588,22 @@ func (h *Handler) Close(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "sales order closed"})
+}
+
+func (h *Handler) Cancel(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sales order id invalid"})
+		return
+	}
+	if err := h.service.Cancel(c.Request.Context(), tenantID, orderID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "sales order cancelled"})
 }

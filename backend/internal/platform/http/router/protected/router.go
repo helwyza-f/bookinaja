@@ -314,6 +314,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			{
 				salesOrders.GET("", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.List)
 				salesOrders.GET("/open", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ListOpen)
+				salesOrders.GET("/payment-methods", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ListPaymentMethods)
 				salesOrders.GET("/:id", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.GetByID)
 				salesOrders.POST("", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.Create)
 				salesOrders.POST("/menu", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.CreateMenuOrder)
@@ -328,6 +329,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				salesOrders.POST("/payment-attempts/:attempt_id/reject", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.RejectManualPayment)
 				salesOrders.POST("/:id/settle-cash", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.SettleCash)
 				salesOrders.POST("/:id/close", middleware.RequirePermission(tenant.PermissionPosCheckout), cfg.SalesHandler.Close)
+				salesOrders.POST("/:id/cancel", middleware.RequirePermission(tenant.PermissionPosCheckout), cfg.SalesHandler.Cancel)
 			}
 
 			pos := adminArea.Group("/pos")

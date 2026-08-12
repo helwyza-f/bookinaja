@@ -177,6 +177,37 @@ class _HistorySheetState extends State<_HistorySheet> {
     return (label: o.paymentStatus.isEmpty ? 'Belum bayar' : o.paymentStatus, color: BK.ink3);
   }
 
+  // Hanya order yang belum terbayar (mis. menunggu/ditolak verifikasi) yang bisa dibatalkan.
+  bool _cancelable(PosOrder o) => o.status.toLowerCase() == 'pending_payment';
+
+  Future<void> _cancel(PosOrder o) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Batalkan transaksi?'),
+        content: Text('Order ${o.orderNumber} akan dibatalkan dan tidak bisa dikembalikan.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Tidak')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.crit),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Batalkan'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.controller.cancelOrder(o.id);
+      if (!mounted) return;
+      BkToast.success(context, 'Transaksi dibatalkan');
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      BkToast.error(context, 'Gagal membatalkan: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -242,7 +273,17 @@ class _HistorySheetState extends State<_HistorySheet> {
                           Text(_time(o.createdAt), style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
                         ]),
                       ),
-                      Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: BK.ink)),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                        Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: BK.ink)),
+                        if (_cancelable(o))
+                          GestureDetector(
+                            onTap: () => _cancel(o),
+                            child: const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text('Batalkan', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.crit)),
+                            ),
+                          ),
+                      ]),
                     ]),
                   );
                 },
@@ -431,21 +472,13 @@ class _CartSheet extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: (lines.isEmpty || ctrl.preparing)
+                onPressed: lines.isEmpty
                     ? null
-                    : () async {
-                        final order = await ctrl.prepareOrder();
-                        if (!context.mounted) return;
-                        if (order == null) {
-                          BkToast.error(context, ctrl.checkoutError ?? 'Gagal menyiapkan order');
-                          return;
-                        }
+                    : () {
                         Navigator.of(context).pop(); // tutup cart sheet
                         _openPayment(context, ctrl);
                       },
-                child: ctrl.preparing
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
           ),
@@ -467,9 +500,9 @@ class _CartSheet extends StatelessWidget {
 }
 
 Future<void> _openPayment(BuildContext context, PosController ctrl) async {
-  final order = ctrl.pendingOrder;
-  if (order == null) return;
-  var paid = false;
+  if (ctrl.cartCount == 0) return;
+  // Order belum dibuat di titik ini — dibuat saat konfirmasi bayar, jadi
+  // menutup sheet tanpa bayar tidak meninggalkan order menggantung.
   await showModalBottomSheet<void>(
     context: context,
     backgroundColor: BK.card,
@@ -477,17 +510,15 @@ Future<void> _openPayment(BuildContext context, PosController ctrl) async {
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => ChangeNotifierProvider<PosController>.value(
       value: ctrl,
-      child: _PaymentSheet(order: order, onPaid: () => paid = true),
+      child: _PaymentSheet(total: ctrl.cartTotal, methods: ctrl.paymentMethods),
     ),
   );
-  // Sheet ditutup tanpa membayar → tutup order kosong di server.
-  if (!paid) ctrl.cancelPending();
 }
 
 class _PaymentSheet extends StatefulWidget {
-  final PosOrder order;
-  final VoidCallback onPaid;
-  const _PaymentSheet({required this.order, required this.onPaid});
+  final int total;
+  final List<PosPaymentMethod> methods;
+  const _PaymentSheet({required this.total, required this.methods});
 
   @override
   State<_PaymentSheet> createState() => _PaymentSheetState();
@@ -499,7 +530,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   final _noteCtrl = TextEditingController();
   String? _proofPath;
 
-  late final List<PosPaymentMethod> _methods = _buildMethods(widget.order);
+  late final List<PosPaymentMethod> _methods = _buildMethods(widget.methods);
 
   @override
   void initState() {
@@ -515,8 +546,8 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   }
 
   // Kasir hanya menerima tunai + metode manual (butuh bukti). Pastikan tunai selalu ada.
-  List<PosPaymentMethod> _buildMethods(PosOrder o) {
-    final list = o.methods.where((m) => m.isCash || m.isManual).toList();
+  List<PosPaymentMethod> _buildMethods(List<PosPaymentMethod> source) {
+    final list = source.where((m) => m.isCash || m.isManual).toList();
     if (!list.any((m) => m.isCash)) {
       list.insert(0, const PosPaymentMethod(code: 'cash', label: 'Tunai', category: 'cash', verificationType: 'cash'));
     }
@@ -525,7 +556,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   }
 
   int get _cashReceived => int.tryParse(_cashCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-  int get _change => (_cashReceived - widget.order.grandTotal);
+  int get _change => (_cashReceived - widget.total);
 
   bool get _canConfirm => _method != null;
 
@@ -581,7 +612,6 @@ class _PaymentSheetState extends State<_PaymentSheet> {
         : await ctrl.payManual(method: m.code, proofPath: _proofPath, note: _noteCtrl.text);
     if (!mounted) return;
     if (ok) {
-      widget.onPaid();
       Navigator.of(context).pop();
       final result = ctrl.lastResult;
       if (result != null) _showResult(context, ctrl, result);
@@ -593,7 +623,6 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<PosController>();
-    final o = widget.order;
     final m = _method;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -603,14 +632,8 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-            child: Row(children: [
-              const Text('Pembayaran', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: BK.line)),
-                child: Text(o.orderNumber, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BK.ink2)),
-              ),
+            child: Row(children: const [
+              Text('Pembayaran', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
             ]),
           ),
           Padding(
@@ -622,7 +645,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Total tagihan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BK.ink2)),
                 const SizedBox(height: 2),
-                Text('Rp${rupiah(o.grandTotal)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: BK.ink)),
+                Text('Rp${rupiah(widget.total)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: BK.ink)),
               ]),
             ),
           ),
@@ -712,7 +735,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   }
 
   List<int> _quickCash() {
-    final t = widget.order.grandTotal;
+    final t = widget.total;
     final out = <int>{t};
     for (final step in [5000, 10000, 20000, 50000, 100000]) {
       final rounded = ((t / step).ceil()) * step;
