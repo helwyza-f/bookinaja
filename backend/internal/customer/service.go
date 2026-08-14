@@ -134,6 +134,22 @@ func (s *Service) InvalidatePortalCache(ctx context.Context, customerID uuid.UUI
 	).Err()
 }
 
+// DeleteMyAccount menghapus (soft-delete) akun customer sendiri: identitas unik
+// dibebaskan agar nomor/email bisa dipakai mendaftar akun baru, riwayat tetap
+// utuh via baris tombstone. Login berikutnya dgn nomor sama = akun baru.
+func (s *Service) DeleteMyAccount(ctx context.Context, customerID string) error {
+	cid, err := uuid.Parse(customerID)
+	if err != nil {
+		return fmt.Errorf("ID pelanggan tidak valid")
+	}
+	if err := s.repo.SoftDeleteAccount(ctx, cid); err != nil {
+		return fmt.Errorf("gagal menghapus akun: %w", err)
+	}
+	s.InvalidatePortalCache(ctx, cid)
+	s.repo.InvalidateCustomerMembershipCache(ctx, cid)
+	return nil
+}
+
 // --- AUTH & OTP LOGIC (REDIS + FONNTE) ---
 
 // RequestOTP menangani alur permintaan login: Cek user -> Gen OTP -> Redis -> WhatsApp.

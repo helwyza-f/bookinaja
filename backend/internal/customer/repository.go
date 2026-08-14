@@ -329,6 +329,30 @@ func (r *Repository) MarkLegacyBlastSent(ctx context.Context, tenantID uuid.UUID
 	return err
 }
 
+// SoftDeleteAccount menandai akun customer sebagai terhapus DAN membebaskan
+// identitas uniknya (phone/email/google) agar bisa dipakai mendaftar akun baru.
+// Baris tetap disimpan supaya FK ke booking/order/poin tidak rusak.
+//   - phone: VARCHAR(20) NOT NULL + UNIQUE → diganti sentinel dari id (nomor
+//     asli lepas dari index, jadi bisa didaftarkan ulang).
+//   - email/google_subject/password: NULL → bebaskan index unik + matikan login.
+func (r *Repository) SoftDeleteAccount(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE customers
+		SET
+			account_status   = 'deleted',
+			account_stage    = 'deleted',
+			phone            = LEFT('del-' || REPLACE(id::text, '-', ''), 20),
+			email            = NULL,
+			password         = NULL,
+			google_subject   = NULL,
+			avatar_url       = NULL,
+			name             = 'Akun Terhapus',
+			marketing_opt_in = FALSE,
+			updated_at       = NOW()
+		WHERE id = $1`, id)
+	return err
+}
+
 func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE customers

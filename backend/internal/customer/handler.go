@@ -449,6 +449,20 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "customer": updated})
 }
 
+// DeleteMe menghapus akun customer sendiri (soft-delete + bebaskan nomor/email).
+func (h *Handler) DeleteMe(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+	if err := h.service.DeleteMyAccount(c.Request.Context(), customerIDStr.(string)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Akun berhasil dihapus"})
+}
+
 func (h *Handler) UpdateMyPassword(c *gin.Context) {
 	customerIDStr, exists := c.Get("customerID")
 	if !exists {
