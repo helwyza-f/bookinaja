@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../state/auth_controller.dart';
 import '../../state/customer_shell_tab.dart';
+import 'customer_account_screen.dart';
 import 'discover_screen.dart';
 import 'my_bookings_screen.dart';
 
@@ -91,6 +92,15 @@ class _CustomerProfileTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CustomerAccountScreen()),
+            ),
+            icon: const Icon(Icons.manage_accounts_outlined, size: 18),
+            label: const Text('Kelola akun', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: BK.crit, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 14)),
             onPressed: () => context.read<AuthController>().logout(),

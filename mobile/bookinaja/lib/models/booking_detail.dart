@@ -76,6 +76,7 @@ class PaymentMethodOption {
   final String category;
   final String verificationType; // manual | auto
   final bool isActive;
+  final String instructions;
 
   const PaymentMethodOption({
     required this.code,
@@ -83,6 +84,7 @@ class PaymentMethodOption {
     required this.category,
     required this.verificationType,
     required this.isActive,
+    this.instructions = '',
   });
 
   bool get isManual => verificationType == 'manual';
@@ -95,10 +97,29 @@ class PaymentMethodOption {
         category: '${j['category'] ?? ''}'.toLowerCase(),
         verificationType: '${j['verification_type'] ?? ''}'.toLowerCase(),
         isActive: j['is_active'] != false,
+        instructions: '${j['instructions'] ?? ''}',
       );
 }
 
 /// Item pesanan F&B / add-on yang sudah dibeli.
+/// Add-on/layanan resource sederhana (dari `resource_addons` pada detail) —
+/// dipakai untuk pilihan tambah add-on saat sesi berjalan.
+class ResourceAddonSimple {
+  final String id;
+  final String name;
+  final int price;
+  const ResourceAddonSimple({required this.id, required this.name, required this.price});
+
+  factory ResourceAddonSimple.fromJson(Map<String, dynamic> j) {
+    int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+    return ResourceAddonSimple(
+      id: '${j['id'] ?? ''}',
+      name: '${j['name'] ?? '-'}',
+      price: money(j['price']),
+    );
+  }
+}
+
 class OrderLine {
   final String name;
   final int quantity;
@@ -142,6 +163,7 @@ class TimelineEvent {
 class BookingDetail {
   final String id;
   final String resourceId;
+  final String customerId;
   final String statusRaw; // pending | confirmed | active | completed | cancelled
   final String paymentStatus; // unpaid | awaiting_verification | partial_paid | paid | settled | ...
   final String customerName;
@@ -164,6 +186,13 @@ class BookingDetail {
   final bool enableAddons;
   final String internalNote;
   final int rescheduleCount;
+  // Add-on/layanan resource yang bisa ditambahkan saat sesi (id, nama, harga).
+  final List<ResourceAddonSimple> resourceAddons;
+  // Gating pembatalan oleh customer (khusus endpoint /user/me/bookings/:id) —
+  // dihitung backend dari kebijakan tenant (enabled + status + cutoff). Berbeda
+  // dari [canCancel] yang gating sisi admin.
+  final bool canCustomerCancel;
+  final bool cancelRequireReason;
   final List<PaymentAttempt> attempts;
   final List<OrderLine> orders;
   final List<OrderLine> options;
@@ -173,6 +202,7 @@ class BookingDetail {
   const BookingDetail({
     required this.id,
     this.resourceId = '',
+    this.customerId = '',
     required this.statusRaw,
     required this.paymentStatus,
     required this.customerName,
@@ -195,6 +225,9 @@ class BookingDetail {
     this.enableAddons = true,
     this.internalNote = '',
     this.rescheduleCount = 0,
+    this.resourceAddons = const [],
+    this.canCustomerCancel = false,
+    this.cancelRequireReason = false,
     this.attempts = const [],
     this.orders = const [],
     this.options = const [],
@@ -290,6 +323,7 @@ class BookingDetail {
     return BookingDetail(
       id: '${j['id'] ?? ''}',
       resourceId: '${j['resource_id'] ?? ''}',
+      customerId: '${j['customer_id'] ?? ''}',
       statusRaw: '${j['status'] ?? ''}'.toLowerCase(),
       paymentStatus: '${j['payment_status'] ?? ''}'.toLowerCase(),
       customerName: '${j['customer_name'] ?? 'Tanpa nama'}',
@@ -316,6 +350,12 @@ class BookingDetail {
           : true,
       internalNote: '${j['internal_note'] ?? ''}',
       rescheduleCount: (j['reschedule_count'] is num) ? (j['reschedule_count'] as num).toInt() : 0,
+      resourceAddons: asList(j['resource_addons'])
+          .whereType<Map>()
+          .map((e) => ResourceAddonSimple.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      canCustomerCancel: j['can_customer_cancel'] == true,
+      cancelRequireReason: j['cancel_require_reason'] == true,
       attempts: rawAttempts.whereType<Map>().map((e) => PaymentAttempt.fromJson(Map<String, dynamic>.from(e))).toList(),
       orders: asList(j['orders']).whereType<Map>().map((e) => OrderLine.fnb(Map<String, dynamic>.from(e))).toList(),
       options: asList(j['options']).whereType<Map>().map((e) => OrderLine.option(Map<String, dynamic>.from(e))).toList(),

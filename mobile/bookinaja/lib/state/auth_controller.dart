@@ -190,6 +190,39 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Terapkan profil customer terbaru ke sesi (setelah edit akun). Repo sudah
+  /// menyimpan ke storage; di sini hanya menyegarkan cache + UI.
+  void applyCustomer(CustomerAccount updated) {
+    _customer = updated;
+    notifyListeners();
+  }
+
+  /// Edit profil customer (nama/email). Melempar bila gagal (dipakai layar akun).
+  Future<void> updateCustomerProfile({String? name, String? email}) async {
+    applyCustomer(await _customerRepo.updateProfile(name: name, email: email));
+  }
+
+  /// Ganti password customer.
+  Future<void> updateCustomerPassword({required String current, required String next}) async {
+    applyCustomer(await _customerRepo.updatePassword(current: current, next: next));
+  }
+
+  /// Minta OTP ganti nomor WhatsApp.
+  Future<void> requestCustomerPhoneChange(String newPhone) =>
+      _customerRepo.requestPhoneChange(newPhone);
+
+  /// Verifikasi OTP ganti nomor WhatsApp.
+  Future<void> verifyCustomerPhoneChange({required String newPhone, required String code}) async {
+    applyCustomer(await _customerRepo.verifyPhoneChange(newPhone: newPhone, code: code));
+  }
+
+  /// Hapus akun customer lalu keluar. Backend membebaskan nomor/email sehingga
+  /// bisa dipakai mendaftar akun baru. Melempar bila gagal (sesi tetap utuh).
+  Future<void> deleteCustomerAccount() async {
+    await _customerRepo.deleteAccount();
+    await logout();
+  }
+
   // ---------------- Umum ----------------
 
   Future<void> logout() async {

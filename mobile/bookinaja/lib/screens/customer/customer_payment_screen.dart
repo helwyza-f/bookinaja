@@ -52,6 +52,25 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
         c.contains('qr');
   }
 
+  /// Bayar di tempat (cash) — diterima langsung kasir tenant, tanpa bukti.
+  bool _isPayAtLocation(PayMethod m) {
+    final c = '${m.category} ${m.code}'.toLowerCase();
+    return c.contains('cash') ||
+        c.contains('tunai') ||
+        c.contains('tempat') ||
+        c.contains('cod') ||
+        c.contains('onsite');
+  }
+
+  /// Metode yang valid untuk booking ini. Saat butuh DP, cash/bayar-di-tempat
+  /// disembunyikan: DP adalah jaminan dibayar di muka (online) sebelum datang,
+  /// jadi tak masuk akal "bayar DP" secara tunai di lokasi.
+  List<PayMethod> _payableMethods(BookingPaymentInfo info) {
+    final manual = info.manualMethods;
+    if (!info.needsDeposit) return manual;
+    return manual.where((m) => !_isPayAtLocation(m)).toList();
+  }
+
   Future<void> _chooseProofSource() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -60,29 +79,67 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined, color: BK.accent),
-              title: const Text('Foto struk (kamera)', style: TextStyle(fontWeight: FontWeight.w700, color: BK.ink)),
-              onTap: () => Navigator.of(context).pop(ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: BK.accent),
-              title: const Text('Pilih dari galeri', style: TextStyle(fontWeight: FontWeight.w700, color: BK.ink)),
-              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
-            ),
-            const SizedBox(height: 8),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _proofSourceOption(
+                      Icons.photo_camera_outlined,
+                      'Kamera',
+                      () => Navigator.of(context).pop(ImageSource.camera),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _proofSourceOption(
+                      Icons.photo_library_outlined,
+                      'Galeri',
+                      () => Navigator.of(context).pop(ImageSource.gallery),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
     if (source != null) await _pick(source);
   }
+
+  Widget _proofSourceOption(IconData icon, String label, VoidCallback onTap) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(
+            color: BK.accentSoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: BK.line),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 28, color: BK.accent),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: BK.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
   Future<void> _pick(ImageSource source) async {
     final repo = context.read<CustomerPaymentRepository>();
@@ -194,7 +251,10 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
             );
           }
           final info = snap.data!;
-          final methods = info.manualMethods;
+          final methods = _payableMethods(info);
+          // Cash tersembunyi khusus karena butuh DP (bukan karena tenant kosong).
+          final hiddenForDeposit =
+              info.needsDeposit && methods.length < info.manualMethods.length;
           return Column(
             children: [
               Expanded(
@@ -214,12 +274,23 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
                     ),
                     const SizedBox(height: 8),
                     if (methods.isEmpty)
-                      const Text(
-                        'Tenant belum mengaktifkan metode pembayaran manual. Hubungi tenant langsung.',
-                        style: TextStyle(fontSize: 13, color: BK.ink3),
+                      Text(
+                        info.needsDeposit
+                            ? 'DP harus dibayar via transfer/QRIS, tapi tenant belum mengaktifkannya. Hubungi tenant.'
+                            : 'Tenant belum mengaktifkan metode pembayaran manual. Hubungi tenant langsung.',
+                        style: const TextStyle(fontSize: 13, color: BK.ink3),
                       )
-                    else
+                    else ...[
                       ...methods.map((m) => _methodTile(m)),
+                      if (hiddenForDeposit)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2, left: 2),
+                          child: Text(
+                            'Bayar di tempat (cash) tidak tersedia untuk DP — DP dibayar di muka via transfer/QRIS.',
+                            style: TextStyle(fontSize: 11.5, color: BK.ink3),
+                          ),
+                        ),
+                    ],
                     if (_method != null) ...[
                       const SizedBox(height: 8),
                       _instructionPanel(_method!),
@@ -471,7 +542,9 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
   Widget _submitBar(BookingPaymentInfo info) => SafeArea(
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: FilledButton(
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: BK.accent,
           padding: const EdgeInsets.symmetric(vertical: 15),
@@ -496,6 +569,7 @@ class _CustomerPaymentScreenState extends State<CustomerPaymentScreen> {
                   fontSize: 15,
                 ),
               ),
+        ),
       ),
     ),
   );

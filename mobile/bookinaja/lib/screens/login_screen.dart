@@ -28,9 +28,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthController>();
     final ok = await auth.login(email: _email.text.trim(), password: _password.text);
-    if (!ok && mounted) {
-      BkToast.error(context, 'Gagal masuk', subtitle: auth.error ?? 'Cek email & password lalu coba lagi.');
+    if (!mounted) return;
+    if (ok) {
+      // Tutup layar login (di-push di atas Landing) agar AuthGate menampilkan
+      // WorkspacePicker / HomeShell. Tanpa ini, route login menutupi & stuck.
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      return;
     }
+    BkToast.error(context, 'Gagal masuk', subtitle: auth.error ?? 'Cek email & password lalu coba lagi.');
   }
 
   @override

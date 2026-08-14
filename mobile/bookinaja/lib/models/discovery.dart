@@ -142,6 +142,10 @@ class TenantResource {
   final List<String> gallery;
   final List<TenantPackage> packages;
 
+  /// Add-on/F&B (itemType add_on) milik resource — bisa dipilih bersama paket
+  /// utama. Dipisah dari [packages] karena bukan paket bookable mandiri.
+  final List<TenantPackage> addons;
+
   const TenantResource({
     required this.id,
     required this.name,
@@ -150,6 +154,7 @@ class TenantResource {
     this.imageUrl = '',
     this.gallery = const [],
     this.packages = const [],
+    this.addons = const [],
   });
 
   int? get startingPrice {
@@ -160,16 +165,19 @@ class TenantResource {
 
   factory TenantResource.fromJson(Map<String, dynamic> j) {
     final rawItems = j['items'];
-    final packages = (rawItems is List)
+    // Parse sekali, lalu pisahkan: paket bookable vs add-on. Backend
+    // mengirim keduanya dalam list `items` yang sama.
+    final parsed = (rawItems is List)
         ? rawItems
               .whereType<Map>()
               .map((e) => TenantPackage.fromJson(Map<String, dynamic>.from(e)))
-              // Paket resource dari backend bisa datang sebagai:
-              // main_option / main / console_option / package / service.
-              // Add-on/F&B sengaja dikeluarkan dari daftar utama.
-              .where(_isBookingPackageType)
               .toList()
         : <TenantPackage>[];
+    // Paket resource dari backend bisa datang sebagai:
+    // main_option / main / console_option / package / service.
+    final packages = parsed.where(_isBookingPackageType).toList();
+    // Add-on/F&B sengaja dipisah dari daftar paket utama.
+    final addons = parsed.where(_isAddonType).toList();
     return TenantResource(
       id: '${j['id'] ?? ''}',
       name: '${j['name'] ?? ''}',
@@ -178,6 +186,7 @@ class TenantResource {
       imageUrl: '${j['image_url'] ?? ''}',
       gallery: TenantDirectoryItem._strList(j['gallery']),
       packages: packages,
+      addons: addons,
     );
   }
 
@@ -203,6 +212,11 @@ class TenantResource {
         type == 'console_option' ||
         type == 'package' ||
         type == 'service';
+  }
+
+  static bool _isAddonType(TenantPackage p) {
+    final type = p.itemType.trim().toLowerCase();
+    return type == 'add_on' || type == 'addon';
   }
 }
 

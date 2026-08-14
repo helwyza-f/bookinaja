@@ -1,10 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme.dart';
 import '../../ui/error_text.dart';
 import '../../models/customer_booking.dart';
+import '../../realtime/realtime_bus.dart';
+import '../../realtime/realtime_channels.dart';
+import '../../realtime/realtime_client.dart';
+import '../../realtime/realtime_event.dart';
 import '../../state/async_value.dart';
+import '../../state/auth_controller.dart';
 import '../../state/my_bookings_controller.dart';
+import 'customer_booking_detail_screen.dart';
+import 'customer_order_detail_screen.dart';
 import 'customer_payment_screen.dart';
 
 /// "Booking Saya" — tab Aktif & Riwayat (read-only, Fase 1).
@@ -15,11 +24,46 @@ class MyBookingsScreen extends StatefulWidget {
 }
 
 class _MyBookingsScreenState extends State<MyBookingsScreen> {
+  static const _rtSource = 'customer-mybookings';
+  StreamSubscription<RealtimeEvent>? _rtSub;
+  Timer? _rtDebounce;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<MyBookingsController>().loadAll();
+      // Realtime: daftarkan channel koleksi customer agar list ikut ter-update
+      // saat status booking/order/pembayaran berubah dari sisi tenant.
+      final id = context.read<AuthController>().customer?.id ?? '';
+      if (id.isNotEmpty) {
+        RealtimeClient.instance.setChannels(
+          [customerBookingsChannel(id), customerOrdersChannel(id)],
+          source: _rtSource,
+        );
+      }
+    });
+    _rtSub = RealtimeBus.instance.events.listen(_onRealtimeEvent);
+  }
+
+  @override
+  void dispose() {
+    _rtSub?.cancel();
+    _rtDebounce?.cancel();
+    RealtimeClient.instance.clearChannels(source: _rtSource);
+    super.dispose();
+  }
+
+  void _onRealtimeEvent(RealtimeEvent event) {
+    final type = event.type.toLowerCase();
+    if (!(type.startsWith('booking.') || type.startsWith('order.') || type.startsWith('payment.'))) {
+      return;
+    }
+    // Reload koleksi (silent) — debounce agar burst event tak menembak berkali2.
+    _rtDebounce?.cancel();
+    _rtDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) context.read<MyBookingsController>().silentReload();
     });
   }
 
@@ -91,7 +135,7 @@ class _BookingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(BK.radius),
-      onTap: () => _showDetail(context, b),
+      onTap: () => _openDetail(context, b),
       child: BKCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +172,9 @@ class _BookingCard extends StatelessWidget {
                 child: Text('Sisa Rp${rupiah(b.balanceDue)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.crit)),
               ),
             ],
-            if (b.needsPayment) ...[
+            // Order dibayar dari layar detail order (endpoint bayarnya beda dari
+            // booking); tombol cepat ini khusus booking.
+            if (b.needsPayment && !b.isOrder) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -156,72 +202,15 @@ void _openPayment(BuildContext context, String bookingId) {
   );
 }
 
-void _showDetail(BuildContext context, CustomerBookingItem b) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: BK.card,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4)))),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: Text(b.tenantName.isEmpty ? 'Tenant' : b.tenantName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink))),
-                _statusPill(b.status),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _row('Jenis', b.isOrder ? 'Order F&B / direct sale' : 'Booking'),
-            if (b.resource.isNotEmpty) _row('Resource', b.resource),
-            _row('Jadwal', _fmtDate(b.date)),
-            _row('Total', 'Rp${rupiah(b.grandTotal)}'),
-            if (b.balanceDue > 0) _row('Sisa tagihan', 'Rp${rupiah(b.balanceDue)}'),
-            _row('Status bayar', b.paymentStatus.isEmpty ? '-' : b.paymentStatus),
-            if (b.needsPayment) ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: BK.accent,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _openPayment(context, b.id);
-                  },
-                  icon: const Icon(Icons.payments_outlined, size: 18),
-                  label: const Text('Lanjutkan pembayaran', style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 6),
-              const Text('Live sesi & detail lengkap menyusul di update berikutnya.',
-                  style: TextStyle(fontSize: 11.5, color: BK.ink3, fontStyle: FontStyle.italic)),
-            ],
-          ],
-        ),
-      ),
-    ),
-  );
+/// Tap → screen detail penuh: booking vs order punya layar masing-masing.
+void _openDetail(BuildContext context, CustomerBookingItem b) {
+  final page = b.isOrder
+      ? CustomerOrderDetailScreen(orderId: b.id)
+      : CustomerBookingDetailScreen(bookingId: b.id);
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((_) {
+    if (context.mounted) context.read<MyBookingsController>().loadAll();
+  });
 }
-
-Widget _row(String k, String v) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 110, child: Text(k, style: const TextStyle(fontSize: 12.5, color: BK.ink3))),
-          Expanded(child: Text(v, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BK.ink2))),
-        ],
-      ),
-    );
 
 Widget _statusPill(String status) {
   switch (status) {

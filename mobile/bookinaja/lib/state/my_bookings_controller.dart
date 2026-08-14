@@ -39,4 +39,17 @@ class MyBookingsController extends ChangeNotifier {
   Future<void> loadAll() => Future.wait([loadActive(), loadHistory()]);
 
   Future<void> refresh() => loadAll();
+
+  /// Muat ulang tanpa mengubah state ke loading (dipakai rekonsiliasi realtime):
+  /// data lama dipertahankan sampai data baru datang, jadi tak ada kedip spinner.
+  Future<void> silentReload() async {
+    try {
+      final results = await Future.wait([_repo.active(), _repo.history()]);
+      _active = AsyncValue.data(results[0]);
+      _history = AsyncValue.data(results[1]);
+      notifyListeners();
+    } catch (_) {
+      // Pertahankan data lama bila gagal.
+    }
+  }
 }

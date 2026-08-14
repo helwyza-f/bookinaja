@@ -11,8 +11,10 @@ import '../../state/customer_booking_controller.dart';
 import '../../repositories/customer_reservation_repository.dart';
 import 'customer_payment_screen.dart';
 
-/// Alur booking customer untuk satu resource: paket → tanggal → slot → durasi →
-/// promo → buat booking. Customer sudah login, jadi nama/nomor diambil dari akun.
+/// Alur booking customer untuk satu resource: paket → jadwal → slot → durasi →
+/// add-on → promo → ringkasan. Struktur & interaksi mengikuti sisi admin
+/// (create_booking.dart), kecuali input data customer — customer sudah login,
+/// jadi nama/nomor diambil dari akun.
 class CustomerBookingFlow extends StatefulWidget {
   final TenantProfile tenant;
   final TenantResource resource;
@@ -34,6 +36,38 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
   final _dateScroll = ScrollController();
 
   static const double _dateItemExtent = 54 + 8; // lebar chip + separator
+
+  // Auto-scroll ke step yang baru terungkap — hanya reveal pertama (mengikuti
+  // admin), supaya mengubah pilihan lama tidak menyentak halaman.
+  final _scheduleKey = GlobalKey();
+  final _durationKey = GlobalKey();
+  bool _scrolledSchedule = false;
+  bool _scrolledDuration = false;
+
+  // Dipanggil tiap build (post-frame): scroll ke section yang baru muncul.
+  void _autoScroll(CustomerBookingController c) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (c.pkg != null && !_scrolledSchedule) {
+        _scrolledSchedule = true;
+        _scrollTo(_scheduleKey);
+      } else if (c.slot != null && !_scrolledDuration) {
+        _scrolledDuration = true;
+        _scrollTo(_durationKey);
+      }
+    });
+  }
+
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      alignment: 0.02,
+    );
+  }
 
   @override
   void initState() {
@@ -121,7 +155,9 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
     return ChangeNotifierProvider.value(
       value: _c,
       child: Consumer<CustomerBookingController>(
-        builder: (context, c, _) => Scaffold(
+        builder: (context, c, _) {
+          _autoScroll(c);
+          return Scaffold(
           backgroundColor: BK.bg,
           appBar: AppBar(
             backgroundColor: BK.bg,
@@ -133,9 +169,9 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
             ),
           ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
             children: [
-              _label('01', 'Paket'),
+              _stepLabel('01', 'Paket'),
               if (c.packages.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 4),
@@ -147,16 +183,44 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
               else
                 _packages(c),
               if (c.pkg != null) ...[
-                _label('02', 'Tanggal'),
+                Container(key: _scheduleKey),
+                _stepLabel('02', 'Jadwal'),
                 _dateRow(c),
-                _label('03', 'Jam mulai'),
-                _slots(c),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 2),
+                  child: Text(
+                    _fullDate(c.date),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: BK.ink2,
+                    ),
+                  ),
+                ),
+                if (c.busyLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                else
+                  _slotSection(c),
                 if (c.slot != null) ...[
-                  _label('04', 'Durasi'),
-                  _duration(c),
-                  _label('05', 'Promo (opsional)'),
+                  Container(key: _durationKey),
+                  _durationBlock(c),
+                  if (c.startAt != null) _scheduleSummary(c),
+                  if (c.addons.isNotEmpty) ...[
+                    _label('ADD-ON'),
+                    _addonsRow(c),
+                  ],
+                  _label('PROMO (OPSIONAL)'),
                   _promoRow(c),
-                  const SizedBox(height: 18),
+                  _label('RINGKASAN'),
                   _summary(c),
                 ],
               ],
@@ -165,13 +229,15 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
           bottomNavigationBar: c.pkg != null && c.slot != null
               ? _submitBar(c)
               : null,
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _label(String num, String title) => Padding(
-    padding: const EdgeInsets.fromLTRB(0, 18, 2, 8),
+  // Judul step bernomor (mengikuti admin/web: 01 / 02 …).
+  Widget _stepLabel(String num, String title) => Padding(
+    padding: const EdgeInsets.fromLTRB(0, 16, 2, 8),
     child: Row(
       children: [
         Container(
@@ -205,155 +271,417 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
     ),
   );
 
+  // Sub-label polos untuk seksi di dalam step (SLOT MULAI, DURASI, dst).
+  Widget _label(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+    child: Text(
+      t,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1,
+        color: BK.ink3,
+      ),
+    ),
+  );
+
   Widget _packages(CustomerBookingController c) => Wrap(
     spacing: 8,
     runSpacing: 8,
     children: [
       for (final p in c.packages)
         _choice(
-          '${p.name} · Rp${rupiah(p.price)}${p.priceUnit.isNotEmpty ? '/${p.priceUnit}' : ''}',
+          '${p.name} · Rp${rupiah(p.price)}/${p.unitLabel}',
           c.pkg?.id == p.id,
           () => c.selectPackage(p),
         ),
     ],
   );
 
-  Widget _dateRow(CustomerBookingController c) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _addonsRow(CustomerBookingController c) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
     children: [
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8, left: 2),
-        child: Text(
-          _monthYear(c.date),
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: BK.ink2,
+      for (final a in c.addons)
+        _choice(
+          '${a.name} · Rp${rupiah(a.price)}',
+          c.selectedAddonIds.contains(a.id),
+          () => c.toggleAddon(a.id),
+        ),
+    ],
+  );
+
+  // Strip 30 hari + tombol kalender untuk tanggal jauh (mengikuti admin).
+  Widget _dateRow(CustomerBookingController c) => Row(
+    children: [
+      Expanded(
+        child: SizedBox(
+          height: 64,
+          child: ListView.separated(
+            controller: _dateScroll,
+            scrollDirection: Axis.horizontal,
+            itemCount: 30,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final now = DateTime.now();
+              final d =
+                  DateTime(now.year, now.month, now.day).add(Duration(days: i));
+              final on =
+                  c.date.year == d.year &&
+                  c.date.month == d.month &&
+                  c.date.day == d.day;
+              // Tandai awal bulan baru agar batas bulan jelas saat scroll.
+              final newMonth = i > 0 && d.day == 1;
+              return InkWell(
+                borderRadius: BorderRadius.circular(13),
+                onTap: () => c.setDate(d),
+                child: Container(
+                  width: 54,
+                  decoration: BoxDecoration(
+                    color: on ? BK.accent : BK.card,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: on ? BK.accent : BK.line),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        newMonth ? _mon(d.month) : _dow(d.weekday),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: on
+                              ? Colors.white70
+                              : (newMonth ? BK.accent : BK.ink3),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${d.day}',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: on ? Colors.white : BK.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
-      SizedBox(
-        height: 64,
-        child: ListView.separated(
-          controller: _dateScroll,
-          scrollDirection: Axis.horizontal,
-          itemCount: 30,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final now = DateTime.now();
-            final d = DateTime(now.year, now.month, now.day).add(Duration(days: i));
-            final on =
-                c.date.year == d.year &&
-                c.date.month == d.month &&
-                c.date.day == d.day;
-            // Tandai awal bulan baru agar batas bulan jelas saat scroll.
-            final newMonth = i > 0 && d.day == 1;
-            return InkWell(
-              borderRadius: BorderRadius.circular(13),
-              onTap: () => c.setDate(d),
-              child: Container(
-                width: 54,
-                decoration: BoxDecoration(
-                  color: on ? BK.accent : BK.card,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: on ? BK.accent : BK.line),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      newMonth ? _mon(d.month) : _dow(d.weekday),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: on
-                            ? Colors.white70
-                            : (newMonth ? BK.accent : BK.ink3),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${d.day}',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: on ? Colors.white : BK.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+      const SizedBox(width: 8),
+      InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () => _pickDate(c),
+        child: Container(
+          width: 48,
+          height: 64,
+          decoration: BoxDecoration(
+            color: BK.card,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: BK.line),
+          ),
+          child: const Icon(
+            Icons.calendar_month_outlined,
+            size: 22,
+            color: BK.accent,
+          ),
         ),
       ),
     ],
   );
 
-  Widget _slots(CustomerBookingController c) {
-    if (c.busyLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(18),
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
+  Future<void> _pickDate(CustomerBookingController c) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: c.date.isBefore(now) ? now : c.date,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: 'Pilih tanggal booking',
+    );
+    if (picked != null) c.setDate(picked);
+  }
+
+  // Grid slot 4 kolom + badge ketersediaan (mengikuti admin).
+  Widget _slotSection(CustomerBookingController c) {
     final slots = c.slots;
     if (slots.isEmpty) {
-      return const Text(
-        'Tidak ada slot untuk tanggal ini.',
-        style: TextStyle(fontSize: 13, color: BK.ink3),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label('SLOT MULAI'),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: BK.card,
+              borderRadius: BorderRadius.circular(BK.radius),
+              border: Border.all(color: BK.line),
+            ),
+            child: const Text(
+              'Belum ada slot untuk tanggal ini. Coba tanggal lain.',
+              style: TextStyle(fontSize: 12.5, color: BK.ink3),
+            ),
+          ),
+        ],
       );
     }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    final avail = slots.where((s) => s.available).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final s in slots)
-          _slotChip(
-            s.label,
-            selected: c.slot == s.label,
-            available: s.available,
-            past: s.past,
-            onTap: s.available ? () => c.selectSlot(s.label) : null,
+        Row(
+          children: [
+            _label('SLOT MULAI'),
+            const Spacer(),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: avail > 0 ? BK.liveSoft : BK.critSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                avail > 0 ? '$avail slot tersedia' : 'penuh',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: avail > 0 ? BK.live : BK.crit,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: slots.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            mainAxisExtent: 42,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
           ),
+          itemBuilder: (_, i) => _slotChip(
+            slots[i].label,
+            selected: c.slot == slots[i].label,
+            available: slots[i].available,
+            past: slots[i].past,
+            onTap: () => c.selectSlot(slots[i].label),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _duration(CustomerBookingController c) => Row(
-    children: [
-      _stepBtn(
-        Icons.remove,
-        c.duration > 1 ? () => c.setDuration(c.duration - 1) : null,
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: Text(
-          '${c.duration} ${c.unitLabel}',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: BK.ink,
+  // Pilihan durasi sebagai option chips horizontal (mengikuti admin).
+  Widget _durationBlock(CustomerBookingController c) {
+    final maxDur = c.maxDuration;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _label('DURASI (${c.unitLabel})'),
+            const Spacer(),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: BK.accentSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'maks $maxDur ${c.unitLabel}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: BK.accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: maxDur,
+            separatorBuilder: (_, i) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final val = i + 1;
+              final on = c.duration == val;
+              return GestureDetector(
+                onTap: () => c.setDuration(val),
+                child: Container(
+                  width: 62,
+                  decoration: BoxDecoration(
+                    color: on ? BK.accent : BK.card,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: on ? BK.accent : BK.line,
+                      width: on ? 1.5 : 1,
+                    ),
+                    boxShadow: on
+                        ? [
+                            BoxShadow(
+                              color: BK.accent.withValues(alpha: .30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$val',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                          color: on ? Colors.white : BK.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        c.unitLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: on ? Colors.white70 : BK.ink3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
+      ],
+    );
+  }
+
+  // Kartu rangkuman jadwal: waktu mulai → selesai (mengikuti admin).
+  Widget _scheduleSummary(CustomerBookingController c) {
+    final s = c.startAt!, e = c.endAt!;
+    String hm(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: BK.accentSoft,
+          borderRadius: BorderRadius.circular(BK.radius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.schedule, size: 15, color: BK.accent),
+                SizedBox(width: 7),
+                Text(
+                  'RANGKUMAN JADWAL',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: BK.accent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'MULAI',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: BK.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hm(s),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: BK.ink,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _fullDate(s),
+                        style: const TextStyle(fontSize: 11, color: BK.ink2),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: BK.ink3,
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'SELESAI',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: BK.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hm(e),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: BK.accent,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _fullDate(e),
+                        style: const TextStyle(fontSize: 11, color: BK.ink2),
+                        textAlign: TextAlign.end,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      _stepBtn(
-        Icons.add,
-        c.duration < c.maxDuration ? () => c.setDuration(c.duration + 1) : null,
-      ),
-      const Spacer(),
-      Text(
-        'maks ${c.maxDuration}',
-        style: const TextStyle(fontSize: 11.5, color: BK.ink3),
-      ),
-    ],
-  );
+    );
+  }
 
   Widget _promoRow(CustomerBookingController c) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,6 +692,7 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
             child: TextField(
               controller: _promo,
               textCapitalization: TextCapitalization.characters,
+              enabled: !(c.promo?.valid ?? false),
               decoration: InputDecoration(
                 hintText: 'KODE PROMO',
                 isDense: true,
@@ -456,49 +785,15 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (c.startAt != null) ...[
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: BK.accentSoft,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(Icons.event_rounded, size: 20, color: BK.accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _dowFull(c.date),
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: BK.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      '${c.slot} – ${_fmtEnd(c)} · ${c.duration} ${c.unitLabel}',
-                      style: const TextStyle(fontSize: 12.5, color: BK.ink3),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 22, color: BK.line),
-        ],
         _sumRow(
           c.pkg!.name,
           'Rp${rupiah(c.pkg!.price * c.duration)}',
           sub: '${c.duration} ${c.unitLabel} × Rp${rupiah(c.pkg!.price)}',
         ),
+        for (final a in c.addons.where((a) => c.selectedAddonIds.contains(a.id))) ...[
+          const SizedBox(height: 8),
+          _sumRow(a.name, 'Rp${rupiah(a.price)}'),
+        ],
         if (c.promo?.valid ?? false) ...[
           const SizedBox(height: 8),
           _sumRow(
@@ -634,22 +929,25 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
 
   // ---------- widget kecil ----------
 
-  Widget _choice(String label, bool on, VoidCallback onTap) => InkWell(
-    borderRadius: BorderRadius.circular(11),
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: on ? BK.accent : BK.card,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: on ? BK.accent : BK.line),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: on ? Colors.white : BK.ink2,
+  Widget _choice(String label, bool on, VoidCallback onTap) => Material(
+    color: on ? BK.accentSoft : BK.card,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: on ? BK.accent : BK.line),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: on ? BK.accent : BK.ink2,
+          ),
         ),
       ),
     ),
@@ -667,53 +965,56 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
       bg = BK.accent;
       fg = Colors.white;
       border = BK.accent;
-    } else if (!available) {
+    } else if (past) {
+      // Lewat waktu → abu-abu netral (beda dari "penuh").
       bg = BK.card2;
       fg = BK.ink3;
       border = BK.line;
+    } else if (!available) {
+      bg = BK.critSoft;
+      fg = BK.crit;
+      border = BK.critSoft;
     } else {
-      bg = BK.card;
-      fg = BK.ink;
-      border = BK.line;
+      bg = BK.accentSoft;
+      fg = BK.accent;
+      border = const Color(0x332F6BFF);
     }
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: fg,
-            decoration: !available && !selected
-                ? TextDecoration.lineThrough
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: available ? onTap : null,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: border, width: selected ? 1.5 : 1),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: BK.accent.withValues(alpha: .30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
                 : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              decoration: (!available && !past)
+                  ? TextDecoration.lineThrough
+                  : null,
+              color: fg,
+            ),
           ),
         ),
       ),
     );
   }
-
-  Widget _stepBtn(IconData i, VoidCallback? onTap) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(10),
-    child: Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: onTap == null ? BK.card2 : BK.accentSoft,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(i, size: 18, color: onTap == null ? BK.ink3 : BK.accent),
-    ),
-  );
 
   Widget _sumRow(
     String title,
@@ -760,17 +1061,6 @@ class _CustomerBookingFlowState extends State<CustomerBookingFlow> {
     '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ][month];
-  String _monthYear(DateTime d) => '${const [
-    '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ][d.month]} ${d.year}';
-  String _dowFull(DateTime d) {
-    const days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    return '${days[d.weekday]}, ${d.day} ${_mon(d.month)} ${d.year}';
-  }
-  String _fmtEnd(CustomerBookingController c) {
-    final e = c.endAt;
-    if (e == null) return '';
-    return '${e.hour.toString().padLeft(2, '0')}:${e.minute.toString().padLeft(2, '0')}';
-  }
+  String _fullDate(DateTime d) =>
+      '${_dow(d.weekday)}, ${d.day} ${_mon(d.month)} ${d.year}';
 }

@@ -47,6 +47,13 @@ class TokenStore {
     }
   }
 
+  /// Perbarui hanya profil customer tersimpan (token tetap). Dipakai setelah
+  /// customer mengubah data akun (nama/email/nomor) tanpa login ulang.
+  Future<void> saveCustomerProfile(String customerJson) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kCustomerJson, customerJson);
+  }
+
   Future<String?> lastWorkspaceSlug() async {
     final p = await SharedPreferences.getInstance();
     final s = p.getString(_kLastWsSlug);

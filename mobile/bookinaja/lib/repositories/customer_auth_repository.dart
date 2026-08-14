@@ -67,6 +67,56 @@ class CustomerAuthRepository {
     return CustomerAccount.fromJson(profile);
   }
 
+  // --- Manajemen akun (sesi customer aktif) ---
+
+  /// Ekstrak `customer` dari respons {message, customer}, simpan ke storage
+  /// (token tetap), lalu kembalikan profil terbaru.
+  Future<CustomerAccount> _persistProfile(dynamic res) async {
+    final map = Map<String, dynamic>.from(res as Map);
+    final custJson = map['customer'] is Map ? Map<String, dynamic>.from(map['customer'] as Map) : map;
+    final account = CustomerAccount.fromJson(custJson);
+    await _store.saveCustomerProfile(jsonEncode(account.toJson()));
+    return account;
+  }
+
+  /// Perbarui profil (nama/email). PUT /user/me → {message, customer}.
+  Future<CustomerAccount> updateProfile({String? name, String? email}) async {
+    final res = await _api.put('/user/me', body: {
+      if (name != null) 'name': name.trim(),
+      if (email != null) 'email': email.trim(),
+    });
+    return _persistProfile(res);
+  }
+
+  /// Ganti password. POST /user/me/password {current_password, new_password}.
+  Future<CustomerAccount> updatePassword({required String current, required String next}) async {
+    final res = await _api.post('/user/me/password', body: {
+      'current_password': current,
+      'new_password': next,
+    });
+    return _persistProfile(res);
+  }
+
+  /// Hapus akun sendiri. DELETE /user/me. Backend membebaskan nomor/email agar
+  /// bisa dipakai daftar akun baru. Sesi lokal dibersihkan oleh pemanggil.
+  Future<void> deleteAccount() async {
+    await _api.delete('/user/me');
+  }
+
+  /// Minta OTP ganti nomor WA. POST /user/me/phone/request-change {new_phone}.
+  Future<void> requestPhoneChange(String newPhone) async {
+    await _api.post('/user/me/phone/request-change', body: {'new_phone': newPhone.trim()});
+  }
+
+  /// Verifikasi OTP ganti nomor. POST /user/me/phone/verify-change {new_phone, code}.
+  Future<CustomerAccount> verifyPhoneChange({required String newPhone, required String code}) async {
+    final res = await _api.post('/user/me/phone/verify-change', body: {
+      'new_phone': newPhone.trim(),
+      'code': code.trim(),
+    });
+    return _persistProfile(res);
+  }
+
   Future<CustomerAccount> _persist(CustomerAuthResult result) async {
     _api.setToken(result.token);
     _api.setTenant(null); // customer tidak terikat satu tenant

@@ -883,7 +883,7 @@ class _ResourceDetailData {
         category: preview.category,
         description: preview.description,
         imageUrl: preview.imageUrl,
-        items: preview.packages
+        items: [...preview.packages, ...preview.addons]
             .map(
               (pkg) => _ResourceItemData(
                 id: pkg.id,
@@ -961,25 +961,30 @@ class _ResourceDetailData {
     return '';
   }
 
-  TenantResource toTenantResource() => TenantResource(
-    id: id,
-    name: name,
-    category: category,
-    description: description,
-    imageUrl: imageUrl,
-    packages: items
-        .map(
-          (item) => TenantPackage(
-            id: item.id,
-            name: item.name,
-            itemType: item.itemType,
-            price: item.price,
-            priceUnit: item.priceUnit,
-            unitDuration: item.unitDuration,
-          ),
-        )
-        .toList(growable: false),
-  );
+  TenantResource toTenantResource() {
+    TenantPackage toPkg(_ResourceItemData item) => TenantPackage(
+      id: item.id,
+      name: item.name,
+      itemType: item.itemType,
+      price: item.price,
+      priceUnit: item.priceUnit,
+      unitDuration: item.unitDuration,
+    );
+    // Pisahkan add-on dari paket agar CustomerBookingController.addons terisi.
+    // packages tetap berisi item non-add-on (bookablePackages menyaring lagi).
+    return TenantResource(
+      id: id,
+      name: name,
+      category: category,
+      description: description,
+      imageUrl: imageUrl,
+      packages: items
+          .where((it) => !_isAddonItem(it))
+          .map(toPkg)
+          .toList(growable: false),
+      addons: addonItems.map(toPkg).toList(growable: false),
+    );
+  }
 }
 
 class _ResourceItemData {

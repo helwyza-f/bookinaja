@@ -30,12 +30,19 @@ class RealtimeClient {
     _token = token;
     _tenantSlug = tenantSlug;
     _log('context', 'token=${_token?.isNotEmpty == true ? "set" : "empty"} tenant=${_tenantSlug ?? "-"}');
-    if (_token == null || _token!.isEmpty || _tenantSlug == null || _tenantSlug!.isEmpty) {
+    // Slug tidak lagi jadi syarat koneksi: sesi customer (lintas-tenant) hanya
+    // punya token. Yang wajib ada hanya token; kebutuhan slug ditentukan per
+    // channel (lihat [_needsSlug]).
+    if (_token == null || _token!.isEmpty) {
       close();
     } else if (_desiredChannels.isNotEmpty) {
       _ensureConnected();
     }
   }
+
+  // Slug wajib hanya bila ada channel tenant yang diinginkan. Channel customer
+  // diotorisasi lewat customer_id pada token, tanpa slug.
+  bool get _needsSlug => _desiredChannels.any((c) => c.startsWith('tenant:'));
 
   void setChannels(Iterable<String> channels, {String source = 'default'}) {
     _channelSources[source] = channels.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
@@ -67,7 +74,11 @@ class RealtimeClient {
 
   void _ensureConnected() {
     if (_connecting) return;
-    if (_token == null || _token!.isEmpty || _tenantSlug == null || _tenantSlug!.isEmpty) {
+    if (_token == null || _token!.isEmpty) {
+      RealtimeBus.instance.setStatus(RealtimeConnectionState.idle);
+      return;
+    }
+    if (_needsSlug && (_tenantSlug == null || _tenantSlug!.isEmpty)) {
       RealtimeBus.instance.setStatus(RealtimeConnectionState.idle);
       return;
     }
@@ -213,7 +224,9 @@ class RealtimeClient {
       path: '$path/realtime/ws',
       queryParameters: {
         'token': _token!,
-        'slug': _tenantSlug!,
+        // Slug hanya dikirim bila ada (sesi admin). Sesi customer tak punya slug;
+        // backend mengabaikannya dan mengotorisasi channel via customer_id token.
+        if (_tenantSlug != null && _tenantSlug!.isNotEmpty) 'slug': _tenantSlug!,
       },
     );
   }

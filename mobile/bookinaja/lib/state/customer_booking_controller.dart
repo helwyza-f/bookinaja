@@ -68,7 +68,32 @@ class CustomerBookingController extends ChangeNotifier {
 
   String get unitLabel => pkg?.unitLabel ?? 'jam';
 
-  int get total => pkg == null ? 0 : pkg!.price * duration;
+  /// Add-on resource (itemType add_on) — di luar bookablePackages. Bisa dipilih
+  /// bersama paket utama, seperti sisi admin.
+  List<TenantPackage> get addons => resource.addons;
+
+  final Set<String> selectedAddonIds = {};
+
+  int get addonTotal => addons
+      .where((a) => selectedAddonIds.contains(a.id))
+      .fold(0, (sum, a) => sum + a.price);
+
+  void toggleAddon(String id) {
+    if (!selectedAddonIds.remove(id)) selectedAddonIds.add(id);
+    // Subtotal berubah → promo lama (divalidasi thd subtotal lama) tak lagi
+    // valid. Reset seperti sisi admin agar grandTotal tidak basi.
+    _resetPromo();
+    notifyListeners();
+    _schedulePreview();
+  }
+
+  /// item_ids untuk booking: paket utama dulu, lalu add-on terpilih (urutan
+  /// penting — backend menganggap indeks 0 sebagai paket utama).
+  List<String> get _itemIds =>
+      [if (pkg != null) pkg!.id, ...addons.where((a) => selectedAddonIds.contains(a.id)).map((a) => a.id)];
+
+  int get total =>
+      (pkg == null ? 0 : pkg!.price * duration) + addonTotal;
   int get grandTotal => (promo?.valid ?? false) ? promo!.finalAmount : total;
 
   bool get isToday =>
@@ -174,7 +199,7 @@ class CustomerBookingController extends ChangeNotifier {
     try {
       final res = await _repo.preview(
         resourceId: resource.id,
-        itemIds: [pkg!.id],
+        itemIds: _itemIds,
         startLocal: _startLocal(),
         durationUnits: duration,
         promoCode: (promo?.valid ?? false) ? promoCodeApplied : '',
@@ -255,7 +280,7 @@ class CustomerBookingController extends ChangeNotifier {
         resourceId: resource.id,
         customerName: customerName,
         customerPhone: customerPhone,
-        itemIds: [pkg!.id],
+        itemIds: _itemIds,
         startLocal: _startLocal(),
         durationUnits: duration,
         promoCode: (promo?.valid ?? false) ? promoCodeApplied : '',
