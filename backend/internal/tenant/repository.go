@@ -2268,6 +2268,29 @@ func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool
 	return slugExists, emailExists, nil
 }
 
+// PhoneUsedByCustomer melaporkan apakah nomor (bentuk lokal — digit tanpa satu
+// prefix 62/0) sudah dipakai sebagai nomor akun customer. Dipakai untuk menolak
+// nomor bisnis tenant memakai nomor yang sudah jadi akun pelanggan (satu nomor
+// hanya boleh satu peran). Normalisasi di SQL harus sinkron dengan sisi
+// customer (customer.localizePhone).
+func (r *Repository) PhoneUsedByCustomer(ctx context.Context, localPhone string) (bool, error) {
+	if strings.TrimSpace(localPhone) == "" {
+		return false, nil
+	}
+	const q = `
+		SELECT EXISTS (
+			SELECT 1 FROM customers
+			WHERE phone IS NOT NULL
+			  AND phone <> ''
+			  AND regexp_replace(regexp_replace(phone, '\D', '', 'g'), '^(62|0)', '') = $1
+		)`
+	var exists bool
+	if err := r.db.GetContext(ctx, &exists, q, localPhone); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
 	// Query Aggregation ini biarkan ke DB karena transaksinya kompleks,
 	// tapi hasilnya sudah di-cache oleh GetPublicLandingData di atas.

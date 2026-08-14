@@ -388,6 +388,29 @@ func (r *Repository) GetTenantName(ctx context.Context, tenantID uuid.UUID) (str
 	return name, err
 }
 
+// PhoneIsTenantBusinessNumber melaporkan apakah nomor (bentuk lokal — digit
+// saja tanpa prefix 62/0, lihat localizePhone) terdaftar sebagai
+// whatsapp_number tenant manapun. Dipakai untuk menolak nomor bisnis tenant
+// dipakai membuat akun customer. Perbandingan dinormalisasi di SQL: strip
+// non-digit lalu buang satu prefix 62/0 agar cocok lintas format (+62/08/62).
+func (r *Repository) PhoneIsTenantBusinessNumber(ctx context.Context, localPhone string) (bool, error) {
+	if strings.TrimSpace(localPhone) == "" {
+		return false, nil
+	}
+	const q = `
+		SELECT EXISTS (
+			SELECT 1 FROM tenants
+			WHERE whatsapp_number IS NOT NULL
+			  AND whatsapp_number <> ''
+			  AND regexp_replace(regexp_replace(whatsapp_number, '\D', '', 'g'), '^(62|0)', '') = $1
+		)`
+	var exists bool
+	if err := r.db.GetContext(ctx, &exists, q, localPhone); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUID) ([]BroadcastTarget, error) {
 	var targets []BroadcastTarget
 	cacheKey := fmt.Sprintf("customer:broadcast:%s:active", tenantID.String())

@@ -287,6 +287,105 @@ func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.S
 }
 
 // Create menangani pendaftaran reservasi baru (Auto-detect TenantID & Silent Register CRM)
+// PreviewBooking menghitung total, diskon promo, dan DP untuk sebuah pilihan
+// TANPA membuat booking / mendaftarkan customer / mengunci slot. Sumber
+// kebenaran nominal yang sama dengan Create (item × durasi → promo → deposit).
+func (s *Service) PreviewBooking(ctx context.Context, req PreviewBookingReq) (*BookingPreviewResult, error) {
+	rID, err := uuid.Parse(req.ResourceID)
+	if err != nil {
+		return nil, errors.New("ID UNIT TIDAK VALID")
+	}
+	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, rID)
+	if err != nil {
+		return nil, errors.New("UNIT TIDAK DITEMUKAN")
+	}
+	tID := resDetail.TenantID
+	tenantLocation := s.resolveTenantLocation(ctx, tID)
+
+	if len(req.ItemIDs) == 0 {
+		return nil, errors.New("PILIH MINIMAL SATU PAKET UTAMA")
+	}
+
+	// Waktu opsional untuk preview; kalau ada dipakai untuk validasi promo.
+	var start time.Time
+	if strings.TrimSpace(req.StartTime) != "" {
+		start, err = parseBookingStartTime(req.StartTime, tenantLocation)
+		if err != nil {
+			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
+		}
+		start = start.UTC()
+	} else {
+		start = time.Now().UTC()
+	}
+
+	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
+	unitMinutes := 60
+	var grandTotal float64
+	for _, item := range resDetail.Items {
+		if item.ID == mainItemID {
+			unitMinutes = item.UnitDuration
+			grandTotal += item.Price * float64(req.Duration)
+			break
+		}
+	}
+	for _, idStr := range req.ItemIDs[1:] {
+		itemID, err := uuid.Parse(idStr)
+		if err != nil {
+			continue
+		}
+		for _, item := range resDetail.Items {
+			if item.ID == itemID && item.ItemType == "add_on" {
+				grandTotal += item.Price
+				break
+			}
+		}
+	}
+
+	end := start.Add(time.Duration(req.Duration*unitMinutes) * time.Minute)
+	localStart, _ := bookingWindowInLocation(start, end, tenantLocation)
+
+	originalGrandTotal := grandTotal
+	discountAmount := 0.0
+	if s.promoService != nil && strings.TrimSpace(req.PromoCode) != "" {
+		applyResult, err := s.promoService.Apply(ctx, promo.ApplyInput{
+			TenantID:   tID,
+			ResourceID: rID,
+			StartTime:  start,
+			EndTime:    end,
+			LocalStart: localStart,
+			Subtotal:   grandTotal,
+			Code:       req.PromoCode,
+		})
+		// Preview bersifat non-blok: promo invalid → tampilkan tanpa diskon.
+		if err == nil {
+			grandTotal = applyResult.FinalAmount
+			discountAmount = applyResult.DiscountAmount
+			originalGrandTotal = applyResult.OriginalAmount
+		}
+	}
+
+	paymentMode, dpPercentage, err := s.repo.ResolveDepositPolicy(ctx, tID, rID)
+	if err != nil {
+		return nil, fmt.Errorf("GAGAL MEMUAT PENGATURAN DP: %w", err)
+	}
+	_, depositAmount, _, balanceDue, _, _ := resolveBookingLifecycle(grandTotal, paymentMode, dpPercentage)
+	amountDueNow := grandTotal
+	if depositAmount > 0 {
+		amountDueNow = depositAmount
+	}
+
+	return &BookingPreviewResult{
+		GrandTotal:         grandTotal,
+		OriginalGrandTotal: originalGrandTotal,
+		DiscountAmount:     discountAmount,
+		DepositAmount:      depositAmount,
+		BalanceDue:         balanceDue,
+		AmountDueNow:       amountDueNow,
+		PaymentMode:        paymentMode,
+		Timezone:           tenantLocation.String(),
+	}, nil
+}
+
 func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalkIn bool) (*Booking, *customer.Customer, error) {
 	// 1. PARSE RESOURCE ID & AMBIL DATA TENANT (KEAMANAN: TenantID dari DB, bukan JSON)
 	rID, err := uuid.Parse(req.ResourceID)

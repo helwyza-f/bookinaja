@@ -70,6 +70,28 @@ type CreateBookingReq struct {
 	BookingMode   string   `json:"booking_mode"`
 }
 
+// PreviewBookingReq — permintaan hitung harga+DP tanpa membuat booking.
+// Dipakai app customer untuk menampilkan "bayar sekarang (DP)" sebelum commit.
+type PreviewBookingReq struct {
+	ResourceID string   `json:"resource_id" binding:"required"`
+	ItemIDs    []string `json:"item_ids"`
+	StartTime  string   `json:"start_time"`
+	Duration   int      `json:"duration" binding:"required,min=1"`
+	PromoCode  string   `json:"promo_code"`
+}
+
+// BookingPreviewResult — hasil hitung server-authoritative untuk satu pilihan.
+type BookingPreviewResult struct {
+	GrandTotal         float64 `json:"grand_total"`
+	OriginalGrandTotal float64 `json:"original_grand_total"`
+	DiscountAmount     float64 `json:"discount_amount"`
+	DepositAmount      float64 `json:"deposit_amount"`
+	BalanceDue         float64 `json:"balance_due"`
+	AmountDueNow       float64 `json:"amount_due_now"`
+	PaymentMode        string  `json:"payment_mode"`
+	Timezone           string  `json:"timezone"`
+}
+
 type OrderItem struct {
 	ID              uuid.UUID `db:"id" json:"id"`
 	BookingID       uuid.UUID `db:"booking_id" json:"booking_id"`

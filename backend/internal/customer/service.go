@@ -140,6 +140,10 @@ func (s *Service) InvalidatePortalCache(ctx context.Context, customerID uuid.UUI
 func (s *Service) RequestOTP(ctx context.Context, phone string) error {
 	phone = normalizePhone(phone)
 
+	if err := s.ensurePhoneNotTenantBusiness(ctx, phone); err != nil {
+		return err
+	}
+
 	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil || cust == nil {
 		return fmt.Errorf("nomor WhatsApp ini belum terhubung ke akun Bookinaja. Silakan daftar dulu atau lanjut booking sebagai pelanggan baru")
@@ -415,6 +419,9 @@ func (s *Service) CheckExistence(ctx context.Context, phone string) (*Customer, 
 // Register menangani pendaftaran via Booking (Silent) atau manual Admin.
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, error) {
 	req = sanitizeRegisterReq(req)
+	if err := s.ensurePhoneNotTenantBusiness(ctx, req.Phone); err != nil {
+		return nil, err
+	}
 	var hashedPassword *string
 	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
@@ -648,6 +655,9 @@ func (s *Service) LinkGoogleForCustomer(ctx context.Context, customerID string, 
 
 func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Customer, error) {
 	req = sanitizeRegisterReq(req)
+	if err := s.ensurePhoneNotTenantBusiness(ctx, req.Phone); err != nil {
+		return nil, err
+	}
 	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
 		email := strings.TrimSpace(*req.Email)
 		req.Email = &email
@@ -1846,6 +1856,34 @@ func normalizePhone(phone string) string {
 		}
 	}
 	return builder.String()
+}
+
+// localizePhone mengubah nomor ke bentuk lokal kanonik (digit tanpa satu prefix
+// 62/0) supaya perbandingan cocok lintas format (+62 / 08 / 62). Harus sinkron
+// dengan normalisasi di Repository.PhoneIsTenantBusinessNumber.
+func localizePhone(phone string) string {
+	d := normalizePhone(phone)
+	if strings.HasPrefix(d, "62") {
+		return d[2:]
+	}
+	if strings.HasPrefix(d, "0") {
+		return d[1:]
+	}
+	return d
+}
+
+// ensurePhoneNotTenantBusiness menolak nomor yang terdaftar sebagai
+// whatsapp_number tenant manapun — satu nomor HP hanya boleh satu peran, dan
+// nomor bisnis milik tenant tak boleh dipakai membuat akun customer.
+func (s *Service) ensurePhoneNotTenantBusiness(ctx context.Context, phone string) error {
+	used, err := s.repo.PhoneIsTenantBusinessNumber(ctx, localizePhone(phone))
+	if err != nil {
+		return fmt.Errorf("kami belum bisa memverifikasi nomor WhatsApp saat ini")
+	}
+	if used {
+		return fmt.Errorf("nomor ini terdaftar sebagai nomor bisnis tenant, tidak bisa dipakai untuk akun pelanggan. Gunakan nomor pribadi")
+	}
+	return nil
 }
 
 func translateGoogleClaimPersistError(err error) error {

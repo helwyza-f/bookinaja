@@ -78,6 +78,23 @@ func (h *Handler) adminActor(c *gin.Context) ActorContext {
 // --- PUBLIC ENDPOINTS (Tanpa Auth / Customer Facing) ---
 
 // Create menangani pembuatan booking baru sekaligus Silent Login untuk Portal Customer
+// PreviewBooking mengembalikan total + DP server-authoritative untuk sebuah
+// pilihan, tanpa membuat booking. Dipakai app customer agar "bayar sekarang"
+// jelas sebelum commit.
+func (h *Handler) PreviewBooking(c *gin.Context) {
+	var req PreviewBookingReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "LENGKAPI DATA BOOKING DENGAN BENAR"})
+		return
+	}
+	res, err := h.service.PreviewBooking(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateBookingReq
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -1748,6 +1748,26 @@ func minInt(a, b int) int {
 }
 
 // Register menangani pendaftaran tenant baru & inisialisasi default branding
+// localizeBusinessPhone mengubah nomor ke bentuk lokal kanonik (digit tanpa
+// satu prefix 62/0) agar cocok lintas format saat dibandingkan dengan nomor
+// akun customer. Harus sinkron dengan customer.localizePhone.
+func localizeBusinessPhone(phone string) string {
+	var b strings.Builder
+	for _, ch := range phone {
+		if ch >= '0' && ch <= '9' {
+			b.WriteByte(byte(ch))
+		}
+	}
+	d := b.String()
+	if strings.HasPrefix(d, "62") {
+		return d[2:]
+	}
+	if strings.HasPrefix(d, "0") {
+		return d[1:]
+	}
+	return d
+}
+
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterResponse, error) {
 	req.TenantName = strings.TrimSpace(req.TenantName)
 	req.TenantSlug = strings.TrimSpace(req.TenantSlug)
@@ -1800,6 +1820,18 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 	}
 	if emailEx {
 		return nil, errors.New("email sudah terdaftar")
+	}
+
+	// Satu nomor HP hanya boleh satu peran: nomor bisnis tenant tak boleh
+	// memakai nomor yang sudah terdaftar sebagai akun pelanggan.
+	if req.WhatsappNumber != "" {
+		usedByCustomer, err := s.repo.PhoneUsedByCustomer(ctx, localizeBusinessPhone(req.WhatsappNumber))
+		if err != nil {
+			return nil, errors.New("kami belum bisa memverifikasi nomor WhatsApp bisnis saat ini")
+		}
+		if usedByCustomer {
+			return nil, errors.New("nomor WhatsApp ini sudah dipakai sebagai akun pelanggan. Gunakan nomor bisnis lain")
+		}
 	}
 
 	// 2. Hash Password Owner
