@@ -8,7 +8,9 @@ import 'create_booking.dart';
 
 class BookingsScreen extends StatelessWidget {
   const BookingsScreen({super.key});
-  static const _filters = ['Semua', 'Perlu aksi', 'Aktif', 'Lunas'];
+  // "Perlu aksi" sengaja dihilangkan — antrean yang perlu ditindak kini milik
+  // tab POS. Booking fokus sebagai arsip: telusuri & kelola semua booking.
+  static const _filters = ['Semua', 'Aktif', 'Lunas'];
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +22,15 @@ class BookingsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(children: [
-              const Text('Booking', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink)),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Booking', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink)),
+                  SizedBox(height: 2),
+                  Text('Semua booking · cari & kelola', style: TextStyle(fontSize: 12, color: BK.ink3, fontWeight: FontWeight.w500)),
+                ],
+              ),
               const Spacer(),
               FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),

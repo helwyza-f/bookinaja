@@ -6,6 +6,7 @@ import '../state/auth_controller.dart';
 import 'kasir.dart';
 import 'customers.dart';
 import 'cancellation_settings.dart';
+import 'settings_hub.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -46,7 +47,9 @@ class MoreHubScreen extends StatelessWidget {
           _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan', 'Cancel, cutoff, refund DP', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CancellationSettingsScreen()));
           }),
-          _tile(context, Icons.settings_outlined, 'Pengaturan lain', 'Bayar, promo, nota', () => _soon(context, 'Pengaturan')),
+          _tile(context, Icons.settings_outlined, 'Pengaturan lain', 'Bayar, promo, nota, staff', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
+          }),
           const SizedBox(height: 18),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 14), minimumSize: const Size.fromHeight(0)),

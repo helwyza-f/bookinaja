@@ -8,7 +8,7 @@ import 'repositories/customer_auth_repository.dart';
 import 'repositories/booking_repository.dart';
 import 'repositories/pos_repository.dart';
 import 'repositories/customers_repository.dart';
-import 'repositories/ops_repository.dart';
+import 'repositories/pos_feed_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/discovery_repository.dart';
@@ -22,7 +22,7 @@ import 'state/bookings_controller.dart';
 import 'state/dashboard_controller.dart';
 import 'state/pos_controller.dart';
 import 'state/customers_controller.dart';
-import 'state/ops_controller.dart';
+import 'state/pos_feed_controller.dart';
 import 'state/discovery_controller.dart';
 import 'state/my_bookings_controller.dart';
 import 'theme.dart';
@@ -48,7 +48,7 @@ void main() {
       bookingRepo: BookingRepository(api),
       posRepo: PosRepository(api),
       customersRepo: CustomersRepository(api),
-      opsRepo: OpsRepository(api),
+      posFeedRepo: PosFeedRepository(api),
       catalogRepo: CatalogRepository(api),
       settingsRepo: SettingsRepository(api),
       discoveryRepo: DiscoveryRepository(api),
@@ -64,7 +64,7 @@ class BookinajaAdmin extends StatelessWidget {
   final BookingRepository bookingRepo;
   final PosRepository posRepo;
   final CustomersRepository customersRepo;
-  final OpsRepository opsRepo;
+  final PosFeedRepository posFeedRepo;
   final CatalogRepository catalogRepo;
   final SettingsRepository settingsRepo;
   final DiscoveryRepository discoveryRepo;
@@ -77,7 +77,7 @@ class BookinajaAdmin extends StatelessWidget {
     required this.bookingRepo,
     required this.posRepo,
     required this.customersRepo,
-    required this.opsRepo,
+    required this.posFeedRepo,
     required this.catalogRepo,
     required this.settingsRepo,
     required this.discoveryRepo,
@@ -108,7 +108,7 @@ class BookinajaAdmin extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => CustomersController(customersRepo),
         ),
-        ChangeNotifierProvider(create: (_) => OpsController(opsRepo)),
+        ChangeNotifierProvider(create: (_) => PosFeedController(posFeedRepo)),
       ],
       child: MaterialApp(
         title: 'Bookinaja Admin',

@@ -5,9 +5,12 @@
 > customer), dipisah **setelah** autentikasi.
 >
 > **Status implementasi:** Fase 1 (fondasi & baca) dan Fase 2 (booking & bayar
-> manual) **sudah di-code & lolos `flutter analyze`**. Fase 3 (sesi live, order
-> in-session, loyalty penuh) **belum** — baru tab Profil dasar yang menampilkan
-> tier + poin dari akun. Detail per fase di §05.
+> manual) **selesai**. Fase 3 (sesi live & profil) **sebagian besar selesai** —
+> realtime `customer:*` tersambung, sesi live + order in-session, detail
+> booking/order, riwayat (`/me/history`), dan account management (edit profil,
+> ganti password, ganti WA/OTP, hapus akun) sudah di-code. **Sisa Fase 3 yang
+> belum:** loyalty penuh (ledger poin + redeem) — Profil masih read-only tier +
+> poin. Detail per fase di §05.
 >
 > Status doc: living plan · terakhir diperbarui pada 2026-08-14 · versi visual: [artifact](https://claude.ai/code/artifact/04207355-93dd-4466-993f-74ec1f1cd476)
 
@@ -160,11 +163,12 @@ status yang sama, tidak menciptakan aturan baru.
 |---|---|---|
 | Infrastruktur | `ApiClient`, `TokenStore`, `RealtimeClient`, tema `BK` | **pakai ulang** |
 | State | `AuthController` — tambah field role & login OTP/email/Google | diperluas |
-| Realtime | channel `customer:{id}:booking:{id}` dst. — backend ada, belum disambung | baru (sambung) |
-| Repository | `DiscoveryRepository`, `CustomerBookingRepository`, `LoyaltyRepository` | baru |
-| Layar | `DiscoverScreen`, `TenantProfileScreen` | baru |
-| Layar | `CustomerBookingFlow` (mirip `create_booking.dart`, POV customer + bayar inline) | baru |
-| Layar | `MyBookingsScreen`, `CustomerBookingDetailScreen`, `CustomerProfileScreen` | baru |
+| Realtime | channel `customer:{id}:booking:{id}` dst. — backend ada, belum disambung | ✅ tersambung (05f5526f) |
+| Repository | `DiscoveryRepository`, `CustomerBookingRepository` | ✅ selesai |
+| Repository | `LoyaltyRepository` (ledger + redeem) | ❌ belum |
+| Layar | `DiscoverScreen`, `TenantProfileScreen` | ✅ selesai |
+| Layar | `CustomerBookingFlow` (mirip `create_booking.dart`, POV customer + bayar inline) | ✅ selesai |
+| Layar | `MyBookingsScreen`, `CustomerBookingDetailScreen`, `CustomerOrderDetailScreen`, `CustomerAccountScreen` | ✅ selesai |
 | Backend | validasi nomor HP: tolak registrasi customer bila nomor = `tenants.whatsapp_number` tenant manapun | baru (kecil) |
 
 ### Validasi nomor HP (backend)
@@ -268,25 +272,34 @@ Reuse dari app admin: model `BusySlot` ([models/catalog.dart:73]),
 `CreateBookingController` sebagai referensi logika slot/durasi/promo (tapi
 endpoint diarahkan ke `/public/*`).
 
-**Fase 3 — Sesi hidup & profil** 🚧 BELUM (baru profil dasar)
+**Fase 3 — Sesi hidup & profil** 🟡 SEBAGIAN BESAR SELESAI (sisa: loyalty penuh)
 Sambung channel realtime `customer:*` untuk status sesi live · tambah order
 F&B/addon dalam sesi · profil, poin loyalty, riwayat lengkap.
 
-Status kode saat ini:
-- ✅ **Tab Profil dasar** — `_CustomerProfileTab` di
-  [customer_home_shell.dart](../mobile/bookinaja/lib/screens/customer/customer_home_shell.dart)
-  menampilkan `tier` + `loyaltyPoints` dari model
-  [customer_account.dart](../mobile/bookinaja/lib/models/customer_account.dart)
-  (read-only, dari field akun — belum ada ledger/riwayat/redeem).
-- ❌ **Realtime sesi live** — channel `customer:{id}:booking:{id}` dst. belum
-  disambung di app (backend sudah gate JWT-nya). `RealtimeClient` belum dipakai
-  di jalur customer.
-- ❌ **Order F&B/addon dalam sesi** — belum ada; `my_bookings_screen` masih
-  read-only, belum panggil `/me/bookings/:id/context` / `orders` / `addons`.
-- ❌ **Riwayat & loyalty penuh** — belum ada layar riwayat (`/me/history`)
-  maupun ledger poin.
+Status kode saat ini (per commit 05f5526f):
+- ✅ **Realtime sesi live** — `RealtimeClient` kini token-only, sesi customer
+  subscribe channel `customer:*` tanpa slug
+  ([realtime_client.dart](../mobile/bookinaja/lib/realtime/realtime_client.dart)).
+  Detail booking/order auto-update via channel + silent refresh.
+- ✅ **Sesi live penuh** — activate, countdown ticking, extend slot-aware,
+  complete, plus order F&B/addon dalam sesi
+  ([customer_booking_detail_screen.dart](../mobile/bookinaja/lib/screens/customer/customer_booking_detail_screen.dart)).
+- ✅ **Detail order F&B/direct-sale** —
+  [customer_order_detail_screen.dart](../mobile/bookinaja/lib/screens/customer/customer_order_detail_screen.dart)
+  (item, total, riwayat bayar, realtime, manual payment).
+- ✅ **Riwayat** — `GET /user/me/history` di
+  [customer_booking_repository.dart](../mobile/bookinaja/lib/repositories/customer_booking_repository.dart),
+  tampil di tab "Riwayat"
+  [my_bookings_screen.dart](../mobile/bookinaja/lib/screens/customer/my_bookings_screen.dart)
+  yang kini auto-update over realtime.
+- ✅ **Account management** (di luar rencana awal) —
+  [customer_account_screen.dart](../mobile/bookinaja/lib/screens/customer/customer_account_screen.dart):
+  edit profil, ganti password, ganti nomor WA via OTP, dan hapus akun
+  self-service (`DELETE /user/me`, type-to-confirm).
+- ❌ **Loyalty penuh** — Profil masih read-only `tier` + `loyaltyPoints` dari
+  field akun. Belum ada `LoyaltyRepository`, ledger poin, maupun redeem.
 
-Belum dibuat: `LoyaltyRepository`, layar riwayat, wiring realtime customer.
+Belum dibuat: `LoyaltyRepository`, layar/UI ledger poin & redeem.
 
 ---
 

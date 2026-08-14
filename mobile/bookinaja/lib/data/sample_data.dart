@@ -1,7 +1,6 @@
 import '../models/booking.dart';
 import '../models/menu_item.dart';
 import '../models/customer.dart';
-import '../models/resource_status.dart';
 
 /// Data contoh untuk mode demo (tanpa backend).
 const sampleBookings = <Booking>[
@@ -20,14 +19,6 @@ class LiveSession {
 const sampleLive = <LiveSession>[
   LiveSession('Station 03', 'Budi', 'sisa 24 mnt', '18:00', id: 'demo-1', code: 'DEMO0001'),
   LiveSession('PS5 Room B', 'Sarah', 'sisa 1j 12m', '18:48', id: 'demo-2', code: 'DEMO0002'),
-];
-
-const sampleResources = <ResourceStatus>[
-  ResourceStatus(name: 'Station 03', state: ResourceState.live, note: 'Budi · sisa 24m'),
-  ResourceStatus(name: 'PS5 Room B', state: ResourceState.live, note: 'Sarah · sisa 1j12m'),
-  ResourceStatus(name: 'Station 05', state: ResourceState.idle, note: 'siap dipakai'),
-  ResourceStatus(name: 'Station 07', state: ResourceState.idle, note: 'siap dipakai'),
-  ResourceStatus(name: 'Station 08', state: ResourceState.off, note: 'maintenance'),
 ];
 
 const sampleMenu = <MenuItem>[

@@ -16,7 +16,7 @@ class BookingsController extends ChangeNotifier {
   AsyncValue<List<Booking>> _state = const AsyncValue.loading();
   AsyncValue<List<Booking>> get state => _state;
 
-  int filter = 0; // 0 semua, 1 perlu aksi, 2 aktif, 3 lunas
+  int filter = 0; // 0 semua, 1 aktif, 2 lunas
   String query = ''; // cari nama / kode
   StreamSubscription<RealtimeEvent>? _realtimeSub;
   Timer? _refreshDebounce;
@@ -24,12 +24,8 @@ class BookingsController extends ChangeNotifier {
   List<Booking> get filtered {
     final all = _state.data ?? const [];
     final byFilter = switch (filter) {
-      1 => all.where((b) =>
-          b.status == BookingStatus.review ||
-          b.status == BookingStatus.pending ||
-          b.status == BookingStatus.dp),
-      2 => all.where((b) => b.status == BookingStatus.live),
-      3 => all.where((b) => b.status == BookingStatus.paid),
+      1 => all.where((b) => b.status == BookingStatus.live),
+      2 => all.where((b) => b.status == BookingStatus.paid),
       _ => all,
     };
     final q = query.trim().toLowerCase();
