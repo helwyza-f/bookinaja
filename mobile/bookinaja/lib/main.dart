@@ -11,6 +11,9 @@ import 'repositories/customers_repository.dart';
 import 'repositories/pos_feed_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/settings_repository.dart';
+import 'repositories/fnb_repository.dart';
+import 'repositories/reports_repository.dart';
+import 'repositories/resource_admin_repository.dart';
 import 'repositories/discovery_repository.dart';
 import 'repositories/customer_booking_repository.dart';
 import 'repositories/customer_reservation_repository.dart';
@@ -51,6 +54,9 @@ void main() {
       posFeedRepo: PosFeedRepository(api),
       catalogRepo: CatalogRepository(api),
       settingsRepo: SettingsRepository(api),
+      fnbRepo: FnbRepository(api),
+      reportsRepo: ReportsRepository(api),
+      resourceAdminRepo: ResourceAdminRepository(api),
       discoveryRepo: DiscoveryRepository(api),
       customerBookingRepo: CustomerBookingRepository(api),
       customerReservationRepo: CustomerReservationRepository(api),
@@ -67,6 +73,9 @@ class BookinajaAdmin extends StatelessWidget {
   final PosFeedRepository posFeedRepo;
   final CatalogRepository catalogRepo;
   final SettingsRepository settingsRepo;
+  final FnbRepository fnbRepo;
+  final ReportsRepository reportsRepo;
+  final ResourceAdminRepository resourceAdminRepo;
   final DiscoveryRepository discoveryRepo;
   final CustomerBookingRepository customerBookingRepo;
   final CustomerReservationRepository customerReservationRepo;
@@ -80,6 +89,9 @@ class BookinajaAdmin extends StatelessWidget {
     required this.posFeedRepo,
     required this.catalogRepo,
     required this.settingsRepo,
+    required this.fnbRepo,
+    required this.reportsRepo,
+    required this.resourceAdminRepo,
     required this.discoveryRepo,
     required this.customerBookingRepo,
     required this.customerReservationRepo,
@@ -95,6 +107,9 @@ class BookinajaAdmin extends StatelessWidget {
         Provider<PosRepository>.value(value: posRepo),
         Provider<CustomersRepository>.value(value: customersRepo),
         Provider<SettingsRepository>.value(value: settingsRepo),
+        Provider<FnbRepository>.value(value: fnbRepo),
+        Provider<ReportsRepository>.value(value: reportsRepo),
+        Provider<ResourceAdminRepository>.value(value: resourceAdminRepo),
         Provider<DiscoveryRepository>.value(value: discoveryRepo),
         Provider<CustomerBookingRepository>.value(value: customerBookingRepo),
         Provider<CustomerReservationRepository>.value(value: customerReservationRepo),

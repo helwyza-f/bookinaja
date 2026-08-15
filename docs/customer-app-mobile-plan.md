@@ -4,15 +4,18 @@
 > ada (`mobile/bookinaja`). Satu binary, dua peran (tenant staff &
 > customer), dipisah **setelah** autentikasi.
 >
-> **Status implementasi:** Fase 1 (fondasi & baca) dan Fase 2 (booking & bayar
-> manual) **selesai**. Fase 3 (sesi live & profil) **sebagian besar selesai** —
+> **Status implementasi:** Fase 1 (fondasi & baca), Fase 2 (booking & bayar
+> manual), dan Fase 3 (sesi live & profil) **selesai secara fungsional** —
 > realtime `customer:*` tersambung, sesi live + order in-session, detail
 > booking/order, riwayat (`/me/history`), dan account management (edit profil,
-> ganti password, ganti WA/OTP, hapus akun) sudah di-code. **Sisa Fase 3 yang
-> belum:** loyalty penuh (ledger poin + redeem) — Profil masih read-only tier +
-> poin. Detail per fase di §05.
+> ganti password, ganti WA/OTP, hapus akun) sudah di-code. **Loyalty penuh
+> (ledger poin + redeem) DIPINDAH ke backlog "ditunda"**, bukan lagi sisa Fase 3:
+> loop inti sudah jalan (poin accrue + tier naik otomatis di backend, tampil
+> read-only di profil), dan redeem tidak bisa dibangun sebelum ada keputusan
+> bisnis "poin ditukar jadi apa" + endpoint spend di backend (belum ada). Detail
+> per fase di §05, rasional di §Item terbuka.
 >
-> Status doc: living plan · terakhir diperbarui pada 2026-08-14 · versi visual: [artifact](https://claude.ai/code/artifact/04207355-93dd-4466-993f-74ec1f1cd476)
+> Status doc: living plan · terakhir diperbarui pada 2026-08-15 · versi visual: [artifact](https://claude.ai/code/artifact/76ba7f51-e2d8-473f-9e38-e0cf3475997c)
 
 ## Ringkasan keputusan
 
@@ -165,7 +168,7 @@ status yang sama, tidak menciptakan aturan baru.
 | State | `AuthController` — tambah field role & login OTP/email/Google | diperluas |
 | Realtime | channel `customer:{id}:booking:{id}` dst. — backend ada, belum disambung | ✅ tersambung (05f5526f) |
 | Repository | `DiscoveryRepository`, `CustomerBookingRepository` | ✅ selesai |
-| Repository | `LoyaltyRepository` (ledger + redeem) | ❌ belum |
+| Repository | `LoyaltyRepository` (ledger + redeem) | ⏸️ ditunda (backlog) |
 | Layar | `DiscoverScreen`, `TenantProfileScreen` | ✅ selesai |
 | Layar | `CustomerBookingFlow` (mirip `create_booking.dart`, POV customer + bayar inline) | ✅ selesai |
 | Layar | `MyBookingsScreen`, `CustomerBookingDetailScreen`, `CustomerOrderDetailScreen`, `CustomerAccountScreen` | ✅ selesai |
@@ -272,7 +275,7 @@ Reuse dari app admin: model `BusySlot` ([models/catalog.dart:73]),
 `CreateBookingController` sebagai referensi logika slot/durasi/promo (tapi
 endpoint diarahkan ke `/public/*`).
 
-**Fase 3 — Sesi hidup & profil** 🟡 SEBAGIAN BESAR SELESAI (sisa: loyalty penuh)
+**Fase 3 — Sesi hidup & profil** ✅ SELESAI FUNGSIONAL (loyalty penuh → backlog)
 Sambung channel realtime `customer:*` untuk status sesi live · tambah order
 F&B/addon dalam sesi · profil, poin loyalty, riwayat lengkap.
 
@@ -296,15 +299,31 @@ Status kode saat ini (per commit 05f5526f):
   [customer_account_screen.dart](../mobile/bookinaja/lib/screens/customer/customer_account_screen.dart):
   edit profil, ganti password, ganti nomor WA via OTP, dan hapus akun
   self-service (`DELETE /user/me`, type-to-confirm).
-- ❌ **Loyalty penuh** — Profil masih read-only `tier` + `loyaltyPoints` dari
-  field akun. Belum ada `LoyaltyRepository`, ledger poin, maupun redeem.
-
-Belum dibuat: `LoyaltyRepository`, layar/UI ledger poin & redeem.
+- ⏸️ **Loyalty penuh → dipindah ke backlog "ditunda"** (lihat §Item terbuka).
+  Profil masih read-only `tier` + `loyaltyPoints` dari field akun. Loop inti
+  sudah jalan otomatis di backend; UI ledger + redeem menunggu keputusan bisnis
+  & endpoint spend.
 
 ---
 
 ## Item terbuka / ditunda
 
+- **Loyalty penuh (ledger poin + redeem)** — ditunda, bukan blocker MVP.
+  - **Sudah jalan (otomatis, tanpa kerjaan tambahan):** poin accrue tiap booking
+    lunas — `AwardBookingPoints` dipanggil dari
+    [reservation/service.go:1070](../backend/internal/reservation/service.go),
+    rate 1 poin per Rp10.000 (`pointRupiahDivisor` di
+    [customer/service.go](../backend/internal/customer/service.go)); tier naik
+    otomatis (`NEW→REGULAR→GOLD→VIP`); ledger tercatat per event; profil app
+    tampilkan `tier` + total poin read-only.
+  - **Kenapa ditunda:** (1) **Redeem belum ada di backend** — tidak ada endpoint
+    spend/deduct poin, jadi UI redeem di mobile = tombol mati. (2) Butuh
+    **keputusan bisnis dulu**: poin ditukar jadi apa (diskon / voucher / free
+    session)? (3) Endpoint `GetPoints` ledger baru di-route ke admin CRM
+    (`/customers/:id/points`), belum ada self-service `/me/points`.
+  - **Kalau dibuka lagi, urutannya:** backend dulu (`/me/points` untuk ledger +
+    endpoint redeem/spend sesuai mekanik yang diputuskan) → baru mobile
+    (`LoyaltyRepository`, layar ledger + redeem).
 - **Push notification (FCM/APNs)** — belum ada infrastruktur di backend. MVP
   numpang WhatsApp dulu.
 - **Review/rating** — belum ada model data di backend (hanya field
@@ -315,7 +334,7 @@ Belum dibuat: `LoyaltyRepository`, layar/UI ledger poin & redeem.
 
 ## Referensi
 
-- Artifact visual (diagram): https://claude.ai/code/artifact/04207355-93dd-4466-993f-74ec1f1cd476
+- Artifact visual (diagram): https://claude.ai/code/artifact/76ba7f51-e2d8-473f-9e38-e0cf3475997c
 - `docs/byo-payment-gateway-plan.md` — arsitektur payment gateway per-tenant
 - `docs/fnb-mode-design.md` — mode F&B (integrated/standalone/off)
 - `docs/tenant-membership-implementation-plan.md` — model staff/membership tenant

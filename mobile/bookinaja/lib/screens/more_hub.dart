@@ -7,6 +7,9 @@ import 'kasir.dart';
 import 'customers.dart';
 import 'cancellation_settings.dart';
 import 'settings_hub.dart';
+import 'fnb_menu_screen.dart';
+import 'reports_screen.dart';
+import 'resources_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -36,13 +39,20 @@ class MoreHubScreen extends StatelessWidget {
           _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
           }),
-          _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () => _soon(context, 'Menu F&B')),
+          if (auth.kasirEnabled)
+            _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
+            }),
           _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () => _soon(context, 'Biaya')),
-          _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () => _soon(context, 'Laporan')),
+          _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()));
+          }),
           const SizedBox(height: 18),
           const Text('WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          _tile(context, Icons.storefront_outlined, 'Resource', 'Kelola katalog', () => _soon(context, 'Resource')),
+          _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
+          }),
           _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
           _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan', 'Cancel, cutoff, refund DP', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CancellationSettingsScreen()));

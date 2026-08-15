@@ -6,10 +6,10 @@ import '../models/booking.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../theme.dart';
-import '../ui/toast.dart';
 import 'booking_detail.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
+import 'reports_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -43,7 +43,7 @@ class DashboardScreen extends StatelessWidget {
                   _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
                   const SizedBox(width: 9),
                 ],
-                _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _soon(context, 'Laporan')),
+                _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
               ],
             ),
             const SizedBox(height: 18),
@@ -555,4 +555,3 @@ Widget _statusPill(BookingStatus status) {
 }
 
 void _go(BuildContext c, Widget page) => Navigator.of(c).push(MaterialPageRoute(builder: (_) => page));
-void _soon(BuildContext c, String m) => BkToast.info(c, m, subtitle: 'Fitur ini segera hadir.');

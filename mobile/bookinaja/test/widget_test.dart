@@ -10,6 +10,9 @@ import 'package:bookinaja/repositories/customers_repository.dart';
 import 'package:bookinaja/repositories/pos_feed_repository.dart';
 import 'package:bookinaja/repositories/catalog_repository.dart';
 import 'package:bookinaja/repositories/settings_repository.dart';
+import 'package:bookinaja/repositories/fnb_repository.dart';
+import 'package:bookinaja/repositories/reports_repository.dart';
+import 'package:bookinaja/repositories/resource_admin_repository.dart';
 import 'package:bookinaja/repositories/discovery_repository.dart';
 import 'package:bookinaja/repositories/customer_booking_repository.dart';
 import 'package:bookinaja/repositories/customer_reservation_repository.dart';
@@ -31,6 +34,9 @@ void main() {
       posFeedRepo: PosFeedRepository(api),
       catalogRepo: CatalogRepository(api),
       settingsRepo: SettingsRepository(api),
+      fnbRepo: FnbRepository(api),
+      reportsRepo: ReportsRepository(api),
+      resourceAdminRepo: ResourceAdminRepository(api),
       discoveryRepo: DiscoveryRepository(api),
       customerBookingRepo: CustomerBookingRepository(api),
       customerReservationRepo: CustomerReservationRepository(api),
