@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -261,34 +260,24 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
 
   List<Widget> _cashFields() {
     final change = _change;
+    final selected = _cashReceived;
     return [
-      TextField(
-        controller: _cashCtrl,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: (_) => setState(() {}),
-        style: const TextStyle(fontSize: 15, color: BK.ink, fontWeight: FontWeight.w700),
-        decoration: InputDecoration(
-          isDense: true,
-          labelText: 'Uang diterima (opsional)',
-          prefixText: 'Rp ',
-          filled: true,
-          fillColor: BK.bg,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+      const Text('Uang diterima (opsional)',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BK.ink3)),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 40,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.zero,
+          children: [
+            for (final v in _quickCash()) ...[
+              _cashChip(v, selected == v),
+              const SizedBox(width: 8),
+            ],
+          ],
         ),
       ),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, children: [
-        for (final v in _quickCash())
-          ActionChip(
-            label: Text('Rp${rupiah(v)}', style: const TextStyle(fontSize: 12)),
-            backgroundColor: BK.bg,
-            side: const BorderSide(color: BK.line),
-            onPressed: () => setState(() => _cashCtrl.text = '$v'),
-          ),
-      ]),
       if (_cashReceived > 0) ...[
         const SizedBox(height: 12),
         Container(
@@ -308,6 +297,24 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
       ],
       const SizedBox(height: 6),
     ];
+  }
+
+  /// Chip nominal uang diterima — tap untuk pilih, tap lagi untuk batal.
+  Widget _cashChip(int value, bool on) {
+    return GestureDetector(
+      onTap: () => setState(() => _cashCtrl.text = on ? '' : '$value'),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: on ? BK.accentSoft : BK.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.4 : 1),
+        ),
+        child: Text('Rp${rupiah(value)}',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: on ? BK.accent : BK.ink)),
+      ),
+    );
   }
 
   List<int> _quickCash() {
