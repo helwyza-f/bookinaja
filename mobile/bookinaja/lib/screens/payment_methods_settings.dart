@@ -37,7 +37,7 @@ class _View extends StatelessWidget {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
       ),
       body: c.state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingList(),
         error: (e) => StateView(
           icon: Icons.wifi_off_rounded,
           color: BK.crit,

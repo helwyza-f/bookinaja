@@ -63,7 +63,7 @@ class _ViewState extends State<_View> {
         ],
       ),
       body: c.state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingList(),
         error: (e) => StateView(
           icon: Icons.wifi_off_rounded,
           color: BK.crit,
@@ -85,6 +85,8 @@ class _ViewState extends State<_View> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
       children: [
         _headerCard(context, c, r),
+        const SizedBox(height: 20),
+        _gallerySection(context, c, r),
         const SizedBox(height: 20),
         _itemsSection(
           context, c,
@@ -161,6 +163,93 @@ class _ViewState extends State<_View> {
         height: 72,
         decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(13), border: Border.all(color: BK.line)),
         child: inner,
+      ),
+    );
+  }
+
+  Widget _gallerySection(BuildContext context, ResourceDetailController c, AdminResource r) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Text('GALERI',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(20)),
+            child: Text('${r.gallery.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3)),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: c.saving ? null : () => _addGallery(context, c),
+            style: TextButton.styleFrom(foregroundColor: BK.accent, padding: const EdgeInsets.symmetric(horizontal: 8)),
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+            label: const Text('Tambah', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
+        ]),
+        const SizedBox(height: 2),
+        const Text('Foto tambahan yang tampil di halaman resource untuk customer.',
+            style: TextStyle(fontSize: 12, color: BK.ink3)),
+        const SizedBox(height: 10),
+        if (r.gallery.isEmpty)
+          GestureDetector(
+            onTap: c.saving ? null : () => _addGallery(context, c),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: BK.card,
+                borderRadius: BorderRadius.circular(BK.radius),
+                border: Border.all(color: BK.line),
+              ),
+              child: const Column(children: [
+                Icon(Icons.photo_library_outlined, color: BK.ink3, size: 26),
+                SizedBox(height: 8),
+                Text('Belum ada foto galeri. Ketuk untuk menambah.',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: BK.ink3)),
+              ]),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final url in r.gallery) _galleryThumb(context, c, url)],
+          ),
+      ],
+    );
+  }
+
+  Widget _galleryThumb(BuildContext context, ResourceDetailController c, String url) {
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(url, width: 88, height: 88, fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                      width: 88, height: 88,
+                      color: BK.card2,
+                      child: const Icon(Icons.broken_image_outlined, color: BK.ink3),
+                    )),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: c.saving ? null : () => _removeGallery(context, c, url),
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: const BoxDecoration(color: Color(0xCC0D1526), shape: BoxShape.circle),
+                child: const Icon(Icons.close, size: 15, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -261,7 +350,8 @@ class _ViewState extends State<_View> {
           subtitle: const Text('Deskripsi, mode operasi, hapus',
               style: TextStyle(fontSize: 11.5, color: BK.ink3)),
           children: [
-            _advancedRow('Deskripsi', r.description.isEmpty ? '—' : r.description),
+            _advancedRow('Fasilitas', r.description.isEmpty ? '—' : r.description),
+            if (r.about.isNotEmpty) _advancedRow('Tentang', r.about),
             _advancedRow('Mode operasi', r.operatingMode.isEmpty ? 'Default' : r.operatingMode),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -326,6 +416,70 @@ class _ViewState extends State<_View> {
     }
   }
 
+  Future<void> _addGallery(BuildContext context, ResourceDetailController c) async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GallerySourceSheet(),
+    );
+    if (source == null || !context.mounted) return;
+
+    final picker = ImagePicker();
+    try {
+      final List<String> paths;
+      if (source == 'camera') {
+        final x = await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1600);
+        if (x == null) return;
+        paths = [x.path];
+      } else if (source == 'single') {
+        final x = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1600);
+        if (x == null) return;
+        paths = [x.path];
+      } else {
+        final imgs = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1600);
+        if (imgs.isEmpty) return;
+        paths = imgs.map((e) => e.path).toList();
+      }
+      if (!context.mounted) return;
+      final t = BkToast.loading(context, 'Mengunggah ${paths.length} foto…');
+      final ok = await c.addGalleryImages(paths);
+      t.dismiss();
+      if (!context.mounted) return;
+      ok
+          ? BkToast.success(context, paths.length > 1 ? '${paths.length} foto ditambahkan' : 'Foto ditambahkan')
+          : BkToast.error(context, c.error ?? 'Gagal menambah foto');
+    } catch (e) {
+      if (!context.mounted) return;
+      BkToast.error(context, 'Gagal upload foto', subtitle: '$e');
+    }
+  }
+
+  Future<void> _removeGallery(BuildContext context, ResourceDetailController c, String url) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: BK.card,
+        title: const Text('Hapus foto?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: const Text('Foto ini akan dihapus dari galeri resource.',
+            style: TextStyle(fontSize: 13.5, color: BK.ink2)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.crit),
+            onPressed: () => Navigator.pop(dctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !context.mounted) return;
+    final ok = await c.removeGalleryImage(url);
+    if (!context.mounted) return;
+    ok
+        ? BkToast.success(context, 'Foto dihapus')
+        : BkToast.error(context, c.error ?? 'Gagal menghapus foto');
+  }
+
   Future<void> _openBasics(BuildContext context, ResourceDetailController c) async {
     final r = c.resource;
     if (r == null) return;
@@ -347,7 +501,12 @@ class _ViewState extends State<_View> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ItemFormSheet(isMain: isMain, existing: existing),
+      builder: (_) => _ItemFormSheet(
+        isMain: isMain,
+        existing: existing,
+        repo: context.read<ResourceAdminRepository>(),
+        currentResourceId: c.resource?.id ?? '',
+      ),
     );
     if (result == null || !context.mounted) return;
     if (result.deleted && existing != null) {
@@ -404,6 +563,18 @@ extension on ResourceDetailController {
   }
 }
 
+/// Subjudul baris item: pola jual + durasi sesi + tanda batasan jam/hari.
+String _itemSubtitle(ResourceItem item) {
+  final parts = <String>[priceUnitLabel(item.priceUnit)];
+  if (item.priceUnit.toLowerCase() == 'session' && item.unitDuration > 0) {
+    final h = item.unitDuration ~/ 60;
+    final m = item.unitDuration % 60;
+    parts.add(h == 0 ? '$m mnt' : (m == 0 ? '$h jam' : '${h}j ${m}m'));
+  }
+  if (item.timeLock.enabled || item.dayLock.enabled) parts.add('terbatas');
+  return parts.join(' · ');
+}
+
 class _ItemRow extends StatelessWidget {
   final ResourceItem item;
   final VoidCallback onTap;
@@ -418,21 +589,23 @@ class _ItemRow extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.name.isEmpty ? 'Tanpa nama' : item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+              const SizedBox(height: 4),
               Row(children: [
                 Flexible(
-                  child: Text(item.name.isEmpty ? 'Tanpa nama' : item.name,
+                  child: Text(_itemSubtitle(item),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+                      style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
                 ),
                 if (item.isDefault) ...[
                   const SizedBox(width: 7),
                   Pill.acc('Default'),
                 ],
               ]),
-              const SizedBox(height: 3),
-              Text('${priceUnitLabel(item.priceUnit)}${item.unitDuration > 1 ? ' · ${item.unitDuration} unit' : ''}',
-                  style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
             ]),
           ),
           const SizedBox(width: 8),
@@ -460,6 +633,7 @@ class _BasicsSheetState extends State<_BasicsSheet> {
   late final TextEditingController _name;
   late final TextEditingController _category;
   late final TextEditingController _desc;
+  late final TextEditingController _about;
 
   @override
   void initState() {
@@ -467,6 +641,7 @@ class _BasicsSheetState extends State<_BasicsSheet> {
     _name = TextEditingController(text: widget.resource.name);
     _category = TextEditingController(text: widget.resource.category);
     _desc = TextEditingController(text: widget.resource.description);
+    _about = TextEditingController(text: widget.resource.about);
   }
 
   @override
@@ -474,19 +649,21 @@ class _BasicsSheetState extends State<_BasicsSheet> {
     _name.dispose();
     _category.dispose();
     _desc.dispose();
+    _about.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final name = _name.text.trim();
+    final name = _name.text.trim().toUpperCase();
     if (name.isEmpty) {
       BkToast.warning(context, 'Nama wajib diisi');
       return;
     }
     Navigator.of(context).pop(widget.resource.copyWith(
       name: name,
-      category: _category.text.trim(),
+      category: _category.text.trim().toUpperCase(),
       description: _desc.text.trim(),
+      about: _about.text.trim(),
     ));
   }
 
@@ -511,14 +688,29 @@ class _BasicsSheetState extends State<_BasicsSheet> {
                 const SizedBox(height: 16),
                 _field('Nama resource', _name),
                 const SizedBox(height: 12),
-                _field('Kategori', _category, hint: 'mis. Ruangan / Lapangan'),
+                _field('Kategori', _category, hint: 'mis. RUANGAN / LAPANGAN'),
+                const SizedBox(height: 5),
+                const Text('Jadi chip filter di katalog. Otomatis dikapitalkan; samakan penulisan unit sejenis.',
+                    style: TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
                 const SizedBox(height: 12),
-                _field('Deskripsi', _desc, hint: 'Ditampilkan ke customer', maxLines: 3),
+                _field('Fasilitas', _desc, hint: 'mis. AC, Shower, Parkir luas', maxLines: 3),
+                const SizedBox(height: 5),
+                const Text('Pisahkan tiap fasilitas dengan koma. Tampil sebagai daftar & tagline singkat di halaman unit.',
+                    style: TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
+                const SizedBox(height: 12),
+                _field('Tentang unit ini (opsional)', _about, hint: 'Deskripsi naratif, bukan daftar', maxLines: 4),
                 const SizedBox(height: 18),
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15)),
-                  onPressed: _submit,
-                  child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: BK.accent,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: _submit,
+                    child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
                 ),
               ],
             ),
@@ -543,18 +735,36 @@ class _ItemResult {
 class _ItemFormSheet extends StatefulWidget {
   final bool isMain;
   final ResourceItem? existing;
-  const _ItemFormSheet({required this.isMain, this.existing});
+  final ResourceAdminRepository? repo; // untuk saran "salin addon"
+  final String currentResourceId;
+  const _ItemFormSheet({
+    required this.isMain,
+    this.existing,
+    this.repo,
+    this.currentResourceId = '',
+  });
 
   @override
   State<_ItemFormSheet> createState() => _ItemFormSheetState();
 }
 
+const _sessionPresets = [60, 90, 120, 180];
+
 class _ItemFormSheetState extends State<_ItemFormSheet> {
   late final TextEditingController _name;
   late final TextEditingController _price;
-  late final TextEditingController _duration;
+  late final TextEditingController _customDur; // menit, saat "Durasi lain"
   late String _unit;
   late bool _isDefault;
+  late int _durationMinutes;
+  late bool _customDuration;
+
+  // Batasi jam / hari (metadata) — hanya untuk paket utama.
+  late bool _lockEnabled;
+  late String _lockFrom;
+  late String _lockTo;
+  late bool _dayLockEnabled;
+  late List<int> _lockDays;
 
   bool get _isEdit => widget.existing != null;
 
@@ -564,17 +774,65 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
     final e = widget.existing;
     _name = TextEditingController(text: e?.name ?? '');
     _price = TextEditingController(text: e != null && e.price > 0 ? '${e.price}' : '');
-    _duration = TextEditingController(text: '${e?.unitDuration ?? 1}');
-    _unit = e?.priceUnit ?? (widget.isMain ? 'hour' : 'session');
+    // Addon selalu per-pcs (mengikuti web); hanya paket utama yang punya pola jual.
+    _unit = e?.priceUnit ?? (widget.isMain ? 'hour' : 'pcs');
     _isDefault = e?.isDefault ?? false;
+    _durationMinutes = (e != null && e.unitDuration > 0) ? e.unitDuration : defaultUnitMinutes(_unit);
+    _customDuration = _unit == 'session' && !_sessionPresets.contains(_durationMinutes);
+    _customDur = TextEditingController(text: _customDuration ? '$_durationMinutes' : '');
+
+    final tl = e?.timeLock ?? const ItemTimeLock();
+    _lockEnabled = tl.enabled;
+    _lockFrom = tl.from;
+    _lockTo = tl.to;
+    final dl = e?.dayLock ?? const ItemDayLock();
+    _dayLockEnabled = dl.enabled;
+    _lockDays = [...dl.days];
+
+    // Saran "salin addon" — hanya untuk addon baru.
+    if (!widget.isMain && !_isEdit && widget.repo != null) {
+      _loadSuggestions();
+    }
+  }
+
+  List<AddonSuggestion> _suggestions = const [];
+  bool _loadingSuggestions = false;
+
+  Future<void> _loadSuggestions() async {
+    setState(() => _loadingSuggestions = true);
+    try {
+      final list = await widget.repo!.addonCatalog(excludeResourceId: widget.currentResourceId);
+      if (mounted) setState(() => _suggestions = list);
+    } catch (_) {
+      // Diam saja — saran bersifat opsional.
+    } finally {
+      if (mounted) setState(() => _loadingSuggestions = false);
+    }
+  }
+
+  void _applySuggestion(AddonSuggestion s) {
+    setState(() {
+      _name.text = s.name;
+      _price.text = s.price > 0 ? '${s.price}' : '';
+      _unit = 'pcs';
+    });
   }
 
   @override
   void dispose() {
     _name.dispose();
     _price.dispose();
-    _duration.dispose();
+    _customDur.dispose();
     super.dispose();
+  }
+
+  void _selectUnit(String u) {
+    setState(() {
+      _unit = u;
+      _durationMinutes = defaultUnitMinutes(u);
+      _customDuration = false;
+      _customDur.text = '';
+    });
   }
 
   void _submit() {
@@ -588,18 +846,43 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
       BkToast.warning(context, 'Harga harus lebih dari 0');
       return;
     }
-    final dur = int.tryParse(_duration.text.trim()) ?? 1;
+    var dur = _durationMinutes;
+    if (_unit == 'session' && _customDuration) {
+      dur = int.tryParse(_customDur.text.trim()) ?? 0;
+      if (dur < 1) {
+        BkToast.warning(context, 'Durasi harus lebih dari 0 menit');
+        return;
+      }
+    }
+    if (widget.isMain && _dayLockEnabled && _lockDays.isEmpty) {
+      BkToast.warning(context, 'Pilih minimal satu hari, atau matikan batasi hari');
+      return;
+    }
     final base = widget.existing ?? ResourceItem(itemType: widget.isMain ? kItemMain : kItemAddon);
     Navigator.of(context).pop(_ItemResult(
       item: base.copyWith(
         name: name,
         price: price,
         priceUnit: _unit,
-        unitDuration: dur < 1 ? 1 : dur,
+        unitDuration: dur < 1 ? defaultUnitMinutes(_unit) : dur,
         itemType: widget.isMain ? kItemMain : kItemAddon,
         isDefault: widget.isMain ? _isDefault : false,
+        timeLock: ItemTimeLock(enabled: widget.isMain && _lockEnabled, from: _lockFrom, to: _lockTo),
+        dayLock: ItemDayLock(enabled: widget.isMain && _dayLockEnabled, days: _lockDays),
       ),
     ));
+  }
+
+  Future<void> _pickTime(bool isFrom) async {
+    final parts = (isFrom ? _lockFrom : _lockTo).split(':');
+    final initial = TimeOfDay(
+      hour: int.tryParse(parts.first) ?? 8,
+      minute: parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0,
+    );
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked == null) return;
+    final str = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    setState(() => isFrom ? _lockFrom = str : _lockTo = str);
   }
 
   Future<void> _confirmDelete() async {
@@ -645,25 +928,45 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
                 const SizedBox(height: 14),
                 Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
                 const SizedBox(height: 16),
+                if (!widget.isMain && !_isEdit) _addonSuggestions(),
                 _LabeledField(
                     label: 'Nama',
                     controller: _name,
                     hint: widget.isMain ? 'mis. 1 Jam / Paket 3 Jam' : 'mis. Tambahan bola / Sewa stik'),
                 const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: _LabeledField(label: 'Harga (Rp)', controller: _price, hint: '50000', keyboard: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _LabeledField(label: 'Jumlah unit', controller: _duration, hint: '1', keyboard: TextInputType.number)),
-                ]),
-                const SizedBox(height: 14),
-                const Text('Satuan', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2)),
-                const SizedBox(height: 7),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final u in kPriceUnits) _unitChip(u),
-                ]),
+                _LabeledField(label: 'Harga (Rp)', controller: _price, hint: '50000', keyboard: TextInputType.number),
+                if (!widget.isMain) ...[
+                  const SizedBox(height: 8),
+                  const Text('Addon dihitung per pcs (per item). Customer memilih jumlahnya saat booking.',
+                      style: TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
+                ],
                 if (widget.isMain) ...[
                   const SizedBox(height: 14),
+                  const Text('Pola jual', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+                  const SizedBox(height: 7),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final u in kPriceUnits) _unitChip(u),
+                  ]),
+                  const SizedBox(height: 14),
+                  _durationSection(),
+                  const SizedBox(height: 14),
                   _defaultToggle(),
+                  const SizedBox(height: 14),
+                  _lockCard(
+                    title: 'Batasi jam paket ini',
+                    subtitle: 'Default tersedia semua jam. Aktifkan agar paket hanya bisa dipesan pada rentang jam tertentu.',
+                    value: _lockEnabled,
+                    onChanged: (v) => setState(() => _lockEnabled = v),
+                    child: _timeLockBody(),
+                  ),
+                  const SizedBox(height: 10),
+                  _lockCard(
+                    title: 'Batasi hari paket ini',
+                    subtitle: 'Default tersedia semua hari. Aktifkan untuk paket khusus hari tertentu (mis. weekend).',
+                    value: _dayLockEnabled,
+                    onChanged: (v) => setState(() => _dayLockEnabled = v),
+                    child: _dayLockBody(),
+                  ),
                 ],
                 const SizedBox(height: 18),
                 Row(children: [
@@ -698,7 +1001,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
   Widget _unitChip(String u) {
     final on = _unit == u;
     return GestureDetector(
-      onTap: () => setState(() => _unit = u),
+      onTap: () => _selectUnit(u),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
@@ -710,6 +1013,241 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? Colors.white : BK.ink2)),
       ),
     );
+  }
+
+  /// Durasi satu unit. Untuk "sesi" bisa dipilih preset/kustom; unit lain
+  /// durasinya tetap (60 mnt/jam, 1440/hari, dst.) dan cukup ditampilkan.
+  Widget _durationSection() {
+    if (_unit != 'session') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)),
+        child: Text.rich(TextSpan(children: [
+          TextSpan(
+            text: '1 ${_unitWord(_unit)} per unit. ',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BK.ink),
+          ),
+          const TextSpan(
+            text: 'Customer memilih jumlahnya saat booking.',
+            style: TextStyle(fontSize: 12, color: BK.ink3),
+          ),
+        ])),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Durasi per sesi', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+        const SizedBox(height: 7),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final m in _sessionPresets) _durChip(_durLabel(m), !_customDuration && _durationMinutes == m, () {
+            setState(() {
+              _customDuration = false;
+              _durationMinutes = m;
+            });
+          }),
+          _durChip('Durasi lain', _customDuration, () => setState(() => _customDuration = true)),
+        ]),
+        if (_customDuration) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            SizedBox(
+              width: 110,
+              child: TextField(
+                controller: _customDur,
+                keyboardType: TextInputType.number,
+                onChanged: (v) => setState(() => _durationMinutes = int.tryParse(v.trim()) ?? 0),
+                style: const TextStyle(fontSize: 13.5, color: BK.ink),
+                decoration: InputDecoration(
+                  hintText: '90',
+                  isDense: true,
+                  filled: true, fillColor: BK.card,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.accent)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('menit${_durationMinutes > 0 ? ' · ${_durLabel(_durationMinutes)}' : ''}',
+                style: const TextStyle(fontSize: 12, color: BK.ink3, fontWeight: FontWeight.w600)),
+          ]),
+        ],
+      ],
+    );
+  }
+
+  Widget _durChip(String label, bool on, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: on ? BK.accentSoft : BK.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: on ? BK.accent : BK.line),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? BK.accent : BK.ink2)),
+      ),
+    );
+  }
+
+  Widget _lockCard({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: BK.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: BK.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
+                const SizedBox(height: 3),
+                Text(subtitle, style: const TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            Switch(value: value, activeThumbColor: BK.accent, onChanged: onChanged),
+          ]),
+          if (value) ...[const SizedBox(height: 10), child],
+        ],
+      ),
+    );
+  }
+
+  Widget _timeLockBody() {
+    return Row(children: [
+      Expanded(child: _timeField('Dari jam', _lockFrom, () => _pickTime(true))),
+      const SizedBox(width: 10),
+      Expanded(child: _timeField('Sampai jam', _lockTo, () => _pickTime(false))),
+    ]);
+  }
+
+  Widget _timeField(String label, String value, VoidCallback onTap) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: BK.ink3)),
+        const SizedBox(height: 5),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)),
+            child: Row(children: [
+              const Icon(Icons.schedule_rounded, size: 16, color: BK.ink3),
+              const SizedBox(width: 8),
+              Text(value, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dayLockBody() {
+    const labels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    return Wrap(spacing: 7, runSpacing: 7, children: [
+      for (int d = 1; d <= 7; d++)
+        GestureDetector(
+          onTap: () => setState(() {
+            _lockDays.contains(d) ? _lockDays.remove(d) : _lockDays.add(d);
+          }),
+          child: Container(
+            width: 42,
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _lockDays.contains(d) ? BK.accent : BK.card2,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _lockDays.contains(d) ? BK.accent : BK.line),
+            ),
+            child: Text(labels[d - 1],
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _lockDays.contains(d) ? Colors.white : BK.ink2)),
+          ),
+        ),
+    ]);
+  }
+
+  String _unitWord(String u) {
+    switch (u.toLowerCase()) {
+      case 'day':
+        return 'hari';
+      case 'week':
+        return 'minggu';
+      case 'month':
+        return 'bulan';
+      case 'year':
+        return 'tahun';
+      default:
+        return 'jam';
+    }
+  }
+
+  String _durLabel(int minutes) {
+    if (minutes <= 0) return '';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m menit';
+    if (m == 0) return '$h jam';
+    return '$h jam $m menit';
+  }
+
+  /// Tombol ringkas "salin dari addon lain" — buka picker terpisah agar form
+  /// tetap lega. Disembunyikan saat loading / tak ada saran.
+  Widget _addonSuggestions() {
+    if (_loadingSuggestions || _suggestions.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        onTap: _openCopyPicker,
+        borderRadius: BorderRadius.circular(13),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: BK.accentSoft,
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Row(children: [
+            const Icon(Icons.content_copy_rounded, size: 18, color: BK.accent),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Salin dari addon lain',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.accent)),
+                const SizedBox(height: 2),
+                Text('${_suggestions.length} addon dari resource lain',
+                    style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, size: 20, color: BK.accent),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCopyPicker() async {
+    final picked = await showModalBottomSheet<AddonSuggestion>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddonCopySheet(suggestions: _suggestions),
+    );
+    if (picked != null) _applySuggestion(picked);
   }
 
   Widget _defaultToggle() {
@@ -725,6 +1263,169 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
         ),
         Switch(value: _isDefault, activeThumbColor: BK.accent, onChanged: (v) => setState(() => _isDefault = v)),
       ]),
+    );
+  }
+}
+
+/// Picker untuk menyalin addon yang sudah ada di resource lain.
+class _AddonCopySheet extends StatefulWidget {
+  final List<AddonSuggestion> suggestions;
+  const _AddonCopySheet({required this.suggestions});
+
+  @override
+  State<_AddonCopySheet> createState() => _AddonCopySheetState();
+}
+
+class _AddonCopySheetState extends State<_AddonCopySheet> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final q = _q.trim().toLowerCase();
+    final list = q.isEmpty
+        ? widget.suggestions
+        : widget.suggestions.where((s) =>
+            s.name.toLowerCase().contains(q) || s.resourceName.toLowerCase().contains(q)).toList();
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+        decoration: const BoxDecoration(color: BK.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Salin addon', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: TextField(
+                  onChanged: (v) => setState(() => _q = v),
+                  decoration: InputDecoration(
+                    hintText: 'Cari addon / resource…',
+                    prefixIcon: const Icon(Icons.search, size: 20, color: BK.ink3),
+                    isDense: true,
+                    filled: true, fillColor: BK.card,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: list.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(28),
+                        child: Text('Tidak ada addon cocok.', textAlign: TextAlign.center, style: TextStyle(color: BK.ink3)),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                        itemCount: list.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final s = list[i];
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(BK.radius),
+                            onTap: () => Navigator.of(context).pop(s),
+                            child: BKCard(
+                              child: Row(children: [
+                                Container(
+                                  width: 38, height: 38,
+                                  decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(10)),
+                                  child: const Icon(Icons.add_circle_outline, size: 19, color: BK.accent),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+                                    const SizedBox(height: 2),
+                                    Text(s.resourceName.isEmpty ? 'pcs' : 'dari ${s.resourceName}',
+                                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+                                  ]),
+                                ),
+                                const SizedBox(width: 8),
+                                Text('Rp ${rupiah(s.price)}',
+                                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sheet pilihan sumber foto galeri: kamera, satu dari galeri, atau beberapa.
+class _GallerySourceSheet extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: BK.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 14),
+              const Text('Tambah foto galeri', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+              const SizedBox(height: 12),
+              _option(context, Icons.photo_camera_outlined, 'Ambil dari kamera', 'Potret satu foto langsung', 'camera'),
+              _option(context, Icons.image_outlined, 'Satu dari galeri', 'Pilih satu foto', 'single'),
+              _option(context, Icons.photo_library_outlined, 'Pilih beberapa', 'Pilih banyak foto sekaligus', 'multi'),
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _option(BuildContext context, IconData icon, String title, String sub, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(BK.radius),
+        onTap: () => Navigator.of(context).pop(value),
+        child: BKCard(
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, color: BK.accent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+                Text(sub, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: BK.ink3),
+          ]),
+        ),
+      ),
     );
   }
 }

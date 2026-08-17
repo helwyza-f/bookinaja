@@ -29,7 +29,7 @@ class _View extends StatelessWidget {
       backgroundColor: BK.bg,
       appBar: AppBar(backgroundColor: BK.bg, elevation: 0, title: const Text('Kebijakan Pembatalan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink))),
       body: c.state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingList(),
         error: (e) => StateView(
           icon: Icons.wifi_off_rounded, color: BK.crit, title: 'Gagal memuat', hint: '$e',
           action: FilledButton(style: FilledButton.styleFrom(backgroundColor: BK.accent), onPressed: c.load, child: const Text('Coba lagi')),

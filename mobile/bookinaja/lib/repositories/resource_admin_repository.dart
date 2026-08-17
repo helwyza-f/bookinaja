@@ -79,4 +79,46 @@ class ResourceAdminRepository {
     if (res is Map && res['url'] != null) return '${res['url']}';
     throw ApiException(0, 'Upload gagal: URL tidak diterima.');
   }
+
+  /// Katalog addon dari semua resource (untuk "salin addon"). Endpoint
+  /// `/admin/resources/addons-catalog` → {items:[{resource_name, addons:[...]}]}.
+  /// Di-flatten & di-dedup by nama; resource yang sedang diedit dikecualikan.
+  Future<List<AddonSuggestion>> addonCatalog({String excludeResourceId = ''}) async {
+    final res = await _api.get('/admin/resources/addons-catalog');
+    final groups = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    final out = <AddonSuggestion>[];
+    final seen = <String>{};
+    for (final grp in groups.whereType<Map>()) {
+      if ('${grp['resource_id'] ?? ''}' == excludeResourceId) continue;
+      final rname = '${grp['resource_name'] ?? ''}';
+      final addons = grp['addons'];
+      if (addons is! List) continue;
+      for (final a in addons.whereType<Map>()) {
+        final item = ResourceItem.fromJson(Map<String, dynamic>.from(a));
+        final key = item.name.trim().toLowerCase();
+        if (key.isEmpty || seen.contains(key)) continue;
+        seen.add(key);
+        out.add(AddonSuggestion(
+          name: item.name,
+          price: item.price,
+          priceUnit: item.priceUnit,
+          resourceName: rname,
+        ));
+      }
+    }
+    return out;
+  }
+
+  /// Upload beberapa foto galeri. Endpoint bulk memakai field `images` dan
+  /// membalas `{urls:[...]}`. Diunggah satu per satu agar progres jelas & tak
+  /// terpotong batas ukuran request.
+  Future<List<String>> uploadGallery(List<String> filePaths) async {
+    final out = <String>[];
+    for (final path in filePaths) {
+      final res = await _api.uploadFile('/resources-all/upload-gallery', path, field: 'images');
+      final list = (res is Map && res['urls'] is List) ? res['urls'] as List : const [];
+      out.addAll(list.map((e) => '$e'));
+    }
+    return out;
+  }
 }

@@ -68,7 +68,26 @@ class CustomerDetailScreen extends StatelessWidget {
             future: context.read<CustomersRepository>().history(c.id),
             builder: (_, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+                return BKCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(children: [
+                    for (int i = 0; i < 2; i++) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Row(children: [
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            BKSkeleton(width: 130, height: 12),
+                            SizedBox(height: 7),
+                            BKSkeleton(width: 90, height: 10),
+                          ])),
+                          SizedBox(width: 8),
+                          BKSkeleton(width: 60, height: 14),
+                        ]),
+                      ),
+                      if (i == 0) const Divider(height: 1, color: BK.line),
+                    ],
+                  ]),
+                );
               }
               final items = snap.data ?? const [];
               if (items.isEmpty) {

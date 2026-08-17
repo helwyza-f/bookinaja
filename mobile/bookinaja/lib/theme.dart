@@ -181,6 +181,55 @@ class _Shimmer extends StatelessWidget {
   final double w, h, r;
   const _Shimmer({required this.w, required this.h, required this.r});
   @override
-  Widget build(BuildContext context) =>
-      Container(width: w, height: h, decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(r)));
+  Widget build(BuildContext context) => BKSkeleton(width: w, height: h, radius: r);
+}
+
+/// Placeholder skeleton beranimasi (shimmer sweep) — pengganti loading spinner.
+/// Pakai untuk membentuk kerangka konten saat memuat.
+class BKSkeleton extends StatefulWidget {
+  final double? width;
+  final double height;
+  final double radius;
+  const BKSkeleton({super.key, this.width, this.height = 12, this.radius = 8});
+
+  @override
+  State<BKSkeleton> createState() => _BKSkeletonState();
+}
+
+class _BKSkeletonState extends State<BKSkeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = _c.value;
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: const [Color(0xFFE7EBF2), Color(0xFFF5F7FA), Color(0xFFE7EBF2)],
+              stops: [
+                (t - 0.3).clamp(0.0, 1.0),
+                t.clamp(0.0, 1.0),
+                (t + 0.3).clamp(0.0, 1.0),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

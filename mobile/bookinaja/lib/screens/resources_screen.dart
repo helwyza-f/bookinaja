@@ -73,20 +73,31 @@ class _View extends StatelessWidget {
                   label: const Text('Buat resource'),
                 ),
               )
-            : RefreshIndicator(
-                color: BK.accent,
-                onRefresh: c.load,
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => _ResourceCard(
-                    item: items[i],
-                    busy: c.isBusy(items[i].id),
-                    onToggle: () => _toggle(context, c, items[i]),
-                    onTap: () => _openDetail(context, c, items[i].id),
+            : Column(
+                children: [
+                  if (c.categories.isNotEmpty) _categoryChips(c),
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: BK.accent,
+                      onRefresh: c.load,
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                        itemCount: c.filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (_, i) {
+                          final item = c.filtered[i];
+                          return _ResourceCard(
+                            item: item,
+                            busy: c.isBusy(item.id),
+                            onToggle: () => _toggle(context, c, item),
+                            onTap: () => _openDetail(context, c, item.id),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
       ),
     );
@@ -104,6 +115,43 @@ class _View extends StatelessWidget {
       MaterialPageRoute(builder: (_) => ResourceDetailScreen(resourceId: id)),
     );
     if (context.mounted) c.load(); // segarkan count opsi/addon setelah kembali
+  }
+
+  Widget _categoryChips(ResourcesController c) {
+    final cats = c.categories;
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        children: [
+          _chip('Semua', c.categoryFilter.isEmpty, () => c.setCategory('')),
+          for (final cat in cats) ...[
+            const SizedBox(width: 7),
+            _chip(cat, c.categoryFilter.toLowerCase() == cat.toLowerCase(), () => c.setCategory(cat)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, bool on, VoidCallback onTap) {
+    return Center(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: on ? BK.ink : BK.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: on ? BK.ink : BK.line),
+          ),
+          child: Text(label,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? Colors.white : BK.ink2)),
+        ),
+      ),
+    );
   }
 
   Future<void> _create(BuildContext context, ResourcesController c) async {
@@ -256,14 +304,16 @@ class _CreateSheetState extends State<_CreateSheet> {
   }
 
   Future<void> _submit() async {
-    final name = _name.text.trim();
+    final name = _name.text.trim().toUpperCase();
     if (name.isEmpty) {
       BkToast.warning(context, 'Nama resource wajib diisi');
       return;
     }
     setState(() => _saving = true);
     try {
-      final res = await widget.repo.create(name: name, category: _category.text.trim());
+      // Nama & kategori dinormalkan kapital agar konsisten (hindari "Badminton"
+      // vs "BADMINTON" jadi dua kategori berbeda).
+      final res = await widget.repo.create(name: name, category: _category.text.trim().toUpperCase());
       if (!mounted) return;
       Navigator.of(context).pop(res);
     } catch (e) {
@@ -309,13 +359,19 @@ class _CreateSheetState extends State<_CreateSheet> {
                 const SizedBox(height: 12),
                 _field('Kategori (opsional)', _category, hint: 'mis. Ruangan / Lapangan / Konsol'),
                 const SizedBox(height: 18),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15)),
-                  onPressed: _saving ? null : _submit,
-                  child: _saving
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Lanjut — tambah opsi harga', style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: BK.accent,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: _saving ? null : _submit,
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Lanjut — tambah opsi harga', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
                 ),
               ],
             ),

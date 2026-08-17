@@ -13,9 +13,35 @@ class ResourcesController extends ChangeNotifier {
   AsyncValue<List<ResourceListItem>> state = const AsyncValue.loading();
   String? error;
   final Set<String> _busy = {}; // id yang sedang diproses (toggle)
+  String categoryFilter = ''; // '' = semua kategori
 
   List<ResourceListItem> get items => state.data ?? const [];
   bool isBusy(String id) => _busy.contains(id);
+
+  /// Kategori unik (untuk chip filter), terurut. Digabung case-insensitive
+  /// dan ditampilkan kapital agar "Badminton" & "BADMINTON" jadi satu chip.
+  List<String> get categories {
+    final map = <String, String>{}; // key lower → tampilan (kapital)
+    for (final r in items) {
+      final cat = r.category.trim();
+      if (cat.isEmpty) continue;
+      map.putIfAbsent(cat.toLowerCase(), () => cat.toUpperCase());
+    }
+    final list = map.values.toList()..sort();
+    return list;
+  }
+
+  /// Daftar setelah filter kategori aktif.
+  List<ResourceListItem> get filtered {
+    if (categoryFilter.isEmpty) return items;
+    final q = categoryFilter.toLowerCase();
+    return items.where((r) => r.category.trim().toLowerCase() == q).toList();
+  }
+
+  void setCategory(String category) {
+    categoryFilter = category;
+    notifyListeners();
+  }
 
   Future<void> load() async {
     state = const AsyncValue.loading();
@@ -185,4 +211,33 @@ class ResourceDetailController extends ChangeNotifier {
   }
 
   Future<String> uploadCover(String filePath) => _repo.uploadCover(filePath);
+
+  /// Upload foto galeri lalu simpan (append ke `gallery`).
+  Future<bool> addGalleryImages(List<String> paths) async {
+    final r = resource;
+    if (r == null || paths.isEmpty) return false;
+    saving = true;
+    error = null;
+    notifyListeners();
+    try {
+      final urls = await _repo.uploadGallery(paths);
+      final next = r.copyWith(gallery: [...r.gallery, ...urls]);
+      await _repo.update(next);
+      state = AsyncValue.data(next);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      saving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Hapus satu foto dari galeri lalu simpan.
+  Future<bool> removeGalleryImage(String url) async {
+    final r = resource;
+    if (r == null) return false;
+    return saveBasics(r.copyWith(gallery: r.gallery.where((u) => u != url).toList()));
+  }
 }

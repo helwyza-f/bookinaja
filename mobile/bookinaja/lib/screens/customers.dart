@@ -12,31 +12,53 @@ class CustomersScreen extends StatefulWidget {
 }
 
 class _CustomersScreenState extends State<CustomersScreen> {
+  late final TextEditingController _search;
+
   @override
   void initState() {
     super.initState();
+    final c = context.read<CustomersController>();
+    _search = TextEditingController(text: c.query);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final c = context.read<CustomersController>();
       if (!c.state.hasData) c.load();
     });
   }
 
   @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<CustomersController>();
-    return SafeArea(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text('Customer', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: BK.ink)),
-        ),
+    return Scaffold(
+      backgroundColor: BK.bg,
+      appBar: AppBar(
+        backgroundColor: BK.bg,
+        elevation: 0,
+        title: const Text('Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
+      ),
+      body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 4),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
+            controller: _search,
             onChanged: ctrl.search,
             decoration: InputDecoration(
               hintText: 'Cari nama / nomor…',
               prefixIcon: const Icon(Icons.search, size: 20, color: BK.ink3),
+              suffixIcon: _search.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: BK.ink3),
+                      onPressed: () {
+                        _search.clear();
+                        ctrl.search('');
+                      },
+                    ),
               isDense: true,
               filled: true, fillColor: BK.card,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: BK.line)),
@@ -55,14 +77,20 @@ class _CustomersScreenState extends State<CustomersScreen> {
             data: (_) {
               final list = ctrl.filtered;
               if (list.isEmpty) {
-                return const StateView(icon: Icons.person_off_outlined, color: BK.ink3, title: 'Tidak ada customer', hint: 'Coba kata kunci lain.');
+                final searching = ctrl.query.trim().isNotEmpty;
+                return StateView(
+                  icon: searching ? Icons.person_search_outlined : Icons.people_outline,
+                  color: BK.ink3,
+                  title: searching ? 'Tidak ada hasil' : 'Belum ada customer',
+                  hint: searching ? 'Coba kata kunci lain.' : 'Customer akan muncul setelah ada booking.',
+                );
               }
               return RefreshIndicator(
                 onRefresh: ctrl.load,
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                   itemCount: list.length,
-                  separatorBuilder: (_, i) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, i) => _CustomerRow(list[i]),
                 ),
               );

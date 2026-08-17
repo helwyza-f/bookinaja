@@ -42,7 +42,7 @@ class _View extends StatelessWidget {
               color: BK.accent,
               onRefresh: c.load,
               child: c.state.when(
-                loading: () => ListView(children: const [SizedBox(height: 40), Center(child: CircularProgressIndicator())]),
+                loading: () => const _ReportsSkeleton(),
                 error: (e) => ListView(children: [
                   const SizedBox(height: 40),
                   StateView(
@@ -232,6 +232,110 @@ class _View extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Text(msg, style: const TextStyle(fontSize: 13, color: BK.ink3))),
       ]),
+    );
+  }
+}
+
+/// Skeleton shimmer meniru bentuk konten laporan (hero laba, 4 stat, 2 daftar).
+class _ReportsSkeleton extends StatelessWidget {
+  const _ReportsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Container(
+          height: 116,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: BK.card,
+            borderRadius: BorderRadius.circular(BK.radius),
+            border: Border.all(color: BK.line),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              BKSkeleton(width: 90, height: 12),
+              SizedBox(height: 12),
+              BKSkeleton(width: 180, height: 26),
+              SizedBox(height: 10),
+              BKSkeleton(width: 150, height: 10),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Row(children: [Expanded(child: _CardSkeleton()), SizedBox(width: 10), Expanded(child: _CardSkeleton())]),
+        const SizedBox(height: 10),
+        const Row(children: [Expanded(child: _CardSkeleton()), SizedBox(width: 10), Expanded(child: _CardSkeleton())]),
+        const SizedBox(height: 22),
+        const BKSkeleton(width: 120, height: 12),
+        const SizedBox(height: 10),
+        _listSkeleton(3),
+        const SizedBox(height: 22),
+        const BKSkeleton(width: 150, height: 12),
+        const SizedBox(height: 10),
+        _listSkeleton(2),
+      ],
+    );
+  }
+
+  Widget _listSkeleton(int n) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: BK.card,
+        borderRadius: BorderRadius.circular(BK.radius),
+        border: Border.all(color: BK.line),
+      ),
+      child: Column(children: [
+        for (int i = 0; i < n; i++) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Row(children: [
+              BKSkeleton(width: 38, height: 38, radius: 10),
+              SizedBox(width: 11),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  BKSkeleton(width: 130, height: 12),
+                  SizedBox(height: 7),
+                  BKSkeleton(width: 90, height: 10),
+                ]),
+              ),
+              SizedBox(width: 8),
+              BKSkeleton(width: 60, height: 14),
+            ]),
+          ),
+          if (i < n - 1) const Divider(height: 1, color: BK.line),
+        ],
+      ]),
+    );
+  }
+}
+
+class _CardSkeleton extends StatelessWidget {
+  const _CardSkeleton();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 74,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: BK.card,
+        borderRadius: BorderRadius.circular(BK.radius),
+        border: Border.all(color: BK.line),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          BKSkeleton(width: 60, height: 10),
+          SizedBox(height: 10),
+          BKSkeleton(width: 100, height: 16),
+        ],
+      ),
     );
   }
 }
