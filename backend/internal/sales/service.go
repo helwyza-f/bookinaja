@@ -159,7 +159,7 @@ func (s *Service) CreateMenuOrder(ctx context.Context, tenantID uuid.UUID, creat
 		if qty <= 0 {
 			qty = 1
 		}
-		if _, err := s.AddItem(ctx, tenantID, order.ID, AddItemInput{
+		if _, err := s.addItemInternal(ctx, tenantID, order.ID, AddItemInput{
 			ItemName:  snap.Name,
 			ItemType:  "fnb",
 			Quantity:  qty,
@@ -169,6 +169,7 @@ func (s *Service) CreateMenuOrder(ctx context.Context, tenantID uuid.UUID, creat
 		}
 	}
 
+	s.recordEvent(ctx, tenantID, order.ID, "created", "Pesanan dibuat", 0, "")
 	s.notifyOrderChange(ctx, tenantID, order.ID, "order.menu.created", nil)
 	return s.repo.GetByID(ctx, tenantID, order.ID)
 }
@@ -189,13 +190,14 @@ func (s *Service) CreateDirectOrder(ctx context.Context, tenantID uuid.UUID, cre
 		return nil, err
 	}
 	for _, line := range input.Items {
-		if _, err := s.AddItem(ctx, tenantID, order.ID, AddItemInput{
+		if _, err := s.addItemInternal(ctx, tenantID, order.ID, AddItemInput{
 			ResourceItemID: line.ResourceItemID,
 			Quantity:       line.Quantity,
 		}); err != nil {
 			return nil, err
 		}
 	}
+	s.recordEvent(ctx, tenantID, order.ID, "created", "Pesanan dibuat", 0, "")
 	return s.GetByID(ctx, tenantID, order.ID)
 }
 
@@ -239,7 +241,7 @@ func (s *Service) CreatePublicOrder(ctx context.Context, input CreatePublicOrder
 	}
 
 	for _, item := range input.Items {
-		if _, err := s.AddItem(ctx, resourceDetail.TenantID, order.ID, AddItemInput{
+		if _, err := s.addItemInternal(ctx, resourceDetail.TenantID, order.ID, AddItemInput{
 			ResourceItemID: item.ResourceItemID,
 			Quantity:       item.Quantity,
 		}); err != nil {
@@ -247,6 +249,7 @@ func (s *Service) CreatePublicOrder(ctx context.Context, input CreatePublicOrder
 		}
 	}
 
+	s.recordEvent(ctx, resourceDetail.TenantID, order.ID, "created", "Pesanan dibuat", 0, "")
 	fresh, err := s.GetByID(ctx, resourceDetail.TenantID, order.ID)
 	if err != nil {
 		return nil, nil, err
@@ -340,7 +343,23 @@ func (s *Service) ListPOSActionFeed(ctx context.Context, tenantID uuid.UUID, lim
 	return s.repo.ListPOSActionFeed(ctx, tenantID, limit, windowMinutes, search)
 }
 
+// AddItem menambah item ke order lalu mencatat event 'item_added' (dipakai
+// endpoint kasir untuk menambah pesanan ke bon berjalan). Pembuatan order awal
+// memakai addItemInternal agar item awal tidak jadi event terpisah.
 func (s *Service) AddItem(ctx context.Context, tenantID, orderID uuid.UUID, input AddItemInput) (*OrderItem, error) {
+	item, err := s.addItemInternal(ctx, tenantID, orderID, input)
+	if err != nil {
+		return nil, err
+	}
+	label := strings.TrimSpace(item.ItemName)
+	if item.Quantity > 1 {
+		label = fmt.Sprintf("%s ×%d", label, item.Quantity)
+	}
+	s.recordEvent(ctx, tenantID, orderID, "item_added", label, 0, "")
+	return item, nil
+}
+
+func (s *Service) addItemInternal(ctx context.Context, tenantID, orderID uuid.UUID, input AddItemInput) (*OrderItem, error) {
 	order, err := s.repo.GetByID(ctx, tenantID, orderID)
 	if err != nil {
 		return nil, errors.New("sales order not found")
@@ -564,8 +583,10 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 			"attempt_id":  attempt.ID.String(),
 			"flow":        "direct_sale",
 		})
+		s.recordEvent(ctx, tenantID, orderID, "payment", "Pembayaran diterima", int64(order.BalanceDue), method.Code)
 		// Prabayar (keepOpen) tidak menutup bon → jangan emit completed.
 		if !input.KeepOpen && (order.OrderKind == "menu" || order.OrderKind == "direct_sale") {
+			s.recordEvent(ctx, tenantID, orderID, "closed", "Bon ditutup", 0, "")
 			s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
 				"flow": "direct_sale",
 			})
@@ -586,6 +607,7 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 	if err := s.repo.MarkOrderAwaitingVerification(ctx, orderID); err != nil {
 		return PaymentCheckoutRes{}, err
 	}
+	s.recordEvent(ctx, tenantID, orderID, "payment_submitted", "Pembayaran diajukan (menunggu verifikasi)", int64(order.BalanceDue), method.Code)
 	s.notifyOrderChange(ctx, tenantID, orderID, "payment.awaiting_verification", map[string]any{
 		"method_code": method.Code,
 		"flow":        "direct_sale",
@@ -634,6 +656,7 @@ func (s *Service) VerifyManualPayment(ctx context.Context, tenantID, attemptID u
 		if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "rejected", nil, &adminNote); err != nil {
 			return err
 		}
+		s.recordEvent(ctx, tenantID, attempt.SalesOrderID, "payment_rejected", "Pembayaran ditolak", attempt.Amount, attempt.MethodCode)
 		s.notifyOrderChange(ctx, tenantID, attempt.SalesOrderID, "payment.rejected", map[string]any{
 			"attempt_id": attempt.ID.String(),
 			"flow":       "direct_sale",
@@ -647,6 +670,7 @@ func (s *Service) VerifyManualPayment(ctx context.Context, tenantID, attemptID u
 	if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "verified", nil, &adminNote); err != nil {
 		return err
 	}
+	s.recordEvent(ctx, tenantID, attempt.SalesOrderID, "payment", "Pembayaran terverifikasi", attempt.Amount, attempt.MethodCode)
 	s.notifyOrderChange(ctx, tenantID, attempt.SalesOrderID, "payment.manual.verified", map[string]any{
 		"attempt_id": attempt.ID.String(),
 		"flow":       "direct_sale",
@@ -671,10 +695,12 @@ func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, i
 	s.notifyOrderChange(ctx, tenantID, orderID, "payment.cash.settled", map[string]any{
 		"flow": "direct_sale",
 	})
+	s.recordEvent(ctx, tenantID, orderID, "payment", "Pembayaran tunai diterima", int64(order.BalanceDue), normalizePaymentMethod(input.PaymentMethod))
 	// Walk-in tunai langsung tertutup di SettleCash (lihat repo). Emit
 	// order.completed agar POS feed & dashboard membuangnya dari daftar aktif.
 	// Prabayar (keepOpen) tidak menutup bon → jangan emit completed.
 	if !input.KeepOpen && (order.OrderKind == "menu" || order.OrderKind == "direct_sale") {
+		s.recordEvent(ctx, tenantID, orderID, "closed", "Bon ditutup", 0, "")
 		s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
 			"flow": "direct_sale",
 		})
@@ -696,6 +722,7 @@ func (s *Service) Close(ctx context.Context, tenantID, orderID uuid.UUID) error 
 	if err := s.repo.Close(ctx, tenantID, orderID); err != nil {
 		return err
 	}
+	s.recordEvent(ctx, tenantID, orderID, "closed", "Bon ditutup", 0, "")
 	s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
 		"flow": "direct_sale",
 	})
@@ -716,6 +743,7 @@ func (s *Service) Cancel(ctx context.Context, tenantID, orderID uuid.UUID) error
 	if err := s.repo.Cancel(ctx, tenantID, orderID); err != nil {
 		return err
 	}
+	s.recordEvent(ctx, tenantID, orderID, "cancelled", "Pesanan dibatalkan", 0, "")
 	s.notifyOrderChange(ctx, tenantID, orderID, "order.cancelled", map[string]any{
 		"flow": "direct_sale",
 	})
@@ -806,6 +834,21 @@ func maxFloat(value float64, minimum float64) float64 {
 		return minimum
 	}
 	return value
+}
+
+// recordEvent mencatat satu entri timeline. Best-effort: kegagalan mencatat
+// tidak boleh menggagalkan operasi utama (bayar/tutup/dsb.).
+func (s *Service) recordEvent(ctx context.Context, tenantID, orderID uuid.UUID, eventType, description string, amount int64, methodCode string) {
+	_ = s.repo.CreateEvent(ctx, OrderEvent{
+		ID:           uuid.New(),
+		SalesOrderID: orderID,
+		TenantID:     tenantID,
+		EventType:    eventType,
+		Description:  description,
+		Amount:       amount,
+		MethodCode:   methodCode,
+		CreatedAt:    time.Now().UTC(),
+	})
 }
 
 func (s *Service) notifyOrderChange(ctx context.Context, tenantID, orderID uuid.UUID, eventType string, meta map[string]any) {

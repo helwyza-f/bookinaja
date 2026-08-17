@@ -173,7 +173,36 @@ func (r *Repository) HydrateOrderPayments(ctx context.Context, order *Order, met
 			order.Status = "pending_payment"
 		}
 	}
+	events, err := r.ListEventsByOrder(ctx, order.ID)
+	if err != nil {
+		return err
+	}
+	order.Events = events
+	if order.Events == nil {
+		order.Events = []OrderEvent{}
+	}
 	return nil
+}
+
+// CreateEvent mencatat satu entri timeline (best-effort dari sisi service).
+func (r *Repository) CreateEvent(ctx context.Context, e OrderEvent) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO sales_order_events
+			(id, sales_order_id, tenant_id, event_type, description, amount, method_code, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		e.ID, e.SalesOrderID, e.TenantID, e.EventType, e.Description, e.Amount, e.MethodCode, e.CreatedAt)
+	return err
+}
+
+// ListEventsByOrder mengambil timeline sebuah order urut waktu (lama → baru).
+func (r *Repository) ListEventsByOrder(ctx context.Context, orderID uuid.UUID) ([]OrderEvent, error) {
+	var out []OrderEvent
+	err := r.db.SelectContext(ctx, &out, `
+		SELECT id, sales_order_id, tenant_id, event_type, description, amount, method_code, created_at
+		FROM sales_order_events
+		WHERE sales_order_id = $1
+		ORDER BY created_at ASC`, orderID)
+	return out, err
 }
 
 func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string, kinds []string) ([]Order, error) {

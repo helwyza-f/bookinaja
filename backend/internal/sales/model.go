@@ -34,6 +34,19 @@ type Order struct {
 	PaymentMethods  []OrderPaymentMethod  `db:"-" json:"payment_methods"`
 	PaymentAttempts []OrderPaymentAttempt `db:"-" json:"payment_attempts"`
 	Items           []OrderItem           `db:"-" json:"items"`
+	Events          []OrderEvent          `db:"-" json:"events"`
+}
+
+// OrderEvent adalah satu entri timeline riwayat sebuah sales order.
+type OrderEvent struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	SalesOrderID uuid.UUID `db:"sales_order_id" json:"sales_order_id"`
+	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	EventType    string    `db:"event_type" json:"event_type"`
+	Description  string    `db:"description" json:"description"`
+	Amount       int64     `db:"amount" json:"amount"`
+	MethodCode   string    `db:"method_code" json:"method_code"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 }
 
 type PublicOrderItemInput struct {

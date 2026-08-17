@@ -8,6 +8,16 @@ import '../theme.dart';
 import '../ui/toast.dart';
 import 'pos_payment_sheet.dart';
 
+/// Satu entri pada timeline riwayat transaksi.
+class _TlEvent {
+  final DateTime time;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  const _TlEvent(this.time, this.icon, this.color, this.title, this.subtitle);
+}
+
 class KasirOrderDetailScreen extends StatefulWidget {
   final String orderId;
   const KasirOrderDetailScreen({super.key, required this.orderId});
@@ -92,7 +102,7 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
   }
 
   Widget _content(PosOrder order) {
-    final items = order.items;
+    final items = _mergedItems(order.items);
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -196,8 +206,193 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
                     ),
                   ),
                 ),
+              ..._timelineSection(order),
             ],
           );
+  }
+
+  // ---------------- Riwayat / timeline ----------------
+
+  /// Gabungkan item identik (nama + harga satuan) jadi satu kartu — mencegah
+  /// dua kartu untuk item sama yang ditambah pada waktu berbeda. Kuantitas dan
+  /// subtotal dijumlahkan; waktu paling awal dipertahankan.
+  List<PosOrderLine> _mergedItems(List<PosOrderLine> raw) {
+    final map = <String, PosOrderLine>{};
+    final order = <String>[];
+    for (final it in raw) {
+      final k = it.mergeKey;
+      final ex = map[k];
+      if (ex == null) {
+        map[k] = it;
+        order.add(k);
+      } else {
+        map[k] = PosOrderLine(
+          name: ex.name,
+          quantity: ex.quantity + it.quantity,
+          unitPrice: ex.unitPrice,
+          subtotal: ex.subtotal + it.subtotal,
+          category: ex.category,
+          createdAt: ex.createdAt,
+        );
+      }
+    }
+    return [for (final k in order) map[k]!];
+  }
+
+  List<Widget> _timelineSection(PosOrder order) {
+    final events = _buildTimeline(order);
+    if (events.isEmpty) return const [];
+    return [
+      const SizedBox(height: 18),
+      const Text('Riwayat', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: BK.ink)),
+      const SizedBox(height: 12),
+      for (int i = 0; i < events.length; i++) _timelineRow(events[i], last: i == events.length - 1),
+    ];
+  }
+
+  Widget _timelineRow(_TlEvent e, {required bool last}) {
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Column(children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(color: e.color.withValues(alpha: .12), shape: BoxShape.circle),
+            child: Icon(e.icon, size: 16, color: e.color),
+          ),
+          if (!last) Expanded(child: Container(width: 2, color: BK.line, margin: const EdgeInsets.symmetric(vertical: 2))),
+        ]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: last ? 0 : 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(e.title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+                ),
+                Text(_clock(e.time), style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+              ]),
+              if (e.subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(e.subtitle!, style: const TextStyle(fontSize: 12, color: BK.ink3)),
+              ],
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// Timeline utama: pakai event-log dari backend bila tersedia (akurat —
+  /// mencatat tiap bayar termasuk tunai & pembayaran kedua). Untuk order lama
+  /// (sebelum fitur event) jatuh ke [_inferTimeline] berbasis timestamp.
+  List<_TlEvent> _buildTimeline(PosOrder o) {
+    if (o.events.isNotEmpty) {
+      final ev = <_TlEvent>[];
+      for (final e in o.events) {
+        if (e.createdAt == null) continue;
+        ev.add(_eventToTl(e));
+      }
+      ev.sort((a, b) => a.time.compareTo(b.time));
+      return ev;
+    }
+    return _inferTimeline(o);
+  }
+
+  _TlEvent _eventToTl(PosOrderEvent e) {
+    final amount = e.amount > 0 ? 'Rp${rupiah(e.amount)}' : null;
+    final method = _methodLabel(e.methodCode);
+    switch (e.type) {
+      case 'created':
+        return _TlEvent(e.createdAt!, Icons.receipt_long_rounded, BK.ink3, 'Pesanan dibuat', null);
+      case 'item_added':
+        return _TlEvent(e.createdAt!, Icons.add_shopping_cart_rounded, BK.accent, 'Item ditambahkan',
+            e.description.isEmpty ? null : e.description);
+      case 'payment':
+        final sub = [amount, method == '-' ? null : method].where((x) => x != null).join(' · ');
+        return _TlEvent(e.createdAt!, Icons.account_balance_wallet_rounded, BK.live,
+            e.description.isEmpty ? 'Pembayaran diterima' : e.description, sub.isEmpty ? null : sub);
+      case 'payment_submitted':
+        final sub = [amount, method == '-' ? null : method].where((x) => x != null).join(' · ');
+        return _TlEvent(e.createdAt!, Icons.hourglass_bottom_rounded, BK.pend,
+            'Pembayaran diajukan', sub.isEmpty ? null : sub);
+      case 'payment_rejected':
+        return _TlEvent(e.createdAt!, Icons.cancel_rounded, BK.crit, 'Pembayaran ditolak', amount);
+      case 'closed':
+        return _TlEvent(e.createdAt!, Icons.check_circle_rounded, BK.live, 'Bon ditutup', null);
+      case 'cancelled':
+        return _TlEvent(e.createdAt!, Icons.block_rounded, BK.crit, 'Pesanan dibatalkan', null);
+      default:
+        return _TlEvent(e.createdAt!, Icons.circle, BK.ink3,
+            e.description.isEmpty ? e.type : e.description, amount);
+    }
+  }
+
+  /// Fallback berbasis timestamp untuk order lama tanpa event-log.
+  List<_TlEvent> _inferTimeline(PosOrder o) {
+    final ev = <_TlEvent>[];
+    final created = o.createdAt;
+    if (created != null) {
+      ev.add(_TlEvent(created, Icons.receipt_long_rounded, BK.ink3, 'Pesanan dibuat', o.orderNumber));
+      // Item yang ditambahkan setelah pesanan dibuat, dikelompokkan per menit.
+      final groups = <String, List<PosOrderLine>>{};
+      for (final it in o.items) {
+        final t = it.createdAt;
+        if (t == null || t.difference(created).inSeconds <= 30) continue;
+        final key = '${t.year}${t.month}${t.day}${t.hour}${t.minute}';
+        (groups[key] ??= []).add(it);
+      }
+      for (final list in groups.values) {
+        final t = list.first.createdAt!;
+        final label = list.map((e) => e.quantity > 1 ? '${e.name} ×${e.quantity}' : e.name).join(', ');
+        ev.add(_TlEvent(t, Icons.add_shopping_cart_rounded, BK.accent, 'Item ditambahkan', label));
+      }
+    }
+    for (final a in o.attempts) {
+      final t = a.createdAt;
+      if (t == null) continue;
+      ev.add(_TlEvent(t, Icons.account_balance_wallet_rounded, _attemptColor(a.status),
+          'Pembayaran ${a.methodLabel}', 'Rp${rupiah(a.amount)} · ${_attemptText(a.status)}'));
+    }
+    if (o.completedAt != null) {
+      final method = _methodLabel(o.paymentMethod);
+      ev.add(_TlEvent(o.completedAt!, Icons.check_circle_rounded, BK.live, 'Bon ditutup',
+          method == '-' ? null : 'Pembayaran $method'));
+    }
+    ev.sort((a, b) => a.time.compareTo(b.time));
+    return ev;
+  }
+
+  Color _attemptColor(String s) {
+    switch (s.toLowerCase()) {
+      case 'verified':
+      case 'approved':
+        return BK.live;
+      case 'rejected':
+        return BK.crit;
+      default:
+        return BK.pend;
+    }
+  }
+
+  String _attemptText(String s) {
+    switch (s.toLowerCase()) {
+      case 'verified':
+      case 'approved':
+        return 'Terverifikasi';
+      case 'rejected':
+        return 'Ditolak';
+      case 'submitted':
+      case 'awaiting_verification':
+        return 'Menunggu verifikasi';
+      default:
+        return s.isEmpty ? '-' : s;
+    }
+  }
+
+  String _clock(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
   }
 
   // ---------------- Aksi pesanan terbuka ----------------
