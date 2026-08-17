@@ -233,22 +233,24 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
       backgroundColor: BK.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.photo_camera_rounded, color: BK.accent),
-            title: const Text('Ambil foto', style: TextStyle(fontWeight: FontWeight.w700, color: BK.ink)),
-            onTap: () => Navigator.pop(sheetCtx, ImageSource.camera),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_rounded, color: BK.accent),
-            title: const Text('Pilih dari galeri', style: TextStyle(fontWeight: FontWeight.w700, color: BK.ink)),
-            onTap: () => Navigator.pop(sheetCtx, ImageSource.gallery),
-          ),
-          const SizedBox(height: 8),
-        ]),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(
+                child: _proofSourceOption(Icons.photo_camera_outlined, 'Kamera',
+                    () => Navigator.of(sheetCtx).pop(ImageSource.camera)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _proofSourceOption(Icons.photo_library_outlined, 'Galeri',
+                    () => Navigator.of(sheetCtx).pop(ImageSource.gallery)),
+              ),
+            ]),
+          ]),
+        ),
       ),
     );
     if (source == null) return;
@@ -257,6 +259,24 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
     if (file == null) return;
     setState(() => _proofPath = file.path);
   }
+
+  Widget _proofSourceOption(IconData icon, String label, VoidCallback onTap) => InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(
+            color: BK.accentSoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: BK.line),
+          ),
+          child: Column(children: [
+            Icon(icon, size: 28, color: BK.accent),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+          ]),
+        ),
+      );
 
   List<Widget> _cashFields() {
     final change = _change;
@@ -330,31 +350,11 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
 
   List<Widget> _manualFields() {
     return [
-      GestureDetector(
-        onTap: _pickProof,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: BK.bg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _proofPath == null ? BK.line : BK.accent),
-          ),
-          child: _proofPath == null
-              ? const Row(children: [
-                  Icon(Icons.add_a_photo_rounded, size: 20, color: BK.ink3),
-                  SizedBox(width: 10),
-                  Text('Ambil foto bukti (opsional)', style: TextStyle(fontSize: 13.5, color: BK.ink2, fontWeight: FontWeight.w600)),
-                ])
-              : Row(children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_proofPath!), width: 46, height: 46, fit: BoxFit.cover)),
-                  const SizedBox(width: 10),
-                  const Expanded(child: Text('Bukti terpilih. Ketuk untuk ganti.', style: TextStyle(fontSize: 13, color: BK.ink2))),
-                  const Icon(Icons.check_circle_rounded, color: BK.accent, size: 20),
-                ]),
-        ),
-      ),
-      const SizedBox(height: 10),
+      const Text('FOTO BUKTI (OPSIONAL)',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: BK.ink3)),
+      const SizedBox(height: 8),
+      _proofField(),
+      const SizedBox(height: 12),
       TextField(
         controller: _noteCtrl,
         style: const TextStyle(fontSize: 14, color: BK.ink),
@@ -370,5 +370,56 @@ class _PosPaymentSheetState extends State<PosPaymentSheet> {
       ),
       const SizedBox(height: 6),
     ];
+  }
+
+  /// Field foto bukti — preview penuh, ketuk untuk ganti, tombol hapus.
+  Widget _proofField() {
+    if (_proofPath == null) {
+      return GestureDetector(
+        onTap: _pickProof,
+        child: Container(
+          height: 112,
+          width: double.infinity,
+          decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: BK.line)),
+          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.add_a_photo_outlined, color: BK.ink3, size: 26),
+            SizedBox(height: 8),
+            Text('Unggah foto bukti', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: BK.ink2)),
+            SizedBox(height: 2),
+            Text('Kamera atau galeri', style: TextStyle(fontSize: 11, color: BK.ink3)),
+          ]),
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(children: [
+        Image.file(File(_proofPath!), height: 170, width: double.infinity, fit: BoxFit.cover),
+        Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: _pickProof))),
+        Positioned(
+          left: 8, bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: BK.live, borderRadius: BorderRadius.circular(999)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 13),
+              SizedBox(width: 4),
+              Text('Bukti terpilih', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+        Positioned(
+          top: 8, right: 8,
+          child: GestureDetector(
+            onTap: () => setState(() => _proofPath = null),
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }

@@ -31,6 +31,10 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
   Object? _error;
   bool _loading = true;
   bool _acting = false;
+  bool _timelineExpanded = false;
+
+  /// Batas jumlah event sebelum timeline diciutkan secara default.
+  static const int _timelineCollapseAfter = 4;
 
   @override
   void initState() {
@@ -130,6 +134,10 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
                     _infoRow('Pembayaran', _payLabel(order.paymentStatus)),
                     _infoRow('Metode', _methodLabel(order.paymentMethod)),
                     _infoRow('Total', 'Rp${rupiah(order.grandTotal)}', bold: true),
+                    if (order.paidAmount > 0)
+                      _infoRow('Dibayar', 'Rp${rupiah(order.paidAmount)}', valueColor: BK.live),
+                    if (order.balanceDue > 0)
+                      _infoRow('Sisa tagihan', 'Rp${rupiah(order.balanceDue)}', bold: true, valueColor: BK.crit),
                   ],
                 ),
               ),
@@ -240,14 +248,51 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
   }
 
   List<Widget> _timelineSection(PosOrder order) {
-    final events = _buildTimeline(order);
+    final events = _buildTimeline(order); // urut lama → baru
     if (events.isEmpty) return const [];
+    final collapsed = !_timelineExpanded && events.length > _timelineCollapseAfter;
+    // Saat diciutkan, tampilkan kejadian terbaru (paling relevan) + tombol untuk
+    // membuka kejadian sebelumnya.
+    final shown = collapsed ? events.sublist(events.length - _timelineCollapseAfter) : events;
+    final hiddenCount = events.length - shown.length;
     return [
       const SizedBox(height: 18),
-      const Text('Riwayat', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: BK.ink)),
+      Row(children: [
+        const Text('Riwayat', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: BK.ink)),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(999)),
+          child: Text('${events.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: BK.ink3)),
+        ),
+      ]),
       const SizedBox(height: 12),
-      for (int i = 0; i < events.length; i++) _timelineRow(events[i], last: i == events.length - 1),
+      if (collapsed)
+        _timelineToggle('Lihat $hiddenCount kejadian sebelumnya', Icons.expand_more_rounded,
+            () => setState(() => _timelineExpanded = true)),
+      for (int i = 0; i < shown.length; i++) _timelineRow(shown[i], last: i == shown.length - 1),
+      if (_timelineExpanded && events.length > _timelineCollapseAfter)
+        _timelineToggle('Sembunyikan', Icons.expand_less_rounded,
+            () => setState(() => _timelineExpanded = false)),
     ];
+  }
+
+  Widget _timelineToggle(String label, IconData icon, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          child: Row(children: [
+            Icon(icon, size: 18, color: BK.accent),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: BK.accent)),
+          ]),
+        ),
+      ),
+    );
   }
 
   Widget _timelineRow(_TlEvent e, {required bool last}) {
@@ -727,7 +772,7 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
     return m;
   }
 
-  Widget _infoRow(String label, String value, {bool bold = false}) {
+  Widget _infoRow(String label, String value, {bool bold = false, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -739,7 +784,7 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
             style: TextStyle(
               fontSize: 12.8,
               fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
-              color: BK.ink,
+              color: valueColor ?? BK.ink,
             ),
           ),
         ],

@@ -858,7 +858,7 @@ class _DetailView extends StatelessWidget {
     final amount = scope == 'settlement' ? d.balanceDue : d.depositAmount;
     final title = scope == 'settlement' ? 'Lunasi pembayaran' : 'Catat ${d.depositTerm}';
     final result = await showModalBottomSheet<({String method, String proofUrl, String note, bool isCash})>(
-      context: context, backgroundColor: BK.bg, isScrollControlled: true,
+      context: context, backgroundColor: BK.card, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => _ManualPaySheet(controller: c, title: title, amount: amount, methods: d.manualMethods),
     );
@@ -941,20 +941,38 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
 
   void _pickSource() {
     showModalBottomSheet<void>(
-      context: context, backgroundColor: BK.bg,
+      context: context, backgroundColor: BK.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(leading: const Icon(Icons.photo_camera_outlined, color: BK.accent), title: const Text('Ambil foto'), onTap: () {
-          Navigator.pop(ctx);
-          _pick(ImageSource.camera);
-        }),
-        ListTile(leading: const Icon(Icons.photo_library_outlined, color: BK.accent), title: const Text('Pilih dari galeri'), onTap: () {
-          Navigator.pop(ctx);
-          _pick(ImageSource.gallery);
-        }),
-      ])),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: _sourceOption(Icons.photo_camera_outlined, 'Kamera', () { Navigator.pop(ctx); _pick(ImageSource.camera); })),
+              const SizedBox(width: 12),
+              Expanded(child: _sourceOption(Icons.photo_library_outlined, 'Galeri', () { Navigator.pop(ctx); _pick(ImageSource.gallery); })),
+            ]),
+          ]),
+        ),
+      ),
     );
   }
+
+  Widget _sourceOption(IconData icon, String label, VoidCallback onTap) => InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(14), border: Border.all(color: BK.line)),
+          child: Column(children: [
+            Icon(icon, size: 28, color: BK.accent),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+          ]),
+        ),
+      );
 
   static const _cashCode = '__cash__';
 
@@ -962,95 +980,194 @@ class _ManualPaySheetState extends State<_ManualPaySheet> {
   Widget build(BuildContext context) {
     final isCash = _method == _cashCode;
     final canSubmit = _method != null && !_uploading;
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 14, 16, 20 + MediaQuery.of(context).viewInsets.bottom),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
-          const SizedBox(height: 2),
-          Text('Nominal Rp${rupiah(widget.amount)} · pilih metode.', style: const TextStyle(fontSize: 12, color: BK.ink3)),
-          const SizedBox(height: 12),
-          const Text('METODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 8),
-          // Tunai — langsung tercatat lunas (tanpa verifikasi).
-          _methodTile(icon: Icons.payments_outlined, label: 'Tunai (cash)', selected: isCash, onTap: () => setState(() => _method = _cashCode)),
-          for (final m in widget.methods)
-            _methodTile(icon: _methodIcon(m), label: m.displayName, selected: _method == m.code, onTap: () => setState(() => _method = m.code)),
-          // Foto bukti + catatan hanya relevan untuk pembayaran non-tunai.
-          if (_method != null && !isCash) ...[
-            const SizedBox(height: 6),
-            const Text('FOTO BUKTI (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-            const SizedBox(height: 8),
-            _proofPreview(),
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
-            const SizedBox(height: 14),
-            const Text('CATATAN ADMIN (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _note,
-              maxLines: 2,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText: 'mis. transfer BCA a.n. Budi, ref 8821',
-                isDense: true,
-                filled: true, fillColor: BK.card,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 10),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+            child: Row(children: [
+              Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+            ]),
+          ),
+          // Total tagihan
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(14)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Total tagihan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BK.ink2)),
+                const SizedBox(height: 2),
+                Text('Rp${rupiah(widget.amount)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: BK.ink)),
+              ]),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('METODE PEMBAYARAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.ink3, letterSpacing: 0.4)),
+              const SizedBox(height: 10),
+              // Tunai — langsung tercatat lunas (tanpa verifikasi).
+              _methodTile(icon: Icons.payments_rounded, label: 'Tunai (cash)', selected: isCash, onTap: () => setState(() => _method = _cashCode)),
+              for (final m in widget.methods)
+                _methodTile(
+                  icon: _methodIcon(m),
+                  label: m.displayName,
+                  subtitle: 'Bukti opsional · menunggu verifikasi',
+                  selected: _method == m.code,
+                  onTap: () => setState(() => _method = m.code),
+                ),
+              // Foto bukti + catatan hanya relevan untuk pembayaran non-tunai.
+              if (_method != null && !isCash) ...[
+                const SizedBox(height: 6),
+                const Text('FOTO BUKTI (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+                const SizedBox(height: 8),
+                _proofPreview(),
+                if (_error != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: BK.crit, fontSize: 12))),
+                const SizedBox(height: 14),
+                const Text('CATATAN ADMIN (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _note,
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'mis. transfer BCA a.n. Budi, ref 8821',
+                    isDense: true,
+                    filled: true, fillColor: BK.bg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.line)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: BK.accent)),
+                  ),
+                ),
+              ],
+            ]),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: canSubmit ? () => Navigator.pop(context, (method: isCash ? '' : _method!, proofUrl: _proofUrl ?? '', note: isCash ? '' : _note.text.trim(), isCash: isCash)) : null,
+                  child: Text(_uploading ? 'Mengunggah foto…' : 'Catat pembayaran', style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
               ),
             ),
-          ],
-          if (!isCash)
-            const Padding(padding: EdgeInsets.only(top: 8), child: Text('Pembayaran non-tunai menunggu verifikasi.', style: TextStyle(fontSize: 11.5, color: BK.ink3))),
-          const SizedBox(height: 14),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: canSubmit ? () => Navigator.pop(context, (method: isCash ? '' : _method!, proofUrl: _proofUrl ?? '', note: isCash ? '' : _note.text.trim(), isCash: isCash)) : null,
-            child: Text(_uploading ? 'Mengunggah foto…' : 'Catat pembayaran', style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
         ]),
       ),
     );
   }
 
-  Widget _methodTile({required IconData icon, required String label, required bool selected, required VoidCallback onTap}) => Padding(
+  Widget _methodTile({required IconData icon, required String label, String? subtitle, required bool selected, required VoidCallback onTap}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(BK.radius),
+        child: GestureDetector(
           onTap: onTap,
-          child: BKCard(child: Row(children: [
-            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? BK.accent : BK.ink3, size: 20),
-            const SizedBox(width: 10),
-            Icon(icon, size: 18, color: selected ? BK.accent : BK.ink3),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink))),
-          ])),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: selected ? BK.accentSoft : BK.bg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? BK.accent : BK.line, width: selected ? 1.4 : 1),
+            ),
+            child: Row(children: [
+              Icon(icon, size: 20, color: selected ? BK.accent : BK.ink2),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: selected ? BK.accent : BK.ink)),
+                  if (subtitle != null) Text(subtitle, style: const TextStyle(fontSize: 11, color: BK.ink3)),
+                ]),
+              ),
+              Icon(selected ? Icons.check_circle_rounded : Icons.circle_outlined, size: 20, color: selected ? BK.accent : BK.ink3),
+            ]),
+          ),
         ),
       );
 
   Widget _proofPreview() {
+    // Sedang unggah — tampilkan preview yang di-overlay spinner.
     if (_uploading && _proofPath != null) {
-      return Row(children: [
-        SizedBox(width: 56, height: 56, child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(_proofPath!), fit: BoxFit.cover))),
-        const SizedBox(width: 12),
-        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-        const SizedBox(width: 10),
-        const Text('Mengunggah…', style: TextStyle(fontSize: 12.5, color: BK.ink3)),
-      ]);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(children: [
+          Image.file(File(_proofPath!), height: 170, width: double.infinity, fit: BoxFit.cover),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: .38),
+              child: const Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  SizedBox(height: 8),
+                  Text('Mengunggah…', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+          ),
+        ]),
+      );
     }
+    // Sudah terunggah — preview penuh, ketuk untuk ganti, ada tombol hapus.
     if (_proofUrl != null && _proofPath != null) {
-      return Row(children: [
-        SizedBox(width: 56, height: 56, child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(_proofPath!), fit: BoxFit.cover))),
-        const SizedBox(width: 12),
-        const Expanded(child: Text('Bukti terlampir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.live))),
-        IconButton(onPressed: () => setState(() { _proofPath = null; _proofUrl = null; }), icon: const Icon(Icons.close, color: BK.ink3)),
-      ]);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(children: [
+          Image.file(File(_proofPath!), height: 170, width: double.infinity, fit: BoxFit.cover),
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: _pickSource),
+            ),
+          ),
+          Positioned(
+            left: 8, bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: BK.live, borderRadius: BorderRadius.circular(999)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 13),
+                SizedBox(width: 4),
+                Text('Bukti terlampir', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
+          Positioned(
+            top: 8, right: 8,
+            child: GestureDetector(
+              onTap: () => setState(() { _proofPath = null; _proofUrl = null; }),
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ]),
+      );
     }
-    return OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 12)),
-      onPressed: _pickSource,
-      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-      label: const Text('Tambah foto bukti'),
+    // Kosong — placeholder unggah.
+    return GestureDetector(
+      onTap: _pickSource,
+      child: Container(
+        height: 112,
+        width: double.infinity,
+        decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: BK.line)),
+        child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.add_a_photo_outlined, color: BK.ink3, size: 26),
+          SizedBox(height: 8),
+          Text('Unggah foto bukti', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: BK.ink2)),
+          SizedBox(height: 2),
+          Text('Kamera atau galeri', style: TextStyle(fontSize: 11, color: BK.ink3)),
+        ]),
+      ),
     );
   }
 }

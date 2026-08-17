@@ -333,7 +333,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
     super.initState();
     final e = widget.existing;
     _name = TextEditingController(text: e?.name ?? '');
-    _price = TextEditingController(text: e != null && e.price > 0 ? '${e.price}' : '');
+    _price = TextEditingController(text: e != null && e.price > 0 ? rupiah(e.price) : '');
     _category = TextEditingController(text: e?.category ?? '');
     _desc = TextEditingController(text: e?.description ?? '');
     _imageUrl = e?.imageUrl;
@@ -415,76 +415,105 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
     if (ok == true && mounted) Navigator.of(context).pop(const _FormResult(deleted: true));
   }
 
+  void _onPriceChanged(String v) {
+    final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
+    final formatted = digits.isEmpty ? '' : rupiah(int.parse(digits));
+    if (formatted == _price.text) return;
+    _price.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.92;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: BK.bg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(2)),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(_isEdit ? 'Edit item' : 'Tambah item',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
-                const SizedBox(height: 16),
-                Row(children: [
-                  _imagePicker(),
-                  const SizedBox(width: 14),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: BK.bg,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // ── Header tetap ──
+              const SizedBox(height: 10),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 8, 8),
+                child: Row(children: [
                   Expanded(
-                    child: _field('Nama item', _name, hint: 'mis. Nasi Goreng Spesial'),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_isEdit ? 'Edit item' : 'Tambah item',
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
+                      const SizedBox(height: 1),
+                      const Text('Menu F&B', style: TextStyle(fontSize: 11.5, color: BK.ink3)),
+                    ]),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, color: BK.ink3),
                   ),
                 ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: _field('Harga (Rp)', _price, hint: '25000', keyboard: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _field('Kategori', _category, hint: 'Makanan')),
-                ]),
-                if (widget.controller.categories.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 7, runSpacing: 7, children: [
-                    for (final cat in widget.controller.categories)
-                      GestureDetector(
-                        onTap: () => setState(() => _category.text = cat),
-                        child: Chip(
-                          label: Text(cat, style: const TextStyle(fontSize: 11.5)),
-                          backgroundColor: BK.card,
-                          side: const BorderSide(color: BK.line),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
+              ),
+              const Divider(height: 1, color: BK.line),
+              // ── Konten scroll ──
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      _imagePicker(),
+                      const SizedBox(width: 14),
+                      Expanded(child: _field('Nama item', _name, hint: 'mis. Nasi Goreng Spesial')),
+                    ]),
+                    const SizedBox(height: 14),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: _field('Harga (Rp)', _price, hint: '25.000', keyboard: TextInputType.number, onChanged: _onPriceChanged),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(child: _field('Kategori', _category, hint: 'Makanan')),
+                    ]),
+                    if (widget.controller.categories.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 7, runSpacing: 7, children: [
+                        for (final cat in widget.controller.categories)
+                          GestureDetector(
+                            onTap: () => setState(() => _category.text = cat),
+                            child: Chip(
+                              label: Text(cat, style: const TextStyle(fontSize: 11.5)),
+                              backgroundColor: BK.card,
+                              side: const BorderSide(color: BK.line),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                      ]),
+                    ],
+                    const SizedBox(height: 14),
+                    _field('Deskripsi (opsional)', _desc, hint: 'Catatan singkat menu', maxLines: 2),
+                    const SizedBox(height: 14),
+                    _availabilityToggle(),
                   ]),
-                ],
-                const SizedBox(height: 12),
-                _field('Deskripsi (opsional)', _desc, hint: 'Catatan singkat menu', maxLines: 2),
-                const SizedBox(height: 12),
-                _availabilityToggle(),
-                const SizedBox(height: 18),
-                Row(children: [
+                ),
+              ),
+              // ── Footer aksi sticky ──
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+                decoration: const BoxDecoration(color: BK.bg, border: Border(top: BorderSide(color: BK.line))),
+                child: Row(children: [
                   if (_isEdit) ...[
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: BK.crit,
                         side: const BorderSide(color: BK.critSoft),
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
                       ),
                       onPressed: _saving ? null : _confirmDelete,
                       child: const Icon(Icons.delete_outline, size: 20),
@@ -496,13 +525,15 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
                       style: FilledButton.styleFrom(
                           backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15)),
                       onPressed: (_saving || _uploading) ? null : _submit,
-                      child: Text(_isEdit ? 'Simpan perubahan' : 'Tambah item',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      child: _saving
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Text(_isEdit ? 'Simpan perubahan' : 'Tambah item',
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ]),
-              ],
-            ),
+              ),
+            ]),
           ),
         ),
       ),
@@ -565,7 +596,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
   }
 
   Widget _field(String label, TextEditingController controller,
-      {String? hint, int maxLines = 1, TextInputType? keyboard}) {
+      {String? hint, int maxLines = 1, TextInputType? keyboard, ValueChanged<String>? onChanged}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -575,6 +606,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboard,
+          onChanged: onChanged,
           style: const TextStyle(fontSize: 13.5, color: BK.ink),
           decoration: InputDecoration(
             hintText: hint,

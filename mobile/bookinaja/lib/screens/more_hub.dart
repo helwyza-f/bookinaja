@@ -8,6 +8,7 @@ import 'customers.dart';
 import 'cancellation_settings.dart';
 import 'settings_hub.dart';
 import 'fnb_menu_screen.dart';
+import 'expenses_screen.dart';
 import 'reports_screen.dart';
 import 'resources_screen.dart';
 
@@ -43,7 +44,9 @@ class MoreHubScreen extends StatelessWidget {
             _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
             }),
-          _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () => _soon(context, 'Biaya')),
+          _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExpensesScreen()));
+          }),
           _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()));
           }),

@@ -12,6 +12,7 @@ import 'repositories/pos_feed_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/fnb_repository.dart';
+import 'repositories/expense_repository.dart';
 import 'repositories/reports_repository.dart';
 import 'repositories/resource_admin_repository.dart';
 import 'repositories/discovery_repository.dart';
@@ -56,6 +57,7 @@ void main() {
       settingsRepo: SettingsRepository(api),
       fnbRepo: FnbRepository(api),
       reportsRepo: ReportsRepository(api),
+      expenseRepo: ExpenseRepository(api),
       resourceAdminRepo: ResourceAdminRepository(api),
       discoveryRepo: DiscoveryRepository(api),
       customerBookingRepo: CustomerBookingRepository(api),
@@ -75,6 +77,7 @@ class BookinajaAdmin extends StatelessWidget {
   final SettingsRepository settingsRepo;
   final FnbRepository fnbRepo;
   final ReportsRepository reportsRepo;
+  final ExpenseRepository expenseRepo;
   final ResourceAdminRepository resourceAdminRepo;
   final DiscoveryRepository discoveryRepo;
   final CustomerBookingRepository customerBookingRepo;
@@ -91,6 +94,7 @@ class BookinajaAdmin extends StatelessWidget {
     required this.settingsRepo,
     required this.fnbRepo,
     required this.reportsRepo,
+    required this.expenseRepo,
     required this.resourceAdminRepo,
     required this.discoveryRepo,
     required this.customerBookingRepo,
@@ -109,6 +113,7 @@ class BookinajaAdmin extends StatelessWidget {
         Provider<SettingsRepository>.value(value: settingsRepo),
         Provider<FnbRepository>.value(value: fnbRepo),
         Provider<ReportsRepository>.value(value: reportsRepo),
+        Provider<ExpenseRepository>.value(value: expenseRepo),
         Provider<ResourceAdminRepository>.value(value: resourceAdminRepo),
         Provider<DiscoveryRepository>.value(value: discoveryRepo),
         Provider<CustomerBookingRepository>.value(value: customerBookingRepo),

@@ -10,6 +10,7 @@ import 'booking_detail.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
 import 'reports_screen.dart';
+import 'expenses_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -44,6 +45,8 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(width: 9),
                 ],
                 _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
+                const SizedBox(width: 9),
+                _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
               ],
             ),
             const SizedBox(height: 18),
