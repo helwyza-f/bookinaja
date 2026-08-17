@@ -6,6 +6,7 @@ import '../models/pos_order.dart';
 import '../state/pos_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
+import 'pos_payment_sheet.dart';
 
 class KasirOrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -115,9 +116,9 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
                       style: const TextStyle(fontSize: 12, color: BK.ink3),
                     ),
                     const SizedBox(height: 14),
-                    _infoRow('Status', order.status),
-                    _infoRow('Pembayaran', order.paymentStatus),
-                    _infoRow('Metode', order.paymentMethod.isEmpty ? '-' : order.paymentMethod),
+                    _infoRow('Status', _statusLabel(order.status)),
+                    _infoRow('Pembayaran', _payLabel(order.paymentStatus)),
+                    _infoRow('Metode', _methodLabel(order.paymentMethod)),
                     _infoRow('Total', 'Rp${rupiah(order.grandTotal)}', bold: true),
                   ],
                 ),
@@ -207,48 +208,57 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
     // karena balance sudah 0.
     final prepaid = order.isPrepaidSettled;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: const BoxDecoration(
+          color: BK.bg,
+          border: Border(top: BorderSide(color: BK.line)),
+        ),
         child: Row(children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: BK.ink,
-                side: const BorderSide(color: BK.line),
-                padding: const EdgeInsets.symmetric(vertical: 13),
-              ),
-              onPressed: _acting ? null : () => _addItems(order),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Tambah item', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
+          // Sekunder: tambah item (ikon-only agar CTA utama punya ruang lega).
+          _SquareAction(
+            icon: Icons.add_rounded,
+            tooltip: 'Tambah item',
+            onTap: _acting ? null : () => _addItems(order),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 3,
-            child: prepaid
-                ? FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: BK.live, padding: const EdgeInsets.symmetric(vertical: 13)),
-                    onPressed: _acting ? null : () => _closeBon(order),
-                    icon: const Icon(Icons.check_circle_rounded, size: 18),
-                    label: const Text('Tutup bon', style: TextStyle(fontWeight: FontWeight.w700)),
-                  )
-                : FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 13)),
-                    onPressed: _acting ? null : () => _payAndClose(order),
-                    icon: const Icon(Icons.point_of_sale_rounded, size: 18),
-                    label: const Text('Bayar & tutup', style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-          ),
-          // Bon prabayar sudah ada uang masuk → sembunyikan batalkan agar tak
-          // salah membatalkan pesanan yang sudah dibayar.
+          // Sekunder: batalkan — hanya bila belum ada uang masuk.
           if (!prepaid) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: _acting ? null : () => _cancelOrder(order),
-              icon: const Icon(Icons.delete_outline_rounded, color: BK.crit),
+            const SizedBox(width: 10),
+            _SquareAction(
+              icon: Icons.delete_outline_rounded,
               tooltip: 'Batalkan',
+              danger: true,
+              onTap: _acting ? null : () => _cancelOrder(order),
             ),
           ],
+          const SizedBox(width: 12),
+          // CTA utama.
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: prepaid
+                  ? FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: BK.live,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _acting ? null : () => _closeBon(order),
+                      icon: const Icon(Icons.check_circle_rounded, size: 20),
+                      label: const Text('Tutup bon',
+                          maxLines: 1, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    )
+                  : FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: BK.accent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _acting ? null : () => _payAndClose(order),
+                      icon: const Icon(Icons.point_of_sale_rounded, size: 20),
+                      label: const Text('Bayar & tutup',
+                          maxLines: 1, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    ),
+            ),
+          ),
         ]),
       ),
     );
@@ -295,36 +305,27 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
 
   Future<void> _payAndClose(PosOrder order) async {
     final ctrl = context.read<PosController>();
-    final choice = await showModalBottomSheet<_PayChoice>(
+    // Pakai sheet pembayaran yang sama dengan kasir (metode terfilter + uang
+    // diterima + unggah bukti). orderId diisi → settle order yang sudah ada.
+    final billed = order.balanceDue > 0 ? order.balanceDue : order.grandTotal;
+    final outcome = await showModalBottomSheet<PosPaymentOutcome>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PayMethodSheet(methods: ctrl.paymentMethods),
+      backgroundColor: BK.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => ChangeNotifierProvider<PosController>.value(
+        value: ctrl,
+        child: PosPaymentSheet(total: billed, methods: ctrl.paymentMethods, orderId: order.id),
+      ),
     );
-    if (choice == null || !mounted) return;
-    final method = choice.method;
-    final keepOpen = choice.keepOpen;
-    setState(() => _acting = true);
-    try {
-      if (method.isCash) {
-        await ctrl.settleOpenCash(order.id, keepOpen: keepOpen);
-      } else {
-        await ctrl.settleOpenManual(order.id, method: method.code, keepOpen: keepOpen);
-      }
-      if (!mounted) return;
-      if (keepOpen) {
-        // Prabayar: bon tetap terbuka → tetap di layar, segarkan status.
-        BkToast.success(context, 'Pembayaran tercatat', subtitle: 'Bon tetap terbuka, item bisa ditambah.');
-        setState(() => _acting = false);
-        await _load();
-      } else {
-        BkToast.success(context, 'Pesanan ditutup', subtitle: 'Pembayaran ${method.label} tercatat.');
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _acting = false);
-        BkToast.error(context, 'Gagal memproses pembayaran', subtitle: '$e');
-      }
+    if (outcome == null || !mounted) return;
+    if (outcome.keptOpen) {
+      // Prabayar: bon tetap terbuka → tetap di layar, segarkan status.
+      BkToast.success(context, 'Pembayaran tercatat', subtitle: 'Bon tetap terbuka, item bisa ditambah.');
+      await _load();
+    } else {
+      BkToast.success(context, 'Pesanan ditutup', subtitle: 'Pembayaran tercatat.');
+      Navigator.of(context).pop();
     }
   }
 
@@ -478,6 +479,59 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
     );
   }
 
+  /// Label status order dalam Bahasa Indonesia (bukan enum backend).
+  String _statusLabel(String s) {
+    switch (s.toLowerCase()) {
+      case 'open':
+        return 'Terbuka';
+      case 'pending_payment':
+        return 'Menunggu pembayaran';
+      case 'paid':
+        return 'Lunas';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return s.isEmpty ? '-' : s;
+    }
+  }
+
+  /// Label status pembayaran dalam Bahasa Indonesia.
+  String _payLabel(String s) {
+    switch (s.toLowerCase()) {
+      case 'settled':
+      case 'paid':
+        return 'Lunas';
+      case 'unpaid':
+      case 'pending':
+        return 'Belum dibayar';
+      case 'partial_paid':
+        return 'Dibayar sebagian';
+      case 'awaiting_verification':
+      case 'submitted':
+        return 'Menunggu verifikasi';
+      case 'cancelled':
+        return 'Dibatalkan';
+      case 'failed':
+        return 'Gagal';
+      case 'expired':
+        return 'Kedaluwarsa';
+      default:
+        return s.isEmpty ? '-' : s;
+    }
+  }
+
+  /// Label metode bayar yang ramah dibaca.
+  String _methodLabel(String m) {
+    final k = m.toLowerCase().trim();
+    if (k.isEmpty) return '-';
+    if (k == 'cash') return 'Tunai';
+    if (k.contains('qris') || k.contains('qr')) return 'QRIS';
+    if (k.contains('transfer') || k.contains('bank') || k.contains('va')) return 'Transfer bank';
+    return m;
+  }
+
   Widget _infoRow(String label, String value, {bool bold = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -494,6 +548,40 @@ class _KasirOrderDetailScreenState extends State<KasirOrderDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tombol aksi sekunder berbentuk kotak (ikon-only) untuk action bar detail.
+class _SquareAction extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool danger;
+  const _SquareAction({required this.icon, required this.tooltip, this.onTap, this.danger = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? BK.crit : BK.ink;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: BK.card,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: danger ? BK.crit.withValues(alpha: .4) : BK.line),
+            ),
+            child: Icon(icon, color: onTap == null ? BK.ink3 : color, size: 24),
+          ),
+        ),
       ),
     );
   }
@@ -671,93 +759,4 @@ class _AddItemsSheetState extends State<_AddItemsSheet> {
           ),
         ),
       );
-}
-
-/// Pilihan pembayaran dari [_PayMethodSheet]: metode + apakah bon dibiarkan
-/// terbuka (prabayar) atau ditutup.
-class _PayChoice {
-  final PosPaymentMethod method;
-  final bool keepOpen;
-  const _PayChoice(this.method, this.keepOpen);
-}
-
-/// Sheet pemilih metode bayar untuk pesanan terbuka. Mengembalikan [_PayChoice]
-/// (metode + keepOpen). Switch "Tetap buka bon" default mati → bayar & tutup.
-/// Selalu menyediakan "Tunai" sebagai fallback bila tenant belum
-/// mengonfigurasi metode apa pun.
-class _PayMethodSheet extends StatefulWidget {
-  final List<PosPaymentMethod> methods;
-  const _PayMethodSheet({required this.methods});
-
-  @override
-  State<_PayMethodSheet> createState() => _PayMethodSheetState();
-}
-
-class _PayMethodSheetState extends State<_PayMethodSheet> {
-  bool _keepOpen = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final list = widget.methods.isEmpty
-        ? const [PosPaymentMethod(code: 'cash', label: 'Tunai', category: 'cash', verificationType: 'cash')]
-        : widget.methods;
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: BK.card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(2)),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Metode pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: BK.ink)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-              child: Container(
-                decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(14)),
-                child: SwitchListTile(
-                  value: _keepOpen,
-                  activeThumbColor: BK.accent,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-                  onChanged: (v) => setState(() => _keepOpen = v),
-                  title: const Text('Bon tetap terbuka setelah bayar',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
-                  subtitle: Text(
-                    _keepOpen
-                        ? 'Prabayar — item masih bisa ditambah, tutup menyusul.'
-                        : 'Bayar & tutup bon sekarang.',
-                    style: const TextStyle(fontSize: 11.5, color: BK.ink3),
-                  ),
-                ),
-              ),
-            ),
-            const Divider(height: 8, color: BK.line),
-            ...list.map((m) => ListTile(
-                  onTap: () => Navigator.of(context).pop(_PayChoice(m, _keepOpen)),
-                  leading: Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(12)),
-                    child: Icon(m.isCash ? Icons.payments_rounded : Icons.qr_code_rounded, color: BK.accent, size: 20),
-                  ),
-                  title: Text(m.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: BK.ink)),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: BK.ink3),
-                )),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
 }

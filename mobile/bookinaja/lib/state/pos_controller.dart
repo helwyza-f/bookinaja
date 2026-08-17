@@ -236,10 +236,16 @@ class PosController extends ChangeNotifier {
   Future<void> settleOpenCash(String orderId, {bool keepOpen = false}) =>
       _repo.settleCash(orderId, keepOpen: keepOpen);
 
-  /// Bayar non-tunai (dicatat kasir → auto-verified) pesanan terbuka.
-  /// [keepOpen] sama seperti [settleOpenCash].
-  Future<void> settleOpenManual(String orderId, {required String method, String? note, bool keepOpen = false}) =>
-      _repo.submitManual(orderId, method: method, note: note, keepOpen: keepOpen);
+  /// Bayar non-tunai (dicatat kasir → auto-verified) pesanan terbuka. Bisa
+  /// membawa bukti (foto transfer/QRIS). [keepOpen] sama seperti [settleOpenCash].
+  Future<void> settleOpenManual(String orderId,
+      {required String method, String? proofPath, String? note, bool keepOpen = false}) async {
+    String? url;
+    if (proofPath != null && proofPath.trim().isNotEmpty) {
+      url = await _repo.uploadProof(proofPath);
+    }
+    await _repo.submitManual(orderId, method: method, proofUrl: url, note: note, keepOpen: keepOpen);
+  }
 
   /// Tutup pesanan terbuka yang tagihannya sudah lunas (mis. prabayar).
   Future<void> closeOpenOrder(String orderId) => _repo.closeOrder(orderId);

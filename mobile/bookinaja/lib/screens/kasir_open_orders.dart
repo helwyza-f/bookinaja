@@ -128,7 +128,7 @@ class _OpenOrderCard extends StatelessWidget {
             Text('Rp${rupiah(order.grandTotal)}',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: BK.ink)),
             const SizedBox(height: 3),
-            Pill.pend('Terbuka'),
+            order.isPrepaidSettled ? Pill.live('Lunas · terbuka') : Pill.pend('Terbuka'),
           ]),
         ]),
       ),
