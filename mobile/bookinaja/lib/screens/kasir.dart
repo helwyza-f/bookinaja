@@ -591,6 +591,7 @@ class _PaymentSheet extends StatefulWidget {
 
 class _PaymentSheetState extends State<_PaymentSheet> {
   PosPaymentMethod? _method;
+  bool _keepOpen = false; // true = bayar di muka tapi bon tetap terbuka
   final _cashCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   String? _proofPath;
@@ -696,13 +697,22 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   Future<void> _confirm() async {
     final ctrl = context.read<PosController>();
     final m = _method!;
-    final ok = m.isCash
-        ? await ctrl.payCash(method: m.code, cashReceived: _cashReceived > 0 ? _cashReceived : null)
-        : await ctrl.payManual(method: m.code, proofPath: _proofPath, note: _noteCtrl.text);
+    final bool ok;
+    if (_keepOpen) {
+      // Prabayar: bon tetap terbuka, tidak menampilkan struk.
+      ok = m.isCash
+          ? await ctrl.prepayCash(method: m.code)
+          : await ctrl.prepayManual(method: m.code, proofPath: _proofPath, note: _noteCtrl.text);
+    } else {
+      ok = m.isCash
+          ? await ctrl.payCash(method: m.code, cashReceived: _cashReceived > 0 ? _cashReceived : null)
+          : await ctrl.payManual(method: m.code, proofPath: _proofPath, note: _noteCtrl.text);
+    }
     if (!mounted) return;
     if (ok) {
-      // Cukup tutup payment sheet; struk ditampilkan oleh _openPayment dari
-      // context yang stabil setelah sheet ini tertutup.
+      // Untuk prabayar, struk tak ditampilkan → beri toast di sini. Untuk
+      // bayar-tutup, struk ditampilkan oleh _openPayment setelah sheet tertutup.
+      if (_keepOpen) BkToast.success(context, 'Pembayaran tercatat', subtitle: 'Bon tetap terbuka di Pesanan terbuka.');
       Navigator.of(context).pop();
     } else {
       BkToast.error(context, ctrl.checkoutError ?? 'Pembayaran gagal');
@@ -746,6 +756,24 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               for (final method in _methods) _methodTile(method, method.code == m?.code),
               if (m != null && m.isCash) ...[const SizedBox(height: 16), ..._cashFields()],
               if (m != null && m.isManual) ...[const SizedBox(height: 16), ..._manualFields()],
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(color: BK.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: BK.line)),
+                child: SwitchListTile(
+                  value: _keepOpen,
+                  activeThumbColor: BK.accent,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                  onChanged: (v) => setState(() => _keepOpen = v),
+                  title: const Text('Bon tetap terbuka setelah bayar',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+                  subtitle: Text(
+                    _keepOpen
+                        ? 'Prabayar — item masih bisa ditambah, tutup menyusul di Pesanan terbuka.'
+                        : 'Bayar & tutup transaksi sekarang.',
+                    style: const TextStyle(fontSize: 11.5, color: BK.ink3),
+                  ),
+                ),
+              ),
             ]),
           ),
           SafeArea(
@@ -760,7 +788,9 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                   child: ctrl.submitting
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : Text(
-                          m != null && m.isManual ? 'Kirim bukti & selesai' : 'Terima pembayaran',
+                          _keepOpen
+                              ? 'Bayar, bon tetap buka'
+                              : (m != null && m.isManual ? 'Kirim bukti & selesai' : 'Terima pembayaran'),
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                 ),

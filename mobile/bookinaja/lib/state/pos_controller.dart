@@ -192,6 +192,35 @@ class PosController extends ChangeNotifier {
     });
   }
 
+  /// Prabayar dari keranjang: buat order, lunasi (keep_open), lalu biarkan bon
+  /// tetap terbuka. Keranjang dikosongkan; bon muncul di "Pesanan terbuka"
+  /// dalam keadaan sudah dibayar (isPrepaidSettled). Tidak menampilkan struk.
+  Future<bool> prepayCash({String method = 'cash'}) async {
+    if (_cart.isEmpty) return false;
+    return _run(() async {
+      final id = await _ensureOrder();
+      await _repo.settleCash(id, method: method, keepOpen: true);
+      _pendingOrderId = null; // bon sah — jangan dibatalkan
+      _cart.clear();
+    });
+  }
+
+  /// Prabayar non-tunai (transfer/QRIS, dicatat kasir → auto-verified) lalu
+  /// biarkan bon tetap terbuka.
+  Future<bool> prepayManual({required String method, String? proofPath, String? note}) async {
+    if (_cart.isEmpty) return false;
+    return _run(() async {
+      final id = await _ensureOrder();
+      String? url;
+      if (proofPath != null && proofPath.trim().isNotEmpty) {
+        url = await _repo.uploadProof(proofPath);
+      }
+      await _repo.submitManual(id, method: method, proofUrl: url, note: note, keepOpen: true);
+      _pendingOrderId = null;
+      _cart.clear();
+    });
+  }
+
   /// Daftar pesanan terbuka.
   Future<List<PosOrder>> fetchOpenOrders() => _repo.listOpenOrders();
 
