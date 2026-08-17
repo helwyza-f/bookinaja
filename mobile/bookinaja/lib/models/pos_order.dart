@@ -33,29 +33,78 @@ class PosPaymentMethod {
   }
 }
 
+/// Percobaan pembayaran (transfer/QRIS manual) — bisa membawa bukti (proof_url).
+class PosPaymentAttempt {
+  final String methodLabel;
+  final String verificationType;
+  final int amount;
+  final String status;
+  final String referenceCode;
+  final String payerNote;
+  final String proofUrl;
+  final DateTime? createdAt;
+
+  const PosPaymentAttempt({
+    required this.methodLabel,
+    this.verificationType = '',
+    this.amount = 0,
+    this.status = '',
+    this.referenceCode = '',
+    this.payerNote = '',
+    this.proofUrl = '',
+    this.createdAt,
+  });
+
+  bool get hasProof => proofUrl.trim().isNotEmpty;
+
+  factory PosPaymentAttempt.fromJson(Map<String, dynamic> j) {
+    int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+    return PosPaymentAttempt(
+      methodLabel: '${j['method_label'] ?? j['method_code'] ?? 'Pembayaran'}',
+      verificationType: '${j['verification_type'] ?? ''}',
+      amount: money(j['amount']),
+      status: '${j['status'] ?? ''}',
+      referenceCode: '${j['reference_code'] ?? ''}',
+      payerNote: '${j['payer_note'] ?? ''}',
+      proofUrl: '${j['proof_url'] ?? ''}',
+      createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
+    );
+  }
+}
+
 /// Sales order kasir (F&B walk-in).
 class PosOrder {
   final String id;
   final String orderNumber;
   final int grandTotal;
+  final int paidAmount;
+  final int balanceDue;
   final String status;
   final String paymentStatus;
   final String paymentMethod;
   final DateTime? createdAt;
   final List<PosPaymentMethod> methods;
   final List<PosOrderLine> items;
+  final List<PosPaymentAttempt> attempts;
 
   const PosOrder({
     required this.id,
     required this.orderNumber,
     required this.grandTotal,
+    this.paidAmount = 0,
+    this.balanceDue = 0,
     required this.status,
     required this.paymentStatus,
     this.paymentMethod = '',
     this.createdAt,
     this.methods = const [],
     this.items = const [],
+    this.attempts = const [],
   });
+
+  /// Sudah ada pembayaran masuk tapi bon belum tertutup (prabayar bon berjalan):
+  /// tagihan saat ini lunas namun status masih terbuka.
+  bool get isPrepaidSettled => paidAmount > 0 && balanceDue <= 0;
 
   factory PosOrder.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
@@ -75,17 +124,27 @@ class PosOrder {
             .where((i) => i.name.isNotEmpty)
             .toList()
         : <PosOrderLine>[];
+    final rawAttempts = j['payment_attempts'];
+    final attempts = (rawAttempts is List)
+        ? rawAttempts
+            .whereType<Map>()
+            .map((e) => PosPaymentAttempt.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <PosPaymentAttempt>[];
     final id = '${j['id'] ?? ''}';
     return PosOrder(
       id: id,
       orderNumber: '${j['order_number'] ?? id}',
       grandTotal: money(j['grand_total']),
+      paidAmount: money(j['paid_amount']),
+      balanceDue: money(j['balance_due']),
       status: '${j['status'] ?? ''}',
       paymentStatus: '${j['payment_status'] ?? ''}',
       paymentMethod: '${j['payment_method'] ?? ''}',
       createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
       methods: methods,
       items: items,
+      attempts: attempts,
     );
   }
 
@@ -100,10 +159,15 @@ class PosOrder {
       id: id,
       orderNumber: orderNumber,
       grandTotal: grandTotal ?? this.grandTotal,
+      paidAmount: paidAmount,
+      balanceDue: balanceDue,
       status: status ?? this.status,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod,
+      createdAt: createdAt,
       methods: methods ?? this.methods,
       items: items ?? this.items,
+      attempts: attempts,
     );
   }
 }

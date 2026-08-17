@@ -180,6 +180,41 @@ class PosController extends ChangeNotifier {
     });
   }
 
+  /// Simpan keranjang sebagai **pesanan terbuka** (open) tanpa membayar —
+  /// dipakai untuk bon berjalan (dine-in / self-order). Order dibiarkan open
+  /// (tidak di-cancel) lalu keranjang dikosongkan.
+  Future<bool> openOrder({String? notes}) async {
+    if (_cart.isEmpty) return false;
+    return _run(() async {
+      if (_pendingOrderId == null) await _repo.createMenuOrder(cart, notes: notes);
+      _pendingOrderId = null; // jangan dibatalkan — ini pesanan terbuka yang sah
+      _cart.clear();
+    });
+  }
+
+  /// Daftar pesanan terbuka.
+  Future<List<PosOrder>> fetchOpenOrders() => _repo.listOpenOrders();
+
+  /// Tambah beberapa item ke pesanan terbuka.
+  Future<void> addItemsToOrder(String orderId, List<CartLine> lines) async {
+    for (final l in lines) {
+      await _repo.addItem(orderId, name: l.item.name, qty: l.qty, unitPrice: l.item.price);
+    }
+  }
+
+  /// Bayar tunai pesanan terbuka. [keepOpen]=true → prabayar: catat pelunasan
+  /// tapi bon tetap terbuka; false → auto-close (bayar & tutup).
+  Future<void> settleOpenCash(String orderId, {bool keepOpen = false}) =>
+      _repo.settleCash(orderId, keepOpen: keepOpen);
+
+  /// Bayar non-tunai (dicatat kasir → auto-verified) pesanan terbuka.
+  /// [keepOpen] sama seperti [settleOpenCash].
+  Future<void> settleOpenManual(String orderId, {required String method, String? note, bool keepOpen = false}) =>
+      _repo.submitManual(orderId, method: method, note: note, keepOpen: keepOpen);
+
+  /// Tutup pesanan terbuka yang tagihannya sudah lunas (mis. prabayar).
+  Future<void> closeOpenOrder(String orderId) => _repo.closeOrder(orderId);
+
   /// Riwayat transaksi kasir (untuk sheet riwayat).
   Future<List<PosOrder>> fetchHistory() => _repo.listRecentOrders();
 

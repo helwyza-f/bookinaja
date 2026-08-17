@@ -387,23 +387,33 @@ func (r *Repository) UpdateCheckout(ctx context.Context, tenantID, orderID uuid.
 	return err
 }
 
-func (r *Repository) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, paymentMethod, notes string) error {
+func (r *Repository) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, paymentMethod, notes string, keepOpen bool) error {
 	// Walk-in tunai (F&B menu & direct-sale) tidak punya tahap pelunasan
 	// berikutnya: bayar = selesai. Langsung tutup ke 'completed' dalam satu
 	// transaksi agar tidak menggantung di 'paid' (lihat POS action feed).
 	// Order booking/public tetap berhenti di 'paid' — penutupannya lewat Close.
+	//
+	// keepOpen=true (prabayar bon berjalan): catat pelunasan tapi jangan tutup —
+	// status dibiarkan apa adanya (open/pending_payment) agar item masih bisa
+	// ditambah; penutupan menyusul lewat Close setelah tagihan akhir lunas.
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE sales_orders
 		SET
-			status = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed' ELSE 'paid' END,
-			completed_at = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+			status = CASE
+				WHEN $5 THEN status
+				WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed'
+				ELSE 'paid' END,
+			completed_at = CASE
+				WHEN $5 THEN completed_at
+				WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW())
+				ELSE completed_at END,
 			payment_status = 'settled',
 			payment_method = $3,
 			notes = $4,
 			paid_amount = grand_total,
 			balance_due = 0,
 			updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2`, orderID, tenantID, paymentMethod, notes)
+		WHERE id = $1 AND tenant_id = $2`, orderID, tenantID, paymentMethod, notes, keepOpen)
 	return err
 }
 
@@ -584,19 +594,26 @@ func (r *Repository) RestoreOrderPaymentStatus(ctx context.Context, orderID uuid
 	return err
 }
 
-func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, orderID uuid.UUID, methodCode string) error {
+func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, orderID uuid.UUID, methodCode string, keepOpen bool) error {
 	// Sama seperti SettleCash: walk-in (menu/direct_sale) langsung 'completed'
 	// agar tidak menggantung di 'paid'; booking/public tetap 'paid'.
+	// keepOpen=true → catat pelunasan tapi biarkan bon terbuka (prabayar).
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE sales_orders
-		SET status = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed' ELSE 'paid' END,
-			completed_at = CASE WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+		SET status = CASE
+				WHEN $3 THEN status
+				WHEN order_kind IN ('menu', 'direct_sale') THEN 'completed'
+				ELSE 'paid' END,
+			completed_at = CASE
+				WHEN $3 THEN completed_at
+				WHEN order_kind IN ('menu', 'direct_sale') THEN COALESCE(completed_at, NOW())
+				ELSE completed_at END,
 			payment_status = 'settled',
 			payment_method = $2,
 			paid_amount = grand_total,
 			balance_due = 0,
 			updated_at = NOW()
-		WHERE id = $1`, orderID, methodCode)
+		WHERE id = $1`, orderID, methodCode, keepOpen)
 	return err
 }
 

@@ -117,6 +117,10 @@ type CheckoutInput struct {
 type CashSettleInput struct {
 	PaymentMethod string `json:"payment_method"`
 	Notes         string `json:"notes"`
+	// KeepOpen: catat pembayaran (prabayar/di depan) tapi biarkan bon tetap
+	// terbuka agar item masih bisa ditambah. Hanya berlaku untuk menu/direct_sale;
+	// tanpa ini walk-in F&B langsung tertutup (perilaku default).
+	KeepOpen bool `json:"keep_open"`
 }
 
 type PaymentCheckoutInput struct {
@@ -130,6 +134,9 @@ type ManualPaymentInput struct {
 	// AutoVerify: pembayaran dicatat langsung oleh staff di kasir (bukan
 	// diajukan customer), jadi settle seketika tanpa menunggu verifikasi.
 	AutoVerify bool `json:"auto_verify"`
+	// KeepOpen: sama seperti CashSettleInput — settle tapi bon tetap terbuka
+	// (prabayar). Hanya diperhatikan pada jalur AutoVerify menu/direct_sale.
+	KeepOpen bool `json:"keep_open"`
 }
 
 type PaymentVerificationInput struct {

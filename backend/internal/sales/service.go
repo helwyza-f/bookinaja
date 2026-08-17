@@ -552,7 +552,7 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 	// Dicatat langsung oleh staff kasir → settle seketika (auto-verified),
 	// tidak perlu langkah verifikasi terpisah.
 	if input.AutoVerify {
-		if err := s.repo.ApplyManualSettlementPayment(ctx, orderID, method.Code); err != nil {
+		if err := s.repo.ApplyManualSettlementPayment(ctx, orderID, method.Code, input.KeepOpen); err != nil {
 			return PaymentCheckoutRes{}, err
 		}
 		adminNote := strings.TrimSpace(input.Note)
@@ -564,7 +564,8 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 			"attempt_id":  attempt.ID.String(),
 			"flow":        "direct_sale",
 		})
-		if order.OrderKind == "menu" || order.OrderKind == "direct_sale" {
+		// Prabayar (keepOpen) tidak menutup bon → jangan emit completed.
+		if !input.KeepOpen && (order.OrderKind == "menu" || order.OrderKind == "direct_sale") {
 			s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
 				"flow": "direct_sale",
 			})
@@ -640,7 +641,7 @@ func (s *Service) VerifyManualPayment(ctx context.Context, tenantID, attemptID u
 		return nil
 	}
 
-	if err := s.repo.ApplyManualSettlementPayment(ctx, attempt.SalesOrderID, attempt.MethodCode); err != nil {
+	if err := s.repo.ApplyManualSettlementPayment(ctx, attempt.SalesOrderID, attempt.MethodCode, false); err != nil {
 		return err
 	}
 	if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "verified", nil, &adminNote); err != nil {
@@ -664,7 +665,7 @@ func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, i
 	if order.Status == "completed" || order.Status == "cancelled" {
 		return errors.New("sales order sudah ditutup")
 	}
-	if err := s.repo.SettleCash(ctx, tenantID, orderID, normalizePaymentMethod(input.PaymentMethod), strings.TrimSpace(input.Notes)); err != nil {
+	if err := s.repo.SettleCash(ctx, tenantID, orderID, normalizePaymentMethod(input.PaymentMethod), strings.TrimSpace(input.Notes), input.KeepOpen); err != nil {
 		return err
 	}
 	s.notifyOrderChange(ctx, tenantID, orderID, "payment.cash.settled", map[string]any{
@@ -672,7 +673,8 @@ func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, i
 	})
 	// Walk-in tunai langsung tertutup di SettleCash (lihat repo). Emit
 	// order.completed agar POS feed & dashboard membuangnya dari daftar aktif.
-	if order.OrderKind == "menu" || order.OrderKind == "direct_sale" {
+	// Prabayar (keepOpen) tidak menutup bon → jangan emit completed.
+	if !input.KeepOpen && (order.OrderKind == "menu" || order.OrderKind == "direct_sale") {
 		s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
 			"flow": "direct_sale",
 		})

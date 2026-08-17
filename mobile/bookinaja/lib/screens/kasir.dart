@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,11 @@ import '../models/menu_item.dart';
 import '../models/pos_order.dart';
 import '../state/pos_controller.dart';
 import 'kasir_history.dart';
+import 'kasir_open_orders.dart';
+
+/// Perkiraan tinggi header (search + chip) — dipakai sebagai padding atas grid
+/// agar item pertama tak tertutup header yang mengambang.
+const double _kHeaderHeight = 112;
 
 class KasirScreen extends StatefulWidget {
   const KasirScreen({super.key});
@@ -17,6 +23,8 @@ class KasirScreen extends StatefulWidget {
 }
 
 class _KasirScreenState extends State<KasirScreen> {
+  bool _headerVisible = true;
+
   @override
   void initState() {
     super.initState();
@@ -24,6 +32,19 @@ class _KasirScreenState extends State<KasirScreen> {
       final c = context.read<PosController>();
       if (!c.menu.hasData) c.load();
     });
+  }
+
+  /// Sembunyikan header (search + chip) saat scroll turun, munculkan saat naik.
+  bool _onUserScroll(UserScrollNotification n) {
+    final dir = n.direction;
+    if (dir == ScrollDirection.reverse && _headerVisible) {
+      setState(() => _headerVisible = false);
+    } else if (dir == ScrollDirection.forward && !_headerVisible) {
+      setState(() => _headerVisible = true);
+    } else if (n.metrics.pixels <= 0 && !_headerVisible) {
+      setState(() => _headerVisible = true);
+    }
+    return false;
   }
 
   @override
@@ -40,6 +61,20 @@ class _KasirScreenState extends State<KasirScreen> {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: BK.ink),
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: TextButton.icon(
+              onPressed: () => _openOpenOrders(context),
+              style: TextButton.styleFrom(
+                foregroundColor: BK.accent,
+                backgroundColor: BK.accentSoft,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.table_restaurant_rounded, size: 18),
+              label: const Text('Terbuka', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton.icon(
@@ -73,74 +108,90 @@ class _KasirScreenState extends State<KasirScreen> {
             child: const Text('Coba lagi'),
           ),
         ),
-        data: (_) => Column(children: [
-          _SearchBar(value: ctrl.query, onChanged: ctrl.setQuery),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: SizedBox(
-              height: 42,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: ctrl.categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) {
-                  final cat = ctrl.categories[i];
-                  final on = ctrl.category == cat;
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => ctrl.setCategory(cat),
-                      borderRadius: BorderRadius.circular(999),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: on ? BK.ink : BK.card,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: on ? BK.ink : BK.line),
-                          boxShadow: on
-                              ? const [
-                                  BoxShadow(
-                                    color: Color(0x120D1526),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ]
-                              : const [],
-                        ),
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: on ? Colors.white : BK.ink2,
-                          ),
-                        ),
-                      ),
+        data: (_) => Stack(children: [
+          // Katalog menu — layer bawah, full. Header mengambang di atasnya jadi
+          // hide/show header tidak mengubah layout grid.
+          Positioned.fill(
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: _onUserScroll,
+              child: ctrl.visibleMenu.isEmpty
+                  ? StateView(
+                      icon: Icons.restaurant_menu_rounded,
+                      color: BK.ink3,
+                      title: ctrl.query.isEmpty ? 'Menu kosong' : 'Tidak ada hasil',
+                      hint: ctrl.query.isEmpty ? 'Tambahkan item F&B lewat pengaturan.' : 'Coba kata kunci lain.',
+                    )
+                  : GridView.count(
+                      crossAxisCount: 2,
+                      padding: const EdgeInsets.fromLTRB(16, _kHeaderHeight + 4, 16, 16),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.64,
+                      children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
                     ),
-                  );
-                },
-              ),
             ),
           ),
-          Expanded(
-            child: ctrl.visibleMenu.isEmpty
-                ? StateView(
-                    icon: Icons.restaurant_menu_rounded,
-                    color: BK.ink3,
-                    title: ctrl.query.isEmpty ? 'Menu kosong' : 'Tidak ada hasil',
-                    hint: ctrl.query.isEmpty ? 'Tambahkan item F&B lewat pengaturan.' : 'Coba kata kunci lain.',
-                  )
-                : GridView.count(
-                    crossAxisCount: 2,
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.68,
-                    children: [for (final m in ctrl.visibleMenu) _MenuCard(m)],
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: !_headerVisible,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                offset: _headerVisible ? Offset.zero : const Offset(0, -1),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  opacity: _headerVisible ? 1 : 0,
+                  child: Container(
+                    color: BK.bg,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  _SearchBar(value: ctrl.query, onChanged: ctrl.setQuery),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: SizedBox(
+                      height: 42,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: ctrl.categories.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          final cat = ctrl.categories[i];
+                          final on = ctrl.category == cat;
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => ctrl.setCategory(cat),
+                              borderRadius: BorderRadius.circular(999),
+                              child: Container(
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: on ? BK.ink : BK.card,
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: on ? BK.ink : BK.line),
+                                ),
+                                child: Text(
+                                  cat,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: on ? Colors.white : BK.ink2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
           ),
         ]),
       ),
@@ -170,23 +221,39 @@ class _KasirScreenState extends State<KasirScreen> {
 
   Future<void> _openCart(BuildContext context) async {
     final ctrl = context.read<PosController>();
-    // Cart sheet mengembalikan true bila kasir menekan "Lanjut ke pembayaran".
-    final proceed = await showModalBottomSheet<bool>(
+    // 'pay' = lanjut ke pembayaran; 'open' = simpan sebagai pesanan terbuka.
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: BK.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => ChangeNotifierProvider<PosController>.value(value: ctrl, child: const _CartSheet()),
     );
-    // Payment + result dipicu dari context KasirScreen yang stabil (bukan dari
-    // context sheet yang sudah ditutup) agar tombol Selesai selalu bisa ditekan.
-    if (proceed == true && context.mounted) await _openPayment(context, ctrl);
+    if (!context.mounted) return;
+    if (action == 'pay') {
+      // Payment dipicu dari context KasirScreen yang stabil (bukan context sheet).
+      await _openPayment(context, ctrl);
+    } else if (action == 'open') {
+      final ok = await ctrl.openOrder();
+      if (!context.mounted) return;
+      ok
+          ? BkToast.success(context, 'Pesanan dibuka', subtitle: 'Tersimpan di Pesanan terbuka.')
+          : BkToast.error(context, ctrl.checkoutError ?? 'Gagal membuka pesanan');
+    }
   }
 
   Future<void> _openHistory(BuildContext context) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const KasirHistoryScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openOpenOrders(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const KasirOpenOrdersScreen(),
       ),
     );
   }
@@ -241,7 +308,7 @@ class _MenuCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(BK.radius)),
                 child: AspectRatio(
-                  aspectRatio: 16 / 10,
+                  aspectRatio: 1,
                   child: m.hasImage
                       ? Image.network(
                           m.imageUrl,
@@ -280,26 +347,26 @@ class _MenuCard extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     m.name,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
-                      height: 1.15,
+                      fontSize: 13,
+                      height: 1.1,
                       color: BK.ink,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 3),
                   Text(
                     'Rp${rupiah(m.price)}',
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: BK.ink2,
                     ),
@@ -308,7 +375,7 @@ class _MenuCard extends StatelessWidget {
                   if (qty == 0)
                     SizedBox(
                       width: double.infinity,
-                      height: 38,
+                      height: 34,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: BK.accentSoft,
@@ -327,7 +394,7 @@ class _MenuCard extends StatelessWidget {
                     )
                   else
                     Container(
-                      height: 38,
+                      height: 34,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
                         color: BK.accentSoft,
@@ -365,10 +432,10 @@ class _MenuCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 32,
-          height: 32,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(9)),
-          child: Icon(i, color: Colors.white, size: 17),
+          child: Icon(i, color: Colors.white, size: 16),
         ),
       );
 }
@@ -453,16 +520,28 @@ class _CartSheet extends StatelessWidget {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: lines.isEmpty
-                    ? null
-                    : () => Navigator.of(context).pop(true), // tutup cart sheet & lanjut bayar
-                child: const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: BK.ink,
+                    side: const BorderSide(color: BK.line),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: lines.isEmpty ? null : () => Navigator.of(context).pop('open'),
+                  child: const Text('Buka pesanan', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: lines.isEmpty ? null : () => Navigator.of(context).pop('pay'),
+                  child: const Text('Lanjut ke pembayaran', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ]),
           ),
         ),
       ]),

@@ -71,11 +71,42 @@ class PosRepository {
         .toList();
   }
 
-  /// Lunasi tunai.
-  Future<void> settleCash(String orderId, {String method = 'cash', String? notes}) async {
+  /// Daftar pesanan yang masih terbuka (open/pending_payment) — untuk bon
+  /// berjalan (dine-in / self-order). GET /sales-orders/open.
+  Future<List<PosOrder>> listOpenOrders() async {
+    final res = await _api.get('/sales-orders/open');
+    final items = (res is Map && res['items'] is List)
+        ? res['items'] as List
+        : (res is List ? res : const []);
+    return items
+        .whereType<Map>()
+        .map((e) => PosOrder.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// Tambah item (menu F&B) ke order yang sudah ada. Harga di-snapshot dari
+  /// client (kasir tepercaya). POST /sales-orders/:id/items.
+  Future<void> addItem(String orderId, {required String name, required int qty, required int unitPrice}) async {
+    await _api.post('/sales-orders/$orderId/items', body: {
+      'item_name': name,
+      'item_type': 'fnb',
+      'quantity': qty,
+      'unit_price': unitPrice,
+    });
+  }
+
+  /// Tutup order yang sudah lunas (balance 0). POST /sales-orders/:id/close.
+  Future<void> closeOrder(String orderId) async {
+    await _api.post('/sales-orders/$orderId/close');
+  }
+
+  /// Lunasi tunai. [keepOpen] = catat pelunasan tapi biarkan bon tetap terbuka
+  /// (prabayar bon berjalan) — item masih bisa ditambah, tutup menyusul.
+  Future<void> settleCash(String orderId, {String method = 'cash', String? notes, bool keepOpen = false}) async {
     await _api.post('/sales-orders/$orderId/settle-cash', body: {
       'payment_method': method,
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      if (keepOpen) 'keep_open': true,
     });
   }
 
@@ -94,11 +125,12 @@ class PosRepository {
 
   /// Kirim pembayaran manual (transfer/QRIS) → menunggu verifikasi.
   /// [proofUrl] & [note] opsional.
-  Future<void> submitManual(String orderId, {required String method, String? proofUrl, String? note}) async {
+  Future<void> submitManual(String orderId, {required String method, String? proofUrl, String? note, bool keepOpen = false}) async {
     await _api.post('/sales-orders/$orderId/manual-payment', body: {
       'method': method,
       if (proofUrl != null && proofUrl.trim().isNotEmpty) 'proof_url': proofUrl.trim(),
       if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      if (keepOpen) 'keep_open': true,
     });
   }
 
