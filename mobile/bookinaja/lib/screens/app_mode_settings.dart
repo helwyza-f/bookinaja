@@ -17,14 +17,14 @@ import '../state/auth_controller.dart';
 ///
 /// Nilai `fnb_mode` legacy tetap ditulis untuk backend lama yang membaca field
 /// itu di bootstrap (`integrated`/`standalone`/`off`).
-class FnbModeSettingsScreen extends StatefulWidget {
-  const FnbModeSettingsScreen({super.key});
+class AppModeSettingsScreen extends StatefulWidget {
+  const AppModeSettingsScreen({super.key});
 
   @override
-  State<FnbModeSettingsScreen> createState() => _FnbModeSettingsScreenState();
+  State<AppModeSettingsScreen> createState() => _AppModeSettingsScreenState();
 }
 
-class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
+class _AppModeSettingsScreenState extends State<AppModeSettingsScreen> {
   static const _options = [
     (
       value: 'booking_pos',

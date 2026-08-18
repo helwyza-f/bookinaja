@@ -62,6 +62,29 @@ class SettingsRepository {
         : profile;
   }
 
+  // --- Page builder (landing) ---
+
+  /// GET /admin/page-builder → {profile, page{version,sections[]}, theme,
+  /// booking_form, preview_url, preview_mobile}. Dikembalikan mentah.
+  Future<Map<String, dynamic>> getPageBuilder() async {
+    final res = await _api.get('/admin/page-builder');
+    return res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+  }
+
+  /// PUT /admin/page-builder — kirim page (section terurut) + theme + booking_form.
+  /// Theme & form dipertahankan apa adanya dari state; hanya page yang berubah.
+  Future<void> savePageBuilder({
+    required Map<String, dynamic> page,
+    required dynamic theme,
+    required dynamic bookingForm,
+  }) async {
+    await _api.put('/admin/page-builder', body: {
+      'page': page,
+      'theme': theme ?? const {},
+      'booking_form': bookingForm ?? const {},
+    });
+  }
+
   // Simpan sementara untuk mode demo (biar perubahan terlihat dalam sesi).
   static CancellationPolicy _demo = CancellationPolicy.initial;
 

@@ -1,0 +1,369 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../theme.dart';
+import '../ui/toast.dart';
+import '../repositories/settings_repository.dart';
+
+/// Identitas & kontak bisnis (owner). Mengedit subset field profil tenant yang
+/// paling sering diubah sambil jalan. Tersimpan lewat PUT /admin/profile (objek
+/// Tenant utuh), jadi kita GET dulu, ubah field, lalu kirim map balik.
+class BusinessIdentityScreen extends StatefulWidget {
+  const BusinessIdentityScreen({super.key});
+
+  @override
+  State<BusinessIdentityScreen> createState() => _BusinessIdentityScreenState();
+}
+
+class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
+  // Kategori bisnis kanonik (backend keys). Selector, bukan teks bebas — nilai
+  // ini menggerakkan seeding/discovery, jadi harus valid.
+  static const _categories = [
+    (value: 'gaming_hub', label: 'Gaming / PS'),
+    (value: 'sport_center', label: 'Olahraga / Lapangan'),
+    (value: 'creative_space', label: 'Studio Kreatif'),
+    (value: 'social_space', label: 'Ruang Sosial'),
+  ];
+
+  Map<String, dynamic>? _profile;
+  bool _loading = true;
+  bool _saving = false;
+  bool _dirty = false;
+  String? _error;
+
+  // Controller per-field teks.
+  final _name = TextEditingController();
+  final _slogan = TextEditingController();
+  final _tagline = TextEditingController();
+  final _about = TextEditingController();
+  final _whatsapp = TextEditingController();
+  final _address = TextEditingController();
+  final _instagram = TextEditingController();
+  final _tiktok = TextEditingController();
+  String _category = '';
+  String _openTime = '';
+  String _closeTime = '';
+  String _timezone = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final p = await context.read<SettingsRepository>().getProfile();
+      String s(String k) => '${p[k] ?? ''}';
+      _name.text = s('name');
+      _slogan.text = s('slogan');
+      _tagline.text = s('tagline');
+      _about.text = s('about_us');
+      _whatsapp.text = s('whatsapp_number');
+      _address.text = s('address');
+      _instagram.text = s('instagram_url');
+      _tiktok.text = s('tiktok_url');
+      setState(() {
+        _profile = p;
+        _category = s('business_category');
+        _openTime = s('open_time');
+        _closeTime = s('close_time');
+        _timezone = s('timezone');
+        _dirty = false;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final profile = _profile;
+    if (profile == null) return;
+    if (_name.text.trim().isEmpty) {
+      BkToast.error(context, 'Nama bisnis wajib diisi');
+      return;
+    }
+    setState(() => _saving = true);
+    // Merge field yang diedit ke objek profil (field lain dipertahankan).
+    profile['name'] = _name.text.trim();
+    profile['business_category'] = _category.trim();
+    profile['slogan'] = _slogan.text.trim();
+    profile['tagline'] = _tagline.text.trim();
+    profile['about_us'] = _about.text.trim();
+    profile['whatsapp_number'] = _whatsapp.text.trim();
+    profile['address'] = _address.text.trim();
+    profile['instagram_url'] = _instagram.text.trim();
+    profile['tiktok_url'] = _tiktok.text.trim();
+    profile['open_time'] = _openTime;
+    profile['close_time'] = _closeTime;
+    try {
+      await context.read<SettingsRepository>().saveProfile(profile);
+      if (!mounted) return;
+      _dirty = false;
+      BkToast.success(context, 'Profil disimpan');
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      BkToast.error(context, 'Gagal menyimpan', subtitle: '$e');
+    }
+  }
+
+  Future<void> _pickTime(bool open) async {
+    final current = _parseHm(open ? _openTime : _closeTime);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: current ?? const TimeOfDay(hour: 8, minute: 0),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    final hm = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    setState(() {
+      if (open) {
+        _openTime = hm;
+      } else {
+        _closeTime = hm;
+      }
+      _dirty = true;
+    });
+  }
+
+  TimeOfDay? _parseHm(String v) {
+    final parts = v.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    return (h == null || m == null) ? null : TimeOfDay(hour: h, minute: m);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final discard = await _confirmDiscard();
+        if (!discard) return;
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+      },
+      child: _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
+    return Scaffold(
+      backgroundColor: BK.bg,
+      appBar: AppBar(
+        centerTitle: false,
+        backgroundColor: BK.bg,
+        elevation: 0,
+        title: const Text('Identitas & kontak',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: BK.crit)),
+                      const SizedBox(height: 12),
+                      OutlinedButton(onPressed: _load, child: const Text('Coba lagi')),
+                    ]),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                  children: [
+                    _group('IDENTITAS'),
+                    _field('Nama bisnis', _name, hint: 'mis. Kopi Senja'),
+                    _categorySelector(),
+                    _field('Slogan', _slogan, hint: 'Teks kecil di bawah nama'),
+                    _field('Tagline', _tagline, hint: 'Judul besar di hero'),
+                    _field('Tentang', _about, hint: 'Deskripsi singkat bisnismu', maxLines: 4),
+                    const SizedBox(height: 8),
+                    _group('KONTAK'),
+                    _field('WhatsApp', _whatsapp, hint: '08xxxxxxxxxx', keyboard: TextInputType.phone),
+                    _field('Alamat', _address, hint: 'Alamat lengkap', maxLines: 2),
+                    _field('Instagram', _instagram, hint: '@username atau URL'),
+                    _field('TikTok', _tiktok, hint: '@username atau URL'),
+                    const SizedBox(height: 8),
+                    _group('JAM OPERASIONAL'),
+                    Row(children: [
+                      Expanded(child: _timeField('Buka', _openTime, () => _pickTime(true))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _timeField('Tutup', _closeTime, () => _pickTime(false))),
+                    ]),
+                    if (_timezone.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        const Icon(Icons.public, size: 15, color: BK.ink3),
+                        const SizedBox(width: 6),
+                        Text('Zona waktu: $_timezone', style: const TextStyle(fontSize: 12, color: BK.ink3)),
+                      ]),
+                    ],
+                  ],
+                ),
+      bottomNavigationBar: _loading || _error != null
+          ? null
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Menyimpan…' : 'Simpan', style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
+    );
+  }
+
+  Widget _group(String t) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 4),
+        child: Text(t,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+      );
+
+  Widget _categorySelector() {
+    // Opsi = kanonik + nilai saat ini bila di luar daftar (mempertahankan legacy).
+    final known = _categories.map((e) => e.value).toSet();
+    final options = [
+      ..._categories,
+      if (_category.isNotEmpty && !known.contains(_category))
+        (value: _category, label: _category),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Kategori', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final o in options)
+            GestureDetector(
+              onTap: () => setState(() {
+                _category = o.value;
+                _dirty = true;
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: _category == o.value ? BK.accent : BK.card,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: _category == o.value ? BK.accent : BK.line),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_category == o.value) ...[
+                    const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                    const SizedBox(width: 5),
+                  ],
+                  Text(o.label,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: _category == o.value ? Colors.white : BK.ink2,
+                      )),
+                ]),
+              ),
+            ),
+        ]),
+      ]),
+    );
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: BK.card,
+        title: const Text('Buang perubahan?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: const Text('Perubahan identitas belum disimpan.', style: TextStyle(fontSize: 13.5, color: BK.ink2)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('Lanjut edit')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.crit),
+            onPressed: () => Navigator.pop(dctx, true),
+            child: const Text('Buang'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  Widget _field(String label, TextEditingController c, {String? hint, int maxLines = 1, TextInputType? keyboard}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: c,
+          maxLines: maxLines,
+          keyboardType: keyboard,
+          onChanged: (_) {
+            if (!_dirty) setState(() => _dirty = true);
+          },
+          style: const TextStyle(fontSize: 14, color: BK.ink),
+          decoration: InputDecoration(
+            hintText: hint,
+            isDense: true,
+            filled: true,
+            fillColor: BK.card,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.accent)),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _timeField(String label, String value, VoidCallback onTap) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+      const SizedBox(height: 6),
+      InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)),
+          child: Row(children: [
+            const Icon(Icons.schedule, size: 16, color: BK.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(value.isEmpty ? '—' : value,
+                  style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: value.isEmpty ? BK.ink3 : BK.ink)),
+            ),
+            const Icon(Icons.expand_more_rounded, size: 18, color: BK.ink3),
+          ]),
+        ),
+      ),
+    ]);
+  }
+}

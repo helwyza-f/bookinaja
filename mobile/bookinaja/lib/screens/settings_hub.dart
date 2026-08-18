@@ -5,7 +5,8 @@ import '../state/auth_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import 'cancellation_settings.dart';
-import 'fnb_mode_settings.dart';
+import 'app_mode_settings.dart';
+import 'business_profile_hub.dart';
 import 'payment_methods_settings.dart';
 
 /// Hub pengaturan tenant — kumpulan setting dikelompokkan. Yang belum dibangun
@@ -37,7 +38,7 @@ class SettingsHubScreen extends StatelessWidget {
           _tile(context, Icons.dashboard_customize_outlined, 'Mode Aplikasi',
               'Booking, kasir, atau keduanya', () {
             Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const FnbModeSettingsScreen()));
+                builder: (_) => const AppModeSettingsScreen()));
           }),
           const SizedBox(height: 18),
 
@@ -70,7 +71,10 @@ class SettingsHubScreen extends StatelessWidget {
           _tile(context, Icons.group_outlined, 'Staff & akses',
               'Anggota tim & role', () => _soon(context, 'Staff'), soon: true),
           _tile(context, Icons.storefront_outlined, 'Profil bisnis',
-              'Nama, kontak, tampilan', () => _soon(context, 'Profil bisnis'), soon: true),
+              'Nama, kontak, tampilan', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const BusinessProfileHubScreen()));
+          }),
         ],
       ),
     );
