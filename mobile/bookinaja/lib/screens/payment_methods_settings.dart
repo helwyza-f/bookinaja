@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/payment_method.dart';
@@ -60,7 +63,7 @@ class _View extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 children: [
                   const Text(
-                    'Aktifkan metode yang dipakai. Untuk transfer/e-wallet, isi detail rekening agar tampil ke customer.',
+                    'Aktifkan metode yang dipakai. Transfer/e-wallet isi detail rekening; QRIS unggah gambar QR agar tampil ke customer.',
                     style: TextStyle(fontSize: 12.5, color: BK.ink3, height: 1.35),
                   ),
                   const SizedBox(height: 14),
@@ -70,6 +73,8 @@ class _View extends StatelessWidget {
                       child: _MethodCard(
                         key: ValueKey(items[i].id.isNotEmpty ? items[i].id : items[i].code),
                         method: items[i],
+                        gatewayReady: c.gatewayReady,
+                        onUpload: c.uploadImage,
                         onChanged: (m) => c.editAt(i, m),
                       ),
                     ),
@@ -109,18 +114,33 @@ class _View extends StatelessWidget {
 
 class _MethodCard extends StatefulWidget {
   final PaymentMethod method;
+  final bool gatewayReady;
+  final Future<String> Function(String path) onUpload;
   final ValueChanged<PaymentMethod> onChanged;
-  const _MethodCard({super.key, required this.method, required this.onChanged});
+  const _MethodCard({
+    super.key,
+    required this.method,
+    required this.gatewayReady,
+    required this.onUpload,
+    required this.onChanged,
+  });
 
   @override
   State<_MethodCard> createState() => _MethodCardState();
 }
 
 class _MethodCardState extends State<_MethodCard> {
+  final _picker = ImagePicker();
   late final TextEditingController _bank;
   late final TextEditingController _accName;
   late final TextEditingController _accNumber;
   late final TextEditingController _instructions;
+  late String _qrUrl;
+  String? _qrLocalPreview;
+  bool _uploadingQr = false;
+
+  /// Metode gateway terkunci bila gateway belum di-setup.
+  bool get _locked => widget.method.isGateway && !widget.gatewayReady;
 
   @override
   void initState() {
@@ -130,6 +150,7 @@ class _MethodCardState extends State<_MethodCard> {
     _accName = TextEditingController(text: m.meta.accountName);
     _accNumber = TextEditingController(text: m.meta.accountNumber);
     _instructions = TextEditingController(text: m.instructions);
+    _qrUrl = m.meta.qrImageUrl;
   }
 
   @override
@@ -148,8 +169,31 @@ class _MethodCardState extends State<_MethodCard> {
         bankName: _bank.text,
         accountName: _accName.text,
         accountNumber: _accNumber.text,
+        qrImageUrl: _qrUrl,
       ),
     ));
+  }
+
+  Future<void> _pickQr() async {
+    try {
+      final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1200);
+      if (x == null) return;
+      setState(() {
+        _uploadingQr = true;
+        _qrLocalPreview = x.path;
+      });
+      final url = await widget.onUpload(x.path);
+      if (!mounted) return;
+      setState(() {
+        _qrUrl = url;
+        _uploadingQr = false;
+      });
+      _pushMeta();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingQr = false);
+      BkToast.error(context, 'Gagal upload QR', subtitle: '$e');
+    }
   }
 
   @override
@@ -186,31 +230,136 @@ class _MethodCardState extends State<_MethodCard> {
                 ),
               ),
               Switch(
-                value: active,
+                value: active && !_locked,
                 activeThumbColor: BK.accent,
-                onChanged: (v) => widget.onChanged(m.copyWith(isActive: v)),
+                onChanged: _locked ? null : (v) => widget.onChanged(m.copyWith(isActive: v)),
               ),
             ],
           ),
+          if (_locked) ...[
+            const SizedBox(height: 10),
+            _lockedNotice(),
+          ],
           if (m.isManual && active) ...[
             const SizedBox(height: 6),
             Divider(height: 1, color: BK.line),
             const SizedBox(height: 12),
-            _field('Nama bank / penyedia', _bank, hint: 'mis. BCA, DANA, GoPay'),
-            const SizedBox(height: 10),
-            _field('Nama pemilik rekening', _accName, hint: 'Nama sesuai rekening'),
-            const SizedBox(height: 10),
-            _field('Nomor rekening / HP', _accNumber, hint: 'Nomor tujuan transfer'),
-            const SizedBox(height: 10),
-            _field('Instruksi (opsional)', _instructions,
-                hint: 'Catatan untuk customer', maxLines: 2),
+            ..._manualFields(m),
           ],
         ],
       ),
     );
   }
 
-  Widget _field(String label, TextEditingController controller, {String? hint, int maxLines = 1}) {
+  /// Field detail sesuai subtipe manual (transfer / e-wallet / QRIS).
+  List<Widget> _manualFields(PaymentMethod m) {
+    switch (m.manualKind) {
+      case PaymentManualKind.qris:
+        return [
+          _qrPicker(),
+          const SizedBox(height: 10),
+          _field('Nama merchant (opsional)', _accName, hint: 'Nama yang tertera di QR'),
+          const SizedBox(height: 10),
+          _field('Instruksi (opsional)', _instructions, hint: 'mis. Scan pakai aplikasi apa pun', maxLines: 2),
+        ];
+      case PaymentManualKind.ewallet:
+        return [
+          _field('Penyedia', _bank, hint: 'mis. DANA, GoPay, OVO, ShopeePay'),
+          const SizedBox(height: 10),
+          _field('Nama pemilik', _accName, hint: 'Nama sesuai akun e-wallet'),
+          const SizedBox(height: 10),
+          _field('Nomor HP terdaftar', _accNumber, hint: '08xxxxxxxxxx', keyboard: TextInputType.phone),
+          const SizedBox(height: 10),
+          _field('Instruksi (opsional)', _instructions, hint: 'Catatan untuk customer', maxLines: 2),
+        ];
+      case PaymentManualKind.transfer:
+        return [
+          _field('Nama bank', _bank, hint: 'mis. BCA, Mandiri, BNI'),
+          const SizedBox(height: 10),
+          _field('Nama pemilik rekening', _accName, hint: 'Nama sesuai rekening'),
+          const SizedBox(height: 10),
+          _field('Nomor rekening', _accNumber, hint: 'Nomor tujuan transfer', keyboard: TextInputType.number),
+          const SizedBox(height: 10),
+          _field('Instruksi (opsional)', _instructions, hint: 'Catatan untuk customer', maxLines: 2),
+        ];
+    }
+  }
+
+  Widget _lockedNotice() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: BK.pendSoft,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Row(children: [
+        const Icon(Icons.lock_outline_rounded, size: 16, color: BK.pend),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text('Aktifkan payment gateway dulu untuk memakai metode ini.',
+              style: TextStyle(fontSize: 11.5, color: BK.pend, fontWeight: FontWeight.w600, height: 1.3)),
+        ),
+      ]),
+    );
+  }
+
+  Widget _qrPicker() {
+    Widget inner;
+    if (_uploadingQr) {
+      inner = const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)));
+    } else if (_qrLocalPreview != null) {
+      inner = ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.file(File(_qrLocalPreview!), fit: BoxFit.cover));
+    } else if (_qrUrl.isNotEmpty) {
+      inner = ClipRRect(
+          borderRadius: BorderRadius.circular(11),
+          child: Image.network(_qrUrl, fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _qrPlaceholder()));
+    } else {
+      inner = _qrPlaceholder();
+    }
+    final hasQr = _qrUrl.isNotEmpty || _qrLocalPreview != null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Gambar QR (QRIS)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+      const SizedBox(height: 6),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GestureDetector(
+          onTap: _uploadingQr ? null : _pickQr,
+          child: Container(
+            width: 96, height: 96,
+            decoration: BoxDecoration(
+              color: BK.card2,
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: BK.line),
+            ),
+            child: inner,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(hasQr ? 'QR terpasang. Ketuk gambar untuk ganti.' : 'Unggah QR statis dari galeri.',
+                style: const TextStyle(fontSize: 12, color: BK.ink3, height: 1.35)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: BK.accent,
+                side: const BorderSide(color: BK.line),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onPressed: _uploadingQr ? null : _pickQr,
+              icon: const Icon(Icons.upload_rounded, size: 16),
+              label: Text(hasQr ? 'Ganti QR' : 'Unggah QR'),
+            ),
+          ]),
+        ),
+      ]),
+    ]);
+  }
+
+  Widget _qrPlaceholder() => const Center(child: Icon(Icons.qr_code_2_rounded, color: BK.ink3, size: 34));
+
+  Widget _field(String label, TextEditingController controller,
+      {String? hint, int maxLines = 1, TextInputType? keyboard}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -219,6 +368,7 @@ class _MethodCardState extends State<_MethodCard> {
         TextField(
           controller: controller,
           maxLines: maxLines,
+          keyboardType: keyboard,
           onChanged: (_) => _pushMeta(),
           style: const TextStyle(fontSize: 13.5, color: BK.ink),
           decoration: InputDecoration(

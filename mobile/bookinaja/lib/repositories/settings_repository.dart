@@ -24,6 +24,16 @@ class SettingsRepository {
     return parsed.isNotEmpty ? parsed : items;
   }
 
+  /// Upload gambar (mis. QR statis QRIS) → URL publik. Reuse endpoint media.
+  Future<String> uploadImage(String filePath) async {
+    final res = await _api.uploadFile('/admin/upload-media', filePath);
+    if (res is Map && res['url'] != null) return '${res['url']}';
+    if (res is Map && res['data'] is Map && (res['data'] as Map)['url'] != null) {
+      return '${(res['data'] as Map)['url']}';
+    }
+    throw ApiException(0, 'Upload gagal: URL tidak diterima.');
+  }
+
   List<PaymentMethod> _parseMethods(dynamic res) {
     final list = (res is Map && res['items'] is List)
         ? res['items'] as List

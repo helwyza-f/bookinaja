@@ -1,3 +1,6 @@
+/// Ragam metode manual — menentukan bentuk form detail.
+enum PaymentManualKind { transfer, ewallet, qris }
+
 /// Metode pembayaran tenant (`/admin/payment-methods`). Mencakup tunai,
 /// gateway (Midtrans/Xendit), dan manual (transfer bank / e-wallet / QRIS).
 /// Metode manual punya detail rekening di [meta].
@@ -29,6 +32,19 @@ class PaymentMethod {
   /// Metode manual (transfer/e-wallet/QRIS) — butuh detail rekening & bisa
   /// diedit admin. Selain ini (tunai/gateway) hanya di-on/off-kan.
   bool get isManual => verificationType.toLowerCase() == 'manual';
+
+  /// Metode berbasis payment gateway (Midtrans/Xendit) — hanya bisa diaktifkan
+  /// bila gateway tenant sudah di-setup.
+  bool get isGateway => verificationType.toLowerCase() == 'gateway';
+
+  /// Subtipe metode manual, menentukan form yang tepat.
+  PaymentManualKind get manualKind {
+    final c = category.toLowerCase();
+    final k = '$c ${code.toLowerCase()}';
+    if (k.contains('qris')) return PaymentManualKind.qris;
+    if (k.contains('ewallet') || k.contains('wallet')) return PaymentManualKind.ewallet;
+    return PaymentManualKind.transfer;
+  }
 
   factory PaymentMethod.fromJson(Map<String, dynamic> j) {
     final metaRaw = j['metadata'];

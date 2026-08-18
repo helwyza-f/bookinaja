@@ -17,6 +17,15 @@ class PaymentMethodsController extends ChangeNotifier {
 
   List<PaymentMethod> get items => state.data ?? const [];
 
+  /// Apakah payment gateway tenant sudah di-setup. Fitur setup gateway
+  /// (Midtrans/Xendit) belum tersedia → selalu false untuk sekarang, sehingga
+  /// metode berbasis gateway belum bisa diaktifkan. Nanti disambungkan ke
+  /// status konfigurasi gateway tenant.
+  bool get gatewayReady => false;
+
+  /// Upload gambar (QR QRIS) → URL publik.
+  Future<String> uploadImage(String filePath) => _repo.uploadImage(filePath);
+
   Future<void> load() async {
     state = const AsyncValue.loading();
     notifyListeners();
