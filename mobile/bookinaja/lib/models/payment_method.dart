@@ -29,9 +29,17 @@ class PaymentMethod {
     required this.meta,
   });
 
+  /// Metode tunai / bayar di tempat. Di backend cash memakai
+  /// verification_type 'manual' + provider 'cash', jadi deteksi via code/
+  /// provider agar tak disamakan dgn transfer bank.
+  bool get isCash =>
+      code.toLowerCase() == 'cash' ||
+      provider.toLowerCase() == 'cash' ||
+      verificationType.toLowerCase() == 'cash';
+
   /// Metode manual (transfer/e-wallet/QRIS) — butuh detail rekening & bisa
-  /// diedit admin. Selain ini (tunai/gateway) hanya di-on/off-kan.
-  bool get isManual => verificationType.toLowerCase() == 'manual';
+  /// diedit admin. Tunai (cash) & gateway TIDAK termasuk; hanya di-on/off-kan.
+  bool get isManual => verificationType.toLowerCase() == 'manual' && !isCash;
 
   /// Metode berbasis payment gateway (Midtrans/Xendit) — hanya bisa diaktifkan
   /// bila gateway tenant sudah di-setup.
