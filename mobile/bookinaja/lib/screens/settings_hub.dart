@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import 'cancellation_settings.dart';
+import 'fnb_mode_settings.dart';
 import 'payment_methods_settings.dart';
 
 /// Hub pengaturan tenant — kumpulan setting dikelompokkan. Yang belum dibangun
@@ -18,6 +19,7 @@ class SettingsHubScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
+        centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
         title: const Text('Pengaturan',
@@ -33,9 +35,9 @@ class SettingsHubScreen extends StatelessWidget {
                 builder: (_) => const PaymentMethodsSettingsScreen()));
           }),
           _tile(context, Icons.vpn_key_outlined, 'Payment gateway',
-              'Midtrans / Xendit otomatis', () => _soon(context, 'Payment gateway')),
+              'Midtrans / Xendit otomatis', () => _soon(context, 'Payment gateway'), soon: true),
           _tile(context, Icons.receipt_long_outlined, 'Nota / struk',
-              'Header, footer, printer', () => _soon(context, 'Nota')),
+              'Header, footer, printer', () => _soon(context, 'Nota'), soon: true),
           const SizedBox(height: 18),
 
           _section('BOOKING'),
@@ -45,16 +47,19 @@ class SettingsHubScreen extends StatelessWidget {
                 builder: (_) => const CancellationSettingsScreen()));
           }),
           _tile(context, Icons.local_offer_outlined, 'Promo & voucher',
-              'Diskon & kode promo', () => _soon(context, 'Promo')),
-          _tile(context, Icons.restaurant_menu_outlined, 'Mode F&B',
-              'Nyatu / terpisah / off', () => _soon(context, 'Mode F&B')),
+              'Diskon & kode promo', () => _soon(context, 'Promo'), soon: true),
+          _tile(context, Icons.dashboard_customize_outlined, 'Mode Aplikasi',
+              'Booking, kasir, atau keduanya', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const FnbModeSettingsScreen()));
+          }),
           const SizedBox(height: 18),
 
           _section('TIM & USAHA'),
           _tile(context, Icons.group_outlined, 'Staff & akses',
-              'Anggota tim & role', () => _soon(context, 'Staff')),
+              'Anggota tim & role', () => _soon(context, 'Staff'), soon: true),
           _tile(context, Icons.storefront_outlined, 'Profil bisnis',
-              'Nama, kontak, tampilan', () => _soon(context, 'Profil bisnis')),
+              'Nama, kontak, tampilan', () => _soon(context, 'Profil bisnis'), soon: true),
         ],
       ),
     );
@@ -67,28 +72,41 @@ class SettingsHubScreen extends StatelessWidget {
                 fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
       );
 
-  Widget _tile(BuildContext context, IconData icon, String title, String sub, VoidCallback onTap) {
+  Widget _tile(BuildContext context, IconData icon, String title, String sub, VoidCallback onTap,
+      {bool soon = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         borderRadius: BorderRadius.circular(BK.radius),
         onTap: onTap,
-        child: BKCard(
-          child: Row(children: [
-            Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(11)),
-              child: Icon(icon, color: BK.accent, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
-                Text(sub, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
-              ]),
-            ),
-            const Icon(Icons.chevron_right, color: BK.ink3),
-          ]),
+        child: Opacity(
+          opacity: soon ? 0.6 : 1,
+          child: BKCard(
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                    color: soon ? BK.card2 : BK.accentSoft, borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, color: soon ? BK.ink3 : BK.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+                  Text(sub, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+                ]),
+              ),
+              if (soon)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(20)),
+                  child: const Text('Segera',
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: BK.ink3)),
+                )
+              else
+                const Icon(Icons.chevron_right, color: BK.ink3),
+            ]),
+          ),
         ),
       ),
     );

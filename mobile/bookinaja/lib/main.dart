@@ -176,9 +176,11 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
-    // Muat data awal setelah frame pertama.
+    // Muat data awal setelah frame pertama. Booking di-skip saat mode pos_only.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BookingsController>().load();
+      if (context.read<AuthController>().bookingEnabled) {
+        context.read<BookingsController>().load();
+      }
       context.read<DashboardController>().load();
     });
   }
@@ -189,24 +191,34 @@ class _HomeShellState extends State<HomeShell> {
     final workspaceSlug = auth.workspace?.slug ?? '';
     if (workspaceSlug.isNotEmpty) {
       RealtimeClient.instance.setChannels([
-        tenantBookingsChannel(workspaceSlug),
+        // Channel booking hanya relevan saat booking aktif.
+        if (auth.bookingEnabled) tenantBookingsChannel(workspaceSlug),
         tenantDashboardChannel(workspaceSlug),
         tenantDevicesChannel(workspaceSlug),
       ], source: 'shell');
     }
-    // Kasir tidak pernah jadi tab bottom nav — letaknya konsisten sebagai
-    // quick action (dashboard) / tile More hub saja di semua mode F&B.
-    final pages = [
+    // Nav dinamis: tab Booking hanya muncul saat booking aktif. Kasir tidak
+    // pernah jadi tab bottom nav — letaknya konsisten sebagai quick action
+    // (dashboard) / tile More hub saja di semua mode aplikasi.
+    final pages = <Widget>[
       const DashboardScreen(),
-      const BookingsScreen(),
+      if (auth.bookingEnabled) const BookingsScreen(),
       const OperationsScreen(),
       const MoreHubScreen(),
+    ];
+    final items = <({IconData off, IconData on, String label})>[
+      _NavBar.home,
+      if (auth.bookingEnabled) _NavBar.booking,
+      // Tanpa booking, "POS" lebih intuitif dinamai "Kasir".
+      auth.bookingEnabled ? _NavBar.ops : _NavBar.kasir,
+      _NavBar.more,
     ];
     final safeIndex = _i >= pages.length ? 0 : _i;
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: safeIndex, children: pages),
       bottomNavigationBar: _NavBar(
+        items: items,
         index: safeIndex,
         onTap: (v) => setState(() => _i = v),
       ),
@@ -217,21 +229,16 @@ class _HomeShellState extends State<HomeShell> {
 /// Bottom nav custom: bar putih + hairline & shadow halus; ikon terpilih di
 /// dalam kotak accentSoft (senada chip/avatar app), label selalu tampil.
 class _NavBar extends StatelessWidget {
+  final List<({IconData off, IconData on, String label})> items;
   final int index;
   final ValueChanged<int> onTap;
-  const _NavBar({required this.index, required this.onTap});
+  const _NavBar({required this.items, required this.index, required this.onTap});
 
-  static const _home = (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home');
-  static const _booking = (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking');
-  static const _ops = (off: Icons.sensors_outlined, on: Icons.sensors, label: 'POS');
-  static const _more = (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya');
-
-  static const _items = <({IconData off, IconData on, String label})>[
-    _home,
-    _booking,
-    _ops,
-    _more,
-  ];
+  static const home = (off: Icons.grid_view_outlined, on: Icons.grid_view_rounded, label: 'Home');
+  static const booking = (off: Icons.event_note_outlined, on: Icons.event_note, label: 'Booking');
+  static const ops = (off: Icons.sensors_outlined, on: Icons.sensors, label: 'POS');
+  static const kasir = (off: Icons.point_of_sale_outlined, on: Icons.point_of_sale, label: 'Kasir');
+  static const more = (off: Icons.more_horiz, on: Icons.more_horiz, label: 'Lainnya');
 
   @override
   Widget build(BuildContext context) {
@@ -253,7 +260,7 @@ class _NavBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
           child: Row(
             children: [
-              for (int i = 0; i < _items.length; i++) Expanded(child: _item(i)),
+              for (int i = 0; i < items.length; i++) Expanded(child: _item(i)),
             ],
           ),
         ),
@@ -262,7 +269,7 @@ class _NavBar extends StatelessWidget {
   }
 
   Widget _item(int i) {
-    final it = _items[i];
+    final it = items[i];
     final on = i == index;
     return Material(
       color: Colors.transparent,

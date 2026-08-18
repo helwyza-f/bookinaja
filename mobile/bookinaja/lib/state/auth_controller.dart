@@ -26,9 +26,9 @@ class AuthController extends ChangeNotifier {
   String? _error;
   AsyncValue<List<Workspace>> _workspaces = const AsyncValue.loading();
 
-  // Mode F&B tenant aktif: integrated (nempel booking), standalone (kasir
-  // berdiri sendiri), atau off (kasir dimatikan, F&B ditangani app lain).
-  String _fnbMode = 'integrated';
+  // Mode Aplikasi tenant aktif — menentukan gating booking & dua jenis kasir.
+  // Lihat [AppModeConfig].
+  AppModeConfig _appMode = AppModeConfig.fallback;
 
   AuthRole get role => _role;
   bool get isStaff => _role == AuthRole.tenantStaff;
@@ -44,15 +44,31 @@ class AuthController extends ChangeNotifier {
   String? get error => _error;
   AsyncValue<List<Workspace>> get workspaces => _workspaces;
 
-  String get fnbMode => _fnbMode;
-  /// Kasir tampil sebagai quick action (dashboard) & tile More hub di semua
-  /// mode F&B, kecuali mode "Matikan" — tidak pernah jadi tab bottom nav.
-  bool get kasirEnabled => _fnbMode != 'off';
+  String get appMode => _appMode.appMode;
 
-  Future<void> _refreshFnbMode() async {
-    _fnbMode = await _repo.fetchFnbMode();
+  /// Booking aktif — tab Booking, dashboard booking & operations booking tampil.
+  /// Mati hanya di mode `pos_only` (kasir saja).
+  bool get bookingEnabled => _appMode.appMode != 'pos_only';
+
+  /// Kasir A (walk-in / customer, berdiri sendiri): quick action dashboard &
+  /// tile More hub. Selalu aktif di `pos_only`; di `booking_pos` ikut toggle.
+  bool get kasirEnabled =>
+      _appMode.appMode == 'pos_only' ||
+      (_appMode.appMode == 'booking_pos' && _appMode.posStandalone);
+
+  /// Kasir B (F&B nempel ke sesi): tombol "Tambah F&B" di detail booking.
+  /// Butuh sesi, jadi hanya berlaku saat `booking_pos`.
+  bool get sessionFnbEnabled =>
+      _appMode.appMode == 'booking_pos' && _appMode.posOnSession;
+
+  Future<void> _refreshAppMode() async {
+    _appMode = await _repo.fetchAppMode();
     notifyListeners();
   }
+
+  /// Muat ulang Mode Aplikasi (mis. setelah owner mengubahnya di pengaturan)
+  /// agar gating booking/kasir/nav ikut ter-update tanpa login ulang.
+  Future<void> refreshAppMode() => _refreshAppMode();
 
   Future<void> bootstrap() async {
     // Coba restore sesi customer dulu; kalau bukan, baru sesi staff.
@@ -72,7 +88,7 @@ class AuthController extends ChangeNotifier {
     }
     _booting = false;
     notifyListeners();
-    if (_workspace != null) unawaited(_refreshFnbMode());
+    if (_workspace != null) unawaited(_refreshAppMode());
   }
 
   // ---------------- Staff (account-first) ----------------
@@ -109,7 +125,7 @@ class AuthController extends ChangeNotifier {
       if (match.isNotEmpty) {
         await _repo.selectWorkspace(match.first);
         _workspace = match.first;
-        await _refreshFnbMode();
+        await _refreshAppMode();
       }
     } catch (_) {
       // Gagal ambil workspace di sini bukan fatal — picker akan coba lagi.
@@ -133,14 +149,14 @@ class AuthController extends ChangeNotifier {
     await _repo.selectWorkspace(w);
     _workspace = w;
     notifyListeners();
-    await _refreshFnbMode();
+    await _refreshAppMode();
   }
 
   /// Kembali ke pemilihan workspace (sesi account tetap).
   Future<void> switchWorkspace() async {
     await _repo.leaveWorkspace();
     _workspace = null;
-    _fnbMode = 'integrated';
+    _appMode = AppModeConfig.fallback;
     notifyListeners();
   }
 
@@ -231,7 +247,7 @@ class AuthController extends ChangeNotifier {
     _workspace = null;
     _customer = null;
     _role = AuthRole.none;
-    _fnbMode = 'integrated';
+    _appMode = AppModeConfig.fallback;
     notifyListeners();
   }
 }

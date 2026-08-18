@@ -12,6 +12,7 @@ import '../repositories/booking_repository.dart';
 import '../repositories/pos_repository.dart';
 import '../repositories/catalog_repository.dart';
 import '../state/booking_detail_controller.dart';
+import '../state/auth_controller.dart';
 import '../ui/session_widgets.dart';
 import '../ui/toast.dart';
 
@@ -647,8 +648,11 @@ class _DetailView extends StatelessWidget {
           icon: Icon(icon, size: 18),
           label: Text(label),
         );
+    // Tombol "Tambah F&B" (Kasir B) juga ikut mode aplikasi: butuh
+    // sessionFnbEnabled, bukan hanya flag enableFnb per-booking.
+    final sessionFnb = context.read<AuthController>().sessionFnbEnabled;
     final btns = <Widget>[
-      if (d.enableFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
+      if (d.enableFnb && sessionFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
       if (d.enableAddons) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
     ];
     if (btns.isEmpty) return const SizedBox.shrink();

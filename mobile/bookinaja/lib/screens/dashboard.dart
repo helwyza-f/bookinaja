@@ -3,12 +3,17 @@ import 'package:provider/provider.dart';
 
 import '../data/sample_data.dart';
 import '../models/booking.dart';
+import '../models/report.dart';
+import '../repositories/reports_repository.dart';
+import '../state/async_value.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
+import '../state/reports_controller.dart';
 import '../theme.dart';
 import 'booking_detail.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
+import 'kasir_open_orders.dart';
 import 'reports_screen.dart';
 import 'expenses_screen.dart';
 
@@ -19,6 +24,8 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dash = context.watch<DashboardController>();
     final auth = context.watch<AuthController>();
+    // Mode kasir-saja: dashboard fokus omzet/transaksi kasir, tanpa booking.
+    if (!auth.bookingEnabled) return const _KasirDashboard();
     return SafeArea(
       child: RefreshIndicator(
         color: BK.accent,
@@ -35,11 +42,14 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 9),
             Row(
               children: [
-                _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () => _go(context, const CreateBookingScreen())),
-                const SizedBox(width: 9),
+                // Booking disembunyikan saat mode kasir-saja (pos_only).
+                if (auth.bookingEnabled) ...[
+                  _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () => _go(context, const CreateBookingScreen())),
+                  const SizedBox(width: 9),
+                ],
                 // Kasir selalu tampil sebagai quick action (bukan tab bottom
-                // nav) agar letaknya konsisten di semua mode F&B — kecuali
-                // mode "Matikan" (kasirEnabled == false).
+                // nav) agar letaknya konsisten di semua mode — kecuali saat
+                // Kasir A dimatikan (kasirEnabled == false).
                 if (auth.kasirEnabled) ...[
                   _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
                   const SizedBox(width: 9),
@@ -558,3 +568,166 @@ Widget _statusPill(BookingStatus status) {
 }
 
 void _go(BuildContext c, Widget page) => Navigator.of(c).push(MaterialPageRoute(builder: (_) => page));
+
+// ============================================================================
+// Dashboard mode kasir-saja (pos_only): fokus omzet/transaksi kasir, tanpa
+// apa pun berbau booking. Sumber data = ReportsController (bundle hari ini).
+// ============================================================================
+
+class _KasirDashboard extends StatelessWidget {
+  const _KasirDashboard();
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (ctx) => ReportsController(ctx.read<ReportsRepository>()),
+      child: const _KasirDashboardView(),
+    );
+  }
+}
+
+class _KasirDashboardView extends StatelessWidget {
+  const _KasirDashboardView();
+  @override
+  Widget build(BuildContext context) {
+    final reports = context.watch<ReportsController>();
+    final state = reports.stateFor(ReportPeriod.today);
+    return SafeArea(
+      child: RefreshIndicator(
+        color: BK.accent,
+        onRefresh: () => reports.refresh(ReportPeriod.today),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const _Header(),
+            const SizedBox(height: 14),
+            _KasirHero(state: state),
+            const SizedBox(height: 16),
+            const _SectionLabel('AKSI CEPAT'),
+            const SizedBox(height: 9),
+            Row(children: [
+              _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
+              const SizedBox(width: 9),
+              _QuickAction(Icons.receipt_long_outlined, 'Order', BK.accent, onTap: () => _go(context, const KasirOpenOrdersScreen())),
+              const SizedBox(width: 9),
+              _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
+              const SizedBox(width: 9),
+              _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
+            ]),
+            const SizedBox(height: 18),
+            state.when(
+              loading: () => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: const [
+                _SectionLabel('TRANSAKSI TERAKHIR'),
+                SizedBox(height: 9),
+                _ListSkeleton(),
+              ]),
+              error: (e) => _ErrorCard(onRetry: () => reports.refresh(ReportPeriod.today)),
+              data: (b) {
+                final txns = b.transactions.where((t) => t.type == 'pos').toList();
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _SectionLabel('TRANSAKSI TERAKHIR', count: txns.length),
+                  const SizedBox(height: 9),
+                  if (txns.isEmpty)
+                    const _EmptyCard('Belum ada transaksi', 'Transaksi kasir hari ini akan tampil di sini.')
+                  else
+                    BKCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Column(children: [
+                        for (int i = 0; i < txns.length && i < 8; i++) ...[
+                          _KasirTxnRow(txns[i]),
+                          if (i < txns.length - 1 && i < 7) const Divider(height: 1, color: BK.line),
+                        ],
+                      ]),
+                    ),
+                ]);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KasirHero extends StatelessWidget {
+  final AsyncValue<ReportBundle> state;
+  const _KasirHero({required this.state});
+  @override
+  Widget build(BuildContext context) {
+    final b = state.data;
+    final loading = state.isLoading;
+    final ready = !loading && b != null;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [BK.accent, Color(0xFF1C47C9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(BK.radius),
+        boxShadow: const [BoxShadow(color: Color(0x332F6BFF), blurRadius: 18, offset: Offset(0, 8))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('OMZET HARI INI', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              if (!ready)
+                const _Pulse(child: _SkelBox(width: 150, height: 26, color: Colors.white24))
+              else
+                Text('Rp${rupiah(b.omzet)}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.05)),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .18), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.point_of_sale_rounded, color: Colors.white, size: 24),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(child: _miniStat('Transaksi', ready ? '${b.transaksi}' : null, 'hari ini')),
+          const SizedBox(width: 8),
+          Expanded(child: _miniStat('Diterima', ready ? 'Rp${rupiah(b.diterima)}' : null, 'masuk')),
+          const SizedBox(width: 8),
+          Expanded(child: _miniStat('Piutang', ready ? 'Rp${rupiah(b.piutang)}' : null, 'sisa')),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _KasirTxnRow extends StatelessWidget {
+  final TxnRow txn;
+  const _KasirTxnRow(this.txn);
+  @override
+  Widget build(BuildContext context) {
+    final title = txn.ref.isNotEmpty ? txn.ref : (txn.customer.isNotEmpty ? txn.customer : 'Transaksi');
+    final sub = [
+      if (txn.paymentMethod.isNotEmpty) txn.paymentMethod,
+      if (txn.date != null) _clock(txn.date!),
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+            if (sub.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(sub, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+            ],
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Text('Rp${rupiah(txn.total)}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+      ]),
+    );
+  }
+
+  String _clock(DateTime d) {
+    final l = d.toLocal();
+    return '${l.hour.toString().padLeft(2, '0')}.${l.minute.toString().padLeft(2, '0')}';
+  }
+}

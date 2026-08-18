@@ -42,11 +42,14 @@ class PosFeedController extends ChangeNotifier {
     ], source: 'pos');
   }
 
-  /// Item setelah filter pencarian (customer / resource / no HP).
-  List<PosActionItem> filtered(String query) {
+  /// Item setelah filter pencarian (customer / resource / no HP). Saat
+  /// [includeBookings] false (mode pos_only), anchor booking disembunyikan —
+  /// hanya sales-order yang tampil.
+  List<PosActionItem> filtered(String query, {bool includeBookings = true}) {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return items;
     return items.where((it) {
+      if (!includeBookings && it.kind == 'booking') return false;
+      if (q.isEmpty) return true;
       return it.customerName.toLowerCase().contains(q) ||
           it.resourceName.toLowerCase().contains(q) ||
           it.customerPhone.toLowerCase().contains(q);
@@ -59,14 +62,14 @@ class PosFeedController extends ChangeNotifier {
     List<PosActionItem> live,
     List<PosActionItem> siap,
     List<PosActionItem> lainnya,
-  }) lanes({String query = ''}) {
+  }) lanes({String query = '', bool includeBookings = true}) {
     final now = DateTime.now();
     final prioritas = <PosActionItem>[];
     final live = <PosActionItem>[];
     final siap = <PosActionItem>[];
     final lainnya = <PosActionItem>[];
 
-    for (final it in filtered(query)) {
+    for (final it in filtered(query, includeBookings: includeBookings)) {
       switch (it.lane(now, windowMinutes)) {
         case PosActionLane.prioritas:
           prioritas.add(it);

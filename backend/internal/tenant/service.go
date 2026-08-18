@@ -2814,12 +2814,45 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}
-	// Mode F&B untuk gating nav "Kasir Menu" (hanya standalone).
-	item.Features.FnbMode = "integrated"
-	if mode, mErr := s.repo.GetTenantFnbMode(ctx, tenantID); mErr == nil {
-		switch mode {
-		case "standalone", "off", "integrated":
-			item.Features.FnbMode = mode
+	// Mode Aplikasi (booking/kasir) untuk gating nav & dashboard mobile admin.
+	// Default: booking penuh + kedua jenis kasir aktif.
+	item.Features.AppMode = "booking_pos"
+	item.Features.PosStandalone = true
+	item.Features.PosOnSession = true
+	item.Features.FnbMode = "integrated" // legacy, untuk klien mobile lama
+	if cfg, cErr := s.repo.GetTenantAppMode(ctx, tenantID); cErr == nil {
+		switch cfg.AppMode {
+		case "booking_pos", "booking_only", "pos_only":
+			// Skema baru: pakai apa adanya, turunkan fnb_mode legacy.
+			item.Features.AppMode = cfg.AppMode
+			item.Features.PosStandalone = cfg.PosStandalone
+			item.Features.PosOnSession = cfg.PosOnSession
+			switch {
+			case cfg.AppMode == "booking_only":
+				item.Features.FnbMode = "off"
+			case cfg.AppMode == "pos_only":
+				item.Features.FnbMode = "standalone"
+			case cfg.PosOnSession:
+				item.Features.FnbMode = "integrated"
+			default:
+				item.Features.FnbMode = "standalone"
+			}
+		default:
+			// Skema lama: turunkan app_mode dari fnb_mode.
+			switch cfg.FnbMode {
+			case "standalone":
+				item.Features.AppMode = "booking_pos"
+				item.Features.PosStandalone = true
+				item.Features.PosOnSession = false
+				item.Features.FnbMode = "standalone"
+			case "off":
+				item.Features.AppMode = "booking_only"
+				item.Features.PosStandalone = false
+				item.Features.PosOnSession = false
+				item.Features.FnbMode = "off"
+			case "integrated":
+				item.Features.FnbMode = "integrated"
+			}
 		}
 	}
 	return item, nil

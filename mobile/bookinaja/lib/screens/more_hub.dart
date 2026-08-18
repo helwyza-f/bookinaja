@@ -53,13 +53,16 @@ class MoreHubScreen extends StatelessWidget {
           const SizedBox(height: 18),
           const Text('WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
-          }),
+          // Resource & kebijakan pembatalan hanya relevan saat booking aktif.
+          if (auth.bookingEnabled)
+            _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
+            }),
           _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
-          _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan', 'Cancel, cutoff, refund DP', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CancellationSettingsScreen()));
-          }),
+          if (auth.bookingEnabled)
+            _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan', 'Cancel, cutoff, refund DP', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CancellationSettingsScreen()));
+            }),
           _tile(context, Icons.settings_outlined, 'Pengaturan lain', 'Bayar, promo, nota, staff', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
           }),

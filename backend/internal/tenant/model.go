@@ -464,7 +464,15 @@ type AdminBootstrapFeatures struct {
 	EnableDiscoveryPosts bool                `json:"enable_discovery_posts"`
 	PlanFeatures         []string            `json:"plan_features,omitempty"`
 	PlanFeatureMatrix    map[string][]string `json:"plan_feature_matrix,omitempty"`
-	FnbMode              string              `json:"fnb_mode"`
+	// Mode Aplikasi (gating booking/kasir di mobile admin):
+	//   AppMode: booking_pos | booking_only | pos_only
+	//   PosStandalone: kasir walk-in/customer (Kasir A) aktif
+	//   PosOnSession:  F&B nempel ke sesi booking (Kasir B) aktif
+	// FnbMode dipertahankan untuk kompat klien mobile lama.
+	AppMode       string `json:"app_mode"`
+	PosStandalone bool   `json:"pos_standalone"`
+	PosOnSession  bool   `json:"pos_on_session"`
+	FnbMode       string `json:"fnb_mode"`
 }
 
 type AdminBootstrapResponse struct {

@@ -11,6 +11,55 @@ class RestoredSession {
   const RestoredSession(this.account, this.workspace);
 }
 
+/// Konfigurasi "Mode Aplikasi" tenant aktif — menentukan gating booking/kasir.
+///
+/// - [appMode]: `booking_pos` (booking + kasir) · `booking_only` (booking saja)
+///   · `pos_only` (kasir saja, booking hilang dari app).
+/// - [posStandalone]: kasir walk-in/customer berdiri sendiri (Kasir A). Hanya
+///   berarti saat `booking_pos`; di `pos_only` selalu aktif.
+/// - [posOnSession]: F&B nempel ke sesi booking — tombol "Tambah F&B" di detail
+///   booking (Kasir B). Hanya berarti saat `booking_pos`.
+class AppModeConfig {
+  final String appMode;
+  final bool posStandalone;
+  final bool posOnSession;
+  const AppModeConfig({
+    required this.appMode,
+    required this.posStandalone,
+    required this.posOnSession,
+  });
+
+  static const fallback = AppModeConfig(
+    appMode: 'booking_pos',
+    posStandalone: true,
+    posOnSession: true,
+  );
+
+  /// Baca dari blok `features` bootstrap. Mendukung skema baru (`app_mode` +
+  /// `pos_standalone`/`pos_on_session`) maupun legacy (`fnb_mode`) agar tenant
+  /// lama tetap terbaca tanpa migration.
+  factory AppModeConfig.fromFeatures(Map features) {
+    final appMode = '${features['app_mode'] ?? ''}';
+    if (appMode == 'booking_pos' || appMode == 'booking_only' || appMode == 'pos_only') {
+      return AppModeConfig(
+        appMode: appMode,
+        posStandalone: features['pos_standalone'] != false, // default true
+        posOnSession: features['pos_on_session'] != false, // default true
+      );
+    }
+    // Legacy fnb_mode → app_mode.
+    switch ('${features['fnb_mode'] ?? ''}') {
+      case 'standalone':
+        return const AppModeConfig(appMode: 'booking_pos', posStandalone: true, posOnSession: false);
+      case 'off':
+        return const AppModeConfig(appMode: 'booking_only', posStandalone: false, posOnSession: false);
+      case 'integrated':
+      default:
+        return AppModeConfig.fallback;
+    }
+  }
+}
+
 /// Autentikasi account-first: login → daftar workspace → pilih workspace.
 class AuthRepository {
   AuthRepository(this._api, this._store);
@@ -46,19 +95,17 @@ class AuthRepository {
   /// Slug workspace terakhir yang dibuka (buat auto-pilih saat login).
   Future<String?> lastWorkspaceSlug() => _store.lastWorkspaceSlug();
 
-  /// GET /admin/me/bootstrap — ambil fitur tenant aktif (mis. mode F&B:
-  /// integrated/standalone/off) untuk menentukan gating nav Kasir.
-  /// Default 'integrated' bila gagal (backend lama / offline) agar Kasir
-  /// tetap terlihat sebagai quick action, bukan tiba-tiba hilang.
-  Future<String> fetchFnbMode() async {
+  /// GET /admin/me/bootstrap — ambil fitur tenant aktif untuk menentukan
+  /// gating Mode Aplikasi (booking / kasir A / kasir B). Default [AppModeConfig.fallback]
+  /// bila gagal (backend lama / offline) agar app tetap penuh, bukan tiba-tiba
+  /// kehilangan booking/kasir.
+  Future<AppModeConfig> fetchAppMode() async {
     try {
       final res = await _api.get('/admin/me/bootstrap');
       final features = (res is Map && res['features'] is Map) ? res['features'] as Map : const {};
-      final mode = '${features['fnb_mode'] ?? ''}';
-      if (mode == 'standalone' || mode == 'off' || mode == 'integrated') return mode;
-      return 'integrated';
+      return AppModeConfig.fromFeatures(features);
     } catch (_) {
-      return 'integrated';
+      return AppModeConfig.fallback;
     }
   }
 

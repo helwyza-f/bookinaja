@@ -40,16 +40,18 @@ class _OperationsScreenState extends State<OperationsScreen>
   @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<PosFeedController>();
-    final tenantSlug = context.watch<AuthController>().workspace?.slug ?? '';
+    final auth = context.watch<AuthController>();
+    final tenantSlug = auth.workspace?.slug ?? '';
     if (tenantSlug.isNotEmpty) ctrl.bindTenant(tenantSlug);
 
-    final lanes = ctrl.lanes(query: _query);
+    final lanes = ctrl.lanes(query: _query, includeBookings: auth.bookingEnabled);
 
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
         backgroundColor: BK.bg,
         elevation: 0,
+        centerTitle: false,
         titleSpacing: 16,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
