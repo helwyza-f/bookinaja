@@ -23,10 +23,12 @@ class PaymentGateway {
     this.lastError = '',
   });
 
-  /// Kredensial lengkap tersimpan (row ada + server key + callback secret).
-  /// Bisa true meski gateway sedang dinonaktifkan (kredensial tak dihapus,
-  /// backend hanya set status 'disabled').
-  bool get hasCredentials => serverKeySet && callbackSecretSet && provider.isNotEmpty;
+  /// Kredensial inti tersimpan. Cukup provider + server key (samakan dgn web:
+  /// isConfigured = provider && server_key_set). Field kedua beda per provider
+  /// (Midtrans: client key; Xendit: callback token) diwajibkan saat SIMPAN,
+  /// bukan sebagai syarat "sudah terkonfigurasi" — jadi punya SALAH SATU
+  /// gateway saja sudah cukup. Bisa true meski status 'disabled'.
+  bool get hasCredentials => serverKeySet && provider.isNotEmpty;
 
   /// Backend menonaktifkan gateway dengan status 'disabled' (bukan menghapus
   /// kredensial). Gateway yang disabled TIDAK boleh dianggap siap.
