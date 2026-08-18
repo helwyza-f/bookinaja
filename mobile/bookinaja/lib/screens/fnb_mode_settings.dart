@@ -35,7 +35,7 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
     (
       value: 'booking_only',
       label: 'Reservasi saja',
-      desc: 'Hanya booking. Semua kasir dimatikan.',
+      desc: 'Booking murni — tanpa kasir, F&B, atau add-on.',
       icon: Icons.event_available_rounded,
     ),
     (
