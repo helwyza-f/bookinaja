@@ -2,6 +2,18 @@
     <!-- Wajib agar release build bisa memanggil API (debug manifest sudah punya
          ini otomatis, tapi release TIDAK — tanpa ini login "gagal terhubung"). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Printer thermal Bluetooth. Android <=11 pakai BLUETOOTH/ADMIN + lokasi
+         (syarat scan BLE). Android 12+ (API 31) pakai BLUETOOTH_SCAN/CONNECT;
+         neverForLocation menegaskan scan bukan untuk melacak lokasi. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
+
     <application
         android:label="Bookinaja"
         android:name="${applicationName}"

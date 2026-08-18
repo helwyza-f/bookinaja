@@ -1,7 +1,10 @@
 import '../api/api_client.dart';
 import '../config.dart';
 import '../models/cancellation_policy.dart';
+import '../models/payment_gateway.dart';
 import '../models/payment_method.dart';
+import '../models/promo.dart';
+import '../models/receipt_settings.dart';
 
 /// Pengaturan tenant (owner-only). Endpoint: /admin/cancellation-settings,
 /// /admin/payment-methods.
@@ -22,6 +25,113 @@ class SettingsRepository {
     });
     final parsed = _parseMethods(res);
     return parsed.isNotEmpty ? parsed : items;
+  }
+
+  // --- Promo / voucher ---
+
+  Future<List<Promo>> getPromos({String? search, String? status}) async {
+    final q = <String>[];
+    if (search != null && search.isNotEmpty) q.add('search=${Uri.encodeQueryComponent(search)}');
+    if (status != null && status.isNotEmpty) q.add('status=$status');
+    final path = '/admin/settings/promos${q.isEmpty ? '' : '?${q.join('&')}'}';
+    final res = await _api.get(path);
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => Promo.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<Promo> getPromo(String id) async {
+    final res = await _api.get('/admin/settings/promos/$id');
+    return Promo.fromJson(res is Map ? Map<String, dynamic>.from(res) : {});
+  }
+
+  Future<List<PromoRedemption>> getPromoRedemptions(String id) async {
+    final res = await _api.get('/admin/settings/promos/$id/redemptions');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => PromoRedemption.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<Promo> createPromo(Promo p) async {
+    final res = await _api.post('/admin/settings/promos', body: p.toInput());
+    return res is Map ? Promo.fromJson(Map<String, dynamic>.from(res)) : p;
+  }
+
+  Future<Promo> updatePromo(String id, Promo p) async {
+    final res = await _api.put('/admin/settings/promos/$id', body: p.toInput());
+    return res is Map ? Promo.fromJson(Map<String, dynamic>.from(res)) : p;
+  }
+
+  Future<void> setPromoStatus(String id, bool isActive) =>
+      _api.patch('/admin/settings/promos/$id/status', body: {'is_active': isActive});
+
+  /// Ringkasan resource untuk selektor promo (`/admin/resources/summary`).
+  Future<List<ResourceOption>> getResourceOptions() async {
+    final res = await _api.get('/admin/resources/summary');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => ResourceOption.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  // --- Payment gateway (BYO) ---
+
+  /// GET /admin/payment-gateway → {data: AdminView}. Kalau belum di-setup
+  /// server tetap balas objek kosong; kembalikan default agar aman.
+  Future<PaymentGateway> getPaymentGateway() async {
+    final res = await _api.get('/admin/payment-gateway');
+    final data = (res is Map && res['data'] is Map)
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
+    return PaymentGateway.fromJson(data);
+  }
+
+  /// PUT /admin/payment-gateway — simpan kredensial. Kosongkan field rahasia
+  /// yang tak diubah (server mempertahankan yang lama).
+  Future<PaymentGateway> savePaymentGateway({
+    required String provider,
+    required String environment,
+    required String serverKey,
+    required String clientKey,
+    required String callbackSecret,
+  }) async {
+    final res = await _api.put('/admin/payment-gateway', body: {
+      'provider': provider,
+      'environment': environment,
+      'server_key': serverKey,
+      'client_key': clientKey,
+      'callback_secret': callbackSecret,
+    });
+    final data = (res is Map && res['data'] is Map)
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    return PaymentGateway.fromJson(data);
+  }
+
+  /// POST /admin/payment-gateway/test — cek koneksi kredensial tersimpan.
+  Future<void> testPaymentGateway() => _api.post('/admin/payment-gateway/test');
+
+  /// DELETE /admin/payment-gateway — hapus konfigurasi gateway.
+  Future<void> deletePaymentGateway() => _api.delete('/admin/payment-gateway');
+
+  // --- Pengaturan nota / struk ---
+
+  Future<ReceiptSettings> getReceiptSettings() async {
+    final res = await _api.get('/admin/receipt-settings');
+    return ReceiptSettings.fromJson(res is Map ? Map<String, dynamic>.from(res) : {});
+  }
+
+  Future<ReceiptSettings> saveReceiptSettings(ReceiptSettings s) async {
+    final res = await _api.put('/admin/receipt-settings', body: s.toJson());
+    final data = (res is Map && res['data'] is Map)
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : null;
+    return data != null ? ReceiptSettings.fromJson(data) : s;
   }
 
   /// Upload gambar (mis. QR statis QRIS) → URL publik. Reuse endpoint media.

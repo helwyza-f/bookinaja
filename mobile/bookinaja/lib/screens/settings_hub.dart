@@ -8,6 +8,8 @@ import 'cancellation_settings.dart';
 import 'app_mode_settings.dart';
 import 'business_profile_hub.dart';
 import 'payment_methods_settings.dart';
+import 'promo_settings_screen.dart';
+import 'receipt_settings_screen.dart';
 
 /// Hub pengaturan tenant — kumpulan setting dikelompokkan. Yang belum dibangun
 /// menampilkan toast "segera hadir".
@@ -51,7 +53,10 @@ class SettingsHubScreen extends StatelessWidget {
           _tile(context, Icons.vpn_key_outlined, 'Payment gateway',
               'Midtrans / Xendit otomatis', () => _soon(context, 'Payment gateway'), soon: true),
           _tile(context, Icons.receipt_long_outlined, 'Nota / struk',
-              'Header, footer, printer', () => _soon(context, 'Nota'), soon: true),
+              'Branding, template & printer', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ReceiptSettingsScreen()));
+          }),
           const SizedBox(height: 18),
 
           // Section booking disembunyikan utuh saat mode kasir-saja.
@@ -63,7 +68,10 @@ class SettingsHubScreen extends StatelessWidget {
                   builder: (_) => const CancellationSettingsScreen()));
             }),
             _tile(context, Icons.local_offer_outlined, 'Promo & voucher',
-                'Diskon & kode promo', () => _soon(context, 'Promo'), soon: true),
+                'Diskon & kode promo', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const PromoSettingsScreen()));
+            }),
             const SizedBox(height: 18),
           ],
 

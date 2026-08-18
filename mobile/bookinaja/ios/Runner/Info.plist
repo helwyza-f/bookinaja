@@ -6,6 +6,10 @@
 		<string>Kamera dipakai untuk mengambil foto bukti pembayaran di kasir.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Galeri dipakai untuk memilih foto bukti pembayaran di kasir.</string>
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>Bluetooth dipakai untuk menghubungkan printer thermal dan mencetak struk.</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>Bluetooth dipakai untuk menghubungkan printer thermal dan mencetak struk.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

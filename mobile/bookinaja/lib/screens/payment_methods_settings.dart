@@ -9,10 +9,12 @@ import '../repositories/settings_repository.dart';
 import '../state/settings_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
+import 'payment_gateway_settings.dart';
 
-/// Layar admin: kelola metode pembayaran tenant. Semua metode bisa
-/// di-on/off-kan; metode manual (transfer/e-wallet/QRIS) juga bisa diedit
-/// detail rekening & instruksinya.
+/// Layar admin: kelola metode pembayaran tenant. Dikelompokkan per jenis
+/// (tunai / transfer manual / online) dengan status yang jelas. Metode manual
+/// (transfer/e-wallet/QRIS) bisa diedit detail rekening & instruksinya; metode
+/// online (gateway) terkunci sampai gateway di-setup.
 class PaymentMethodsSettingsScreen extends StatelessWidget {
   const PaymentMethodsSettingsScreen({super.key});
 
@@ -23,6 +25,15 @@ class PaymentMethodsSettingsScreen extends StatelessWidget {
       child: const _View(),
     );
   }
+}
+
+/// Kelompok tampilan metode.
+enum _Group { cash, manual, gateway }
+
+_Group _groupOf(PaymentMethod m) {
+  if (m.isGateway) return _Group.gateway;
+  if (m.isManual) return _Group.manual;
+  return _Group.cash;
 }
 
 class _View extends StatelessWidget {
@@ -59,27 +70,7 @@ class _View extends StatelessWidget {
                 color: BK.ink3,
                 title: 'Belum ada metode',
                 hint: 'Metode pembayaran akan muncul di sini.')
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                children: [
-                  const Text(
-                    'Aktifkan metode yang dipakai. Transfer/e-wallet isi detail rekening; QRIS unggah gambar QR agar tampil ke customer.',
-                    style: TextStyle(fontSize: 12.5, color: BK.ink3, height: 1.35),
-                  ),
-                  const SizedBox(height: 14),
-                  for (int i = 0; i < items.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _MethodCard(
-                        key: ValueKey(items[i].id.isNotEmpty ? items[i].id : items[i].code),
-                        method: items[i],
-                        gatewayReady: c.gatewayReady,
-                        onUpload: c.uploadImage,
-                        onChanged: (m) => c.editAt(i, m),
-                      ),
-                    ),
-                ],
-              ),
+            : _list(context, c, items),
       ),
       bottomNavigationBar: c.state.hasData
           ? SafeArea(
@@ -88,17 +79,7 @@ class _View extends StatelessWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                       backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15)),
-                  onPressed: c.saving
-                      ? null
-                      : () async {
-                          final ok = await c.save();
-                          if (!context.mounted) return;
-                          if (ok) {
-                            BkToast.success(context, 'Metode pembayaran disimpan');
-                          } else {
-                            BkToast.error(context, c.error ?? 'Gagal menyimpan');
-                          }
-                        },
+                  onPressed: c.saving ? null : () => _save(context, c),
                   child: c.saving
                       ? const SizedBox(
                           width: 18, height: 18,
@@ -110,6 +91,138 @@ class _View extends StatelessWidget {
           : null,
     );
   }
+
+  Future<void> _save(BuildContext context, PaymentMethodsController c) async {
+    // Validasi: QRIS aktif wajib punya gambar QR.
+    for (final m in c.items) {
+      if (m.isActive && m.manualKind == PaymentManualKind.qris && m.isManual && m.meta.qrImageUrl.isEmpty) {
+        BkToast.error(context, 'QRIS aktif tapi belum ada gambar QR',
+            subtitle: 'Unggah gambar QR atau nonaktifkan QRIS dulu.');
+        return;
+      }
+    }
+    final ok = await c.save();
+    if (!context.mounted) return;
+    if (ok) {
+      BkToast.success(context, 'Metode pembayaran disimpan');
+    } else {
+      BkToast.error(context, c.error ?? 'Gagal menyimpan');
+    }
+  }
+
+  Widget _list(BuildContext context, PaymentMethodsController c, List<PaymentMethod> items) {
+    // Index asli dipertahankan agar editAt(i, ...) tetap benar setelah grouping.
+    final indexed = [for (int i = 0; i < items.length; i++) (i, items[i])];
+    List<(int, PaymentMethod)> pick(_Group g) =>
+        indexed.where((e) => _groupOf(e.$2) == g).toList();
+
+    final cash = pick(_Group.cash);
+    final manual = pick(_Group.manual);
+    final gateway = pick(_Group.gateway);
+    final activeCount = items.where((m) => m.isActive).length;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      children: [
+        _intro(activeCount),
+        const SizedBox(height: 16),
+        if (cash.isNotEmpty) ...[
+          _section('TUNAI', 'Bayar langsung di kasir'),
+          ...cash.map((e) => _cardFor(c, e.$1, e.$2)),
+          const SizedBox(height: 8),
+        ],
+        if (manual.isNotEmpty) ...[
+          _section('TRANSFER MANUAL', 'Customer transfer & unggah bukti; kamu verifikasi'),
+          ...manual.map((e) => _cardFor(c, e.$1, e.$2)),
+          const SizedBox(height: 8),
+        ],
+        if (gateway.isNotEmpty) ...[
+          _section('PEMBAYARAN ONLINE', 'Otomatis via payment gateway'),
+          _gatewayBanner(context, c),
+          ...gateway.map((e) => _cardFor(c, e.$1, e.$2)),
+        ],
+      ],
+    );
+  }
+
+  Widget _cardFor(PaymentMethodsController c, int index, PaymentMethod m) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _MethodCard(
+          key: ValueKey(m.id.isNotEmpty ? m.id : m.code),
+          method: m,
+          gatewayReady: c.gatewayReady,
+          onUpload: c.uploadImage,
+          onChanged: (v) => c.editAt(index, v),
+        ),
+      );
+
+  Widget _intro(int activeCount) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(BK.radius)),
+        child: Row(children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: BK.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              activeCount == 0
+                  ? 'Belum ada metode aktif. Aktifkan minimal satu agar customer bisa membayar.'
+                  : '$activeCount metode aktif. Aktifkan/nonaktifkan lewat toggle; isi detail untuk metode transfer.',
+              style: const TextStyle(fontSize: 12.5, color: BK.ink2, height: 1.35),
+            ),
+          ),
+        ]),
+      );
+
+  Widget _gatewayBanner(BuildContext context, PaymentMethodsController c) {
+    final ready = c.gatewayReady;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () async {
+          await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PaymentGatewaySettingsScreen()));
+          await c.refreshGateway();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: ready ? BK.liveSoft : BK.card,
+            borderRadius: BorderRadius.circular(BK.radius),
+            border: Border.all(color: ready ? BK.live.withValues(alpha: 0.3) : BK.line),
+          ),
+          child: Row(children: [
+            Icon(ready ? Icons.verified_rounded : Icons.vpn_key_outlined,
+                size: 20, color: ready ? BK.live : BK.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(ready ? 'Gateway aktif' : 'Setup payment gateway',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: BK.ink)),
+                const SizedBox(height: 1),
+                Text(
+                    ready
+                        ? 'Metode online di bawah bisa diaktifkan.'
+                        : 'Midtrans / Xendit — perlu untuk metode online.',
+                    style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: BK.ink3),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _section(String label, String sub) => Padding(
+        padding: const EdgeInsets.only(bottom: 10, top: 4, left: 2),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 2),
+          Text(sub, style: const TextStyle(fontSize: 11, color: BK.ink3)),
+        ]),
+      );
 }
 
 class _MethodCard extends StatefulWidget {
@@ -199,7 +312,7 @@ class _MethodCardState extends State<_MethodCard> {
   @override
   Widget build(BuildContext context) {
     final m = widget.method;
-    final active = m.isActive;
+    final active = m.isActive && !_locked;
     return BKCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,14 +336,13 @@ class _MethodCardState extends State<_MethodCard> {
                       m.displayName.isNotEmpty ? m.displayName : m.code,
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: BK.ink),
                     ),
-                    const SizedBox(height: 2),
-                    Text(_typeLabel(m),
-                        style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+                    const SizedBox(height: 3),
+                    _statusPill(m),
                   ],
                 ),
               ),
               Switch(
-                value: active && !_locked,
+                value: active,
                 activeThumbColor: BK.accent,
                 onChanged: _locked ? null : (v) => widget.onChanged(m.copyWith(isActive: v)),
               ),
@@ -240,7 +352,7 @@ class _MethodCardState extends State<_MethodCard> {
             const SizedBox(height: 10),
             _lockedNotice(),
           ],
-          if (m.isManual && active) ...[
+          if (m.isManual && m.isActive) ...[
             const SizedBox(height: 6),
             Divider(height: 1, color: BK.line),
             const SizedBox(height: 12),
@@ -249,6 +361,37 @@ class _MethodCardState extends State<_MethodCard> {
         ],
       ),
     );
+  }
+
+  /// Pill status yang jelas: apa yang perlu dilakukan admin.
+  Widget _statusPill(PaymentMethod m) {
+    if (_locked) return Pill.pend('Terkunci · perlu gateway');
+    if (!m.isActive) return Pill.mut('Nonaktif');
+    if (m.isManual) {
+      final needsQr = m.manualKind == PaymentManualKind.qris && _qrUrl.isEmpty && _qrLocalPreview == null;
+      final needsAcc = m.manualKind != PaymentManualKind.qris &&
+          (_bank.text.trim().isEmpty || _accNumber.text.trim().isEmpty);
+      if (needsQr) return Pill.crit('Aktif · unggah QR');
+      if (needsAcc) return Pill.crit('Aktif · lengkapi rekening');
+      // Ringkasan detail yang sudah diisi.
+      final summary = _summary(m);
+      return summary != null ? Pill.live(summary) : Pill.live('Aktif');
+    }
+    return Pill.live('Aktif');
+  }
+
+  String? _summary(PaymentMethod m) {
+    switch (m.manualKind) {
+      case PaymentManualKind.qris:
+        return 'Aktif · QR terpasang';
+      case PaymentManualKind.ewallet:
+      case PaymentManualKind.transfer:
+        final parts = [
+          if (_bank.text.trim().isNotEmpty) _bank.text.trim(),
+          if (_accNumber.text.trim().isNotEmpty) _accNumber.text.trim(),
+        ];
+        return parts.isEmpty ? null : parts.join(' · ');
+    }
   }
 
   /// Field detail sesuai subtipe manual (transfer / e-wallet / QRIS).
@@ -264,42 +407,49 @@ class _MethodCardState extends State<_MethodCard> {
         ];
       case PaymentManualKind.ewallet:
         return [
-          _field('Penyedia', _bank, hint: 'mis. DANA, GoPay, OVO, ShopeePay'),
+          _field('Penyedia', _bank, hint: 'mis. DANA, GoPay, OVO, ShopeePay', onChanged: _refreshPill),
           const SizedBox(height: 10),
           _field('Nama pemilik', _accName, hint: 'Nama sesuai akun e-wallet'),
           const SizedBox(height: 10),
-          _field('Nomor HP terdaftar', _accNumber, hint: '08xxxxxxxxxx', keyboard: TextInputType.phone),
+          _field('Nomor HP terdaftar', _accNumber, hint: '08xxxxxxxxxx', keyboard: TextInputType.phone, onChanged: _refreshPill),
           const SizedBox(height: 10),
           _field('Instruksi (opsional)', _instructions, hint: 'Catatan untuk customer', maxLines: 2),
         ];
       case PaymentManualKind.transfer:
         return [
-          _field('Nama bank', _bank, hint: 'mis. BCA, Mandiri, BNI'),
+          _field('Nama bank', _bank, hint: 'mis. BCA, Mandiri, BNI', onChanged: _refreshPill),
           const SizedBox(height: 10),
           _field('Nama pemilik rekening', _accName, hint: 'Nama sesuai rekening'),
           const SizedBox(height: 10),
-          _field('Nomor rekening', _accNumber, hint: 'Nomor tujuan transfer', keyboard: TextInputType.number),
+          _field('Nomor rekening', _accNumber, hint: 'Nomor tujuan transfer', keyboard: TextInputType.number, onChanged: _refreshPill),
           const SizedBox(height: 10),
           _field('Instruksi (opsional)', _instructions, hint: 'Catatan untuk customer', maxLines: 2),
         ];
     }
   }
 
+  void _refreshPill() {
+    _pushMeta();
+    setState(() {}); // agar pill status ikut update saat rekening diisi
+  }
+
   Widget _lockedNotice() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: BK.pendSoft,
-        borderRadius: BorderRadius.circular(11),
+    return GestureDetector(
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const PaymentGatewaySettingsScreen())),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(11)),
+        child: Row(children: [
+          const Icon(Icons.lock_outline_rounded, size: 16, color: BK.pend),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('Setup payment gateway dulu untuk memakai metode ini.',
+                style: TextStyle(fontSize: 11.5, color: BK.pend, fontWeight: FontWeight.w600, height: 1.3)),
+          ),
+          const Icon(Icons.chevron_right, size: 16, color: BK.pend),
+        ]),
       ),
-      child: Row(children: [
-        const Icon(Icons.lock_outline_rounded, size: 16, color: BK.pend),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text('Aktifkan payment gateway dulu untuk memakai metode ini.',
-              style: TextStyle(fontSize: 11.5, color: BK.pend, fontWeight: FontWeight.w600, height: 1.3)),
-        ),
-      ]),
     );
   }
 
@@ -329,7 +479,7 @@ class _MethodCardState extends State<_MethodCard> {
             decoration: BoxDecoration(
               color: BK.card2,
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: BK.line),
+              border: Border.all(color: hasQr ? BK.line : BK.crit.withValues(alpha: 0.4)),
             ),
             child: inner,
           ),
@@ -337,8 +487,8 @@ class _MethodCardState extends State<_MethodCard> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(hasQr ? 'QR terpasang. Ketuk gambar untuk ganti.' : 'Unggah QR statis dari galeri.',
-                style: const TextStyle(fontSize: 12, color: BK.ink3, height: 1.35)),
+            Text(hasQr ? 'QR terpasang. Ketuk gambar untuk ganti.' : 'Wajib: unggah QR statis dari galeri.',
+                style: TextStyle(fontSize: 12, color: hasQr ? BK.ink3 : BK.crit, height: 1.35)),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
@@ -359,7 +509,7 @@ class _MethodCardState extends State<_MethodCard> {
   Widget _qrPlaceholder() => const Center(child: Icon(Icons.qr_code_2_rounded, color: BK.ink3, size: 34));
 
   Widget _field(String label, TextEditingController controller,
-      {String? hint, int maxLines = 1, TextInputType? keyboard}) {
+      {String? hint, int maxLines = 1, TextInputType? keyboard, VoidCallback? onChanged}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -369,7 +519,7 @@ class _MethodCardState extends State<_MethodCard> {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboard,
-          onChanged: (_) => _pushMeta(),
+          onChanged: (_) => (onChanged ?? _pushMeta)(),
           style: const TextStyle(fontSize: 13.5, color: BK.ink),
           decoration: InputDecoration(
             hintText: hint,
@@ -405,18 +555,5 @@ class _MethodCardState extends State<_MethodCard> {
     if (m.verificationType.toLowerCase() == 'gateway') return Icons.credit_card_rounded;
     if (c.contains('transfer') || c.contains('bank')) return Icons.account_balance_outlined;
     return Icons.payment_rounded;
-  }
-
-  String _typeLabel(PaymentMethod m) {
-    switch (m.verificationType.toLowerCase()) {
-      case 'manual':
-        return 'Verifikasi manual · bukti transfer';
-      case 'gateway':
-        return 'Otomatis · ${m.provider.isNotEmpty ? m.provider : 'payment gateway'}';
-      case 'cash':
-        return 'Tunai di kasir';
-      default:
-        return m.category.isNotEmpty ? m.category : m.verificationType;
-    }
   }
 }

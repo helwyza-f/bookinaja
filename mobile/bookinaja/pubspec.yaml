@@ -47,6 +47,12 @@ dependencies:
   mime: ^2.0.0
   url_launcher: ^6.3.2
   webview_flutter: ^4.14.1
+  # Cetak struk ke printer thermal Bluetooth (Android classic + iOS BLE).
+  print_bluetooth_thermal: ^1.1.1
+  # Susun byte ESC/POS (generator perintah cetak) untuk struk 58/80mm.
+  esc_pos_utils_plus: ^2.0.4
+  # Minta izin Bluetooth/lokasi runtime (Android 12+ butuh BLUETOOTH_SCAN/CONNECT).
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

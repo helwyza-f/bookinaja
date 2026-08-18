@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/cancellation_policy.dart';
+import '../models/payment_gateway.dart';
 import '../models/payment_method.dart';
 import '../repositories/settings_repository.dart';
 import 'async_value.dart';
@@ -15,13 +16,15 @@ class PaymentMethodsController extends ChangeNotifier {
   bool saving = false;
   String? error;
 
+  /// Konfigurasi gateway tenant (BYO). Dimuat bareng daftar metode; menentukan
+  /// apakah metode berbasis gateway bisa diaktifkan.
+  PaymentGateway gateway = const PaymentGateway();
+
   List<PaymentMethod> get items => state.data ?? const [];
 
-  /// Apakah payment gateway tenant sudah di-setup. Fitur setup gateway
-  /// (Midtrans/Xendit) belum tersedia → selalu false untuk sekarang, sehingga
-  /// metode berbasis gateway belum bisa diaktifkan. Nanti disambungkan ke
-  /// status konfigurasi gateway tenant.
-  bool get gatewayReady => false;
+  /// Payment gateway tenant sudah di-setup (kredensial lengkap) → metode
+  /// berbasis gateway boleh diaktifkan.
+  bool get gatewayReady => gateway.configured;
 
   /// Upload gambar (QR QRIS) → URL publik.
   Future<String> uploadImage(String filePath) => _repo.uploadImage(filePath);
@@ -30,11 +33,27 @@ class PaymentMethodsController extends ChangeNotifier {
     state = const AsyncValue.loading();
     notifyListeners();
     try {
-      state = AsyncValue.data(await _repo.getPaymentMethods());
+      // Ambil metode & status gateway bersamaan; gateway opsional (jangan
+      // gagalkan layar bila endpoint gateway error).
+      final methods = await _repo.getPaymentMethods();
+      try {
+        gateway = await _repo.getPaymentGateway();
+      } catch (_) {
+        gateway = const PaymentGateway();
+      }
+      state = AsyncValue.data(methods);
     } catch (e) {
       state = AsyncValue.error(e);
     }
     notifyListeners();
+  }
+
+  /// Muat ulang hanya status gateway (mis. setelah kembali dari layar setup).
+  Future<void> refreshGateway() async {
+    try {
+      gateway = await _repo.getPaymentGateway();
+      notifyListeners();
+    } catch (_) {}
   }
 
   /// Ganti satu metode di daftar lokal (tanpa simpan).

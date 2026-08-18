@@ -53,6 +53,7 @@ class ApiClient {
   Future<dynamic> get(String path) => _request('GET', path);
   Future<dynamic> post(String path, {Object? body}) => _request('POST', path, body: body);
   Future<dynamic> put(String path, {Object? body}) => _request('PUT', path, body: body);
+  Future<dynamic> patch(String path, {Object? body}) => _request('PATCH', path, body: body);
   Future<dynamic> delete(String path, {Object? body}) => _request('DELETE', path, body: body);
 
   /// Upload satu file (multipart) — field 'image', dipakai untuk bukti pembayaran.
@@ -100,6 +101,7 @@ class ApiClient {
       final future = switch (method) {
         'POST' => _client.post(uri, headers: headers, body: bodyStr ?? '{}'),
         'PUT' => _client.put(uri, headers: headers, body: bodyStr ?? '{}'),
+        'PATCH' => _client.patch(uri, headers: headers, body: bodyStr ?? '{}'),
         'DELETE' => _client.delete(uri, headers: headers, body: bodyStr),
         _ => _client.get(uri, headers: headers),
       };
