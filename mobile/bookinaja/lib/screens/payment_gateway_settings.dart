@@ -385,41 +385,62 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
                 fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
       );
 
+  /// Segmented dgn indikator yang MENGGESER (bukan crossfade warna) — mulus
+  /// saat pindah, konsisten dgn filter promo.
   Widget _segmented({
     required String value,
     required Map<String, String> options,
     required ValueChanged<String> onChanged,
   }) {
+    final entries = options.entries.toList();
+    final n = entries.length;
+    final selectedIndex = entries.indexWhere((e) => e.key == value);
+    final indicatorX = n <= 1 ? 0.0 : -1 + (selectedIndex < 0 ? 0 : selectedIndex) * (2 / (n - 1));
     return Container(
       padding: const EdgeInsets.all(4),
+      height: 44,
       decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: options.entries.map((e) {
-          final sel = e.key == value;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(e.key),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: sel ? BK.card : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: sel
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 1))]
-                      : null,
-                ),
-                child: Text(e.value,
-                    textAlign: TextAlign.center,
+      child: Stack(children: [
+        AnimatedAlign(
+          alignment: Alignment(indicatorX, 0),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: FractionallySizedBox(
+            widthFactor: 1 / n,
+            heightFactor: 1,
+            child: Container(
+              decoration: BoxDecoration(
+                color: BK.card,
+                borderRadius: BorderRadius.circular(9),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 5, offset: const Offset(0, 1)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Row(
+          children: entries.map((e) {
+            final sel = e.key == value;
+            return Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onChanged(e.key),
+                child: Center(
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: sel ? BK.ink : BK.ink3)),
+                        color: sel ? BK.ink : BK.ink3),
+                    child: Text(e.value),
+                  ),
+                ),
               ),
-            ),
-          );
-        }).toList(),
-      ),
+            );
+          }).toList(),
+        ),
+      ]),
     );
   }
 
