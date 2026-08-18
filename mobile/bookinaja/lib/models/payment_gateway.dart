@@ -23,8 +23,29 @@ class PaymentGateway {
     this.lastError = '',
   });
 
-  /// Gateway siap dipakai bila server key & callback secret sudah tersimpan.
-  bool get configured => serverKeySet && callbackSecretSet && provider.isNotEmpty;
+  /// Kredensial lengkap tersimpan (row ada + server key + callback secret).
+  /// Bisa true meski gateway sedang dinonaktifkan (kredensial tak dihapus,
+  /// backend hanya set status 'disabled').
+  bool get hasCredentials => serverKeySet && callbackSecretSet && provider.isNotEmpty;
+
+  /// Backend menonaktifkan gateway dengan status 'disabled' (bukan menghapus
+  /// kredensial). Gateway yang disabled TIDAK boleh dianggap siap.
+  bool get isDisabled => status.toLowerCase() == 'disabled';
+
+  /// Sudah diverifikasi via tes koneksi.
+  bool get isVerified => status.toLowerCase() == 'verified' || status.toLowerCase() == 'active';
+
+  /// Gateway SIAP dipakai (metode online boleh aktif): kredensial lengkap DAN
+  /// tidak sedang dinonaktifkan.
+  bool get configured => hasCredentials && !isDisabled;
+
+  /// Label status ringkas untuk UI.
+  String get stateLabel {
+    if (!hasCredentials) return 'Belum di-setup';
+    if (isDisabled) return 'Nonaktif';
+    if (isVerified) return 'Aktif · terverifikasi';
+    return 'Aktif · belum dites';
+  }
 
   factory PaymentGateway.fromJson(Map<String, dynamic> j) => PaymentGateway(
         provider: '${j['provider'] ?? ''}',
