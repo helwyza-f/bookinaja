@@ -75,8 +75,14 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
       BkToast.error(context, 'Server key wajib diisi');
       return;
     }
-    if (!_gw.callbackSecretSet && _callbackSecret.text.trim().isEmpty) {
-      BkToast.error(context, 'Callback secret wajib diisi');
+    // Kredensial kedua beda per provider (samakan dgn web):
+    // Midtrans butuh Client key; Xendit butuh Callback verification token.
+    if (_provider == 'midtrans' && _gw.clientKey.isEmpty && _clientKey.text.trim().isEmpty) {
+      BkToast.error(context, 'Client key wajib untuk Midtrans');
+      return;
+    }
+    if (_provider == 'xendit' && !_gw.callbackSecretSet && _callbackSecret.text.trim().isEmpty) {
+      BkToast.error(context, 'Callback verification token wajib untuk Xendit');
       return;
     }
     setState(() => _saving = true);
@@ -244,15 +250,39 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
                     ),
                     const SizedBox(height: 14),
                     _section('KREDENSIAL'),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10, left: 2),
+                      child: Text(
+                        'Ambil dari dashboard ${_provider == 'xendit' ? 'Xendit' : 'Midtrans'}. Disimpan terenkripsi.',
+                        style: const TextStyle(fontSize: 11.5, color: BK.ink3),
+                      ),
+                    ),
                     _field('Server key', _serverKey,
                         hint: _gw.serverKeySet ? '•••• tersimpan — isi untuk ganti' : 'Server key dari dashboard gateway',
                         obscure: true),
-                    const SizedBox(height: 10),
-                    _field('Client key', _clientKey, hint: 'Client key (publik)'),
-                    const SizedBox(height: 10),
-                    _field('Callback / webhook secret', _callbackSecret,
-                        hint: _gw.callbackSecretSet ? '•••• tersimpan — isi untuk ganti' : 'Secret verifikasi webhook',
-                        obscure: true),
+                    // Midtrans: Client key (publik, untuk Snap.js di browser customer).
+                    if (_provider == 'midtrans') ...[
+                      const SizedBox(height: 10),
+                      _field('Client key', _clientKey,
+                          hint: _gw.clientKey.isNotEmpty ? _gw.clientKey : 'Client key (publik) dari Midtrans'),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, left: 2),
+                        child: Text('Dipakai di browser customer untuk Snap — bersifat publik.',
+                            style: TextStyle(fontSize: 11, color: BK.ink3)),
+                      ),
+                    ],
+                    // Xendit: Callback verification token (verifikasi webhook).
+                    if (_provider == 'xendit') ...[
+                      const SizedBox(height: 10),
+                      _field('Callback verification token', _callbackSecret,
+                          hint: _gw.callbackSecretSet ? '•••• tersimpan — isi untuk ganti' : 'Token verifikasi webhook Xendit',
+                          obscure: true),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, left: 2),
+                        child: Text('Dipakai untuk memverifikasi webhook dari Xendit.',
+                            style: TextStyle(fontSize: 11, color: BK.ink3)),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     FilledButton(
                       style: FilledButton.styleFrom(
@@ -347,8 +377,11 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
           _detailRow('Lingkungan', _gw.environment == 'production' ? 'Produksi' : 'Sandbox'),
           _detailRow('Server key', _gw.serverKeySet ? (_gw.serverKeyMasked.isNotEmpty ? _gw.serverKeyMasked : 'Terisi') : 'Belum diisi',
               ok: _gw.serverKeySet),
-          _detailRow('Client key', _gw.clientKey.isNotEmpty ? _gw.clientKey : 'Belum diisi', ok: _gw.clientKey.isNotEmpty),
-          _detailRow('Callback secret', _gw.callbackSecretSet ? 'Terisi' : 'Belum diisi', ok: _gw.callbackSecretSet),
+          // Kredensial kedua ditampilkan sesuai provider tersimpan.
+          if (_gw.provider == 'xendit')
+            _detailRow('Callback token', _gw.callbackSecretSet ? 'Terisi' : 'Belum diisi', ok: _gw.callbackSecretSet)
+          else
+            _detailRow('Client key', _gw.clientKey.isNotEmpty ? _gw.clientKey : 'Belum diisi', ok: _gw.clientKey.isNotEmpty),
           if (_gw.lastError.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(_gw.lastError, style: const TextStyle(fontSize: 11, color: BK.crit)),
