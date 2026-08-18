@@ -32,22 +32,50 @@ func (s *Service) Save(ctx context.Context, tenantID uuid.UUID, in UpsertInput) 
 	if err := s.repo.Upsert(ctx, tenantID, in); err != nil {
 		return nil, err
 	}
-	return s.repo.GetAdminView(ctx, tenantID)
+	return s.repo.GetAdminViewByProvider(ctx, tenantID, in.Provider)
 }
 
 func (s *Service) Disable(ctx context.Context, tenantID uuid.UUID) error {
 	return s.repo.Disable(ctx, tenantID)
 }
 
-// Delete menghapus permanen konfigurasi gateway (hard delete).
-func (s *Service) Delete(ctx context.Context, tenantID uuid.UUID) error {
-	return s.repo.Delete(ctx, tenantID)
+// Delete menghapus permanen konfigurasi gateway (hard delete). provider kosong
+// = hapus semua (kompatibel endpoint lama); provider tertentu = hapus satu.
+func (s *Service) Delete(ctx context.Context, tenantID uuid.UUID, provider string) error {
+	if strings.TrimSpace(provider) == "" {
+		return s.repo.Delete(ctx, tenantID)
+	}
+	return s.repo.DeleteByProvider(ctx, tenantID, provider)
 }
 
-// TestConnection memverifikasi kredensial dengan memanggil endpoint ringan
-// gateway (tanpa membuat transaksi nyata). Sukses → status verified.
-func (s *Service) TestConnection(ctx context.Context, tenantID uuid.UUID) (*AdminView, error) {
-	cred, err := s.repo.GetCredential(ctx, tenantID)
+// List mengembalikan semua provider tersimpan (mobile kelola berdampingan).
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID) ([]AdminView, error) {
+	return s.repo.ListAdminViews(ctx, tenantID)
+}
+
+// GetByProvider mengembalikan konfigurasi satu provider (mobile).
+func (s *Service) GetByProvider(ctx context.Context, tenantID uuid.UUID, provider string) (*AdminView, error) {
+	return s.repo.GetAdminViewByProvider(ctx, tenantID, provider)
+}
+
+// SetActive memilih provider aktif tanpa isi ulang kredensial.
+func (s *Service) SetActive(ctx context.Context, tenantID uuid.UUID, provider string) (*AdminView, error) {
+	if err := s.repo.SetActive(ctx, tenantID, normalizeProvider(provider)); err != nil {
+		return nil, err
+	}
+	return s.repo.GetAdminViewByProvider(ctx, tenantID, provider)
+}
+
+// TestConnection memverifikasi kredensial provider (default: aktif). Sukses →
+// status provider tsb verified.
+func (s *Service) TestConnection(ctx context.Context, tenantID uuid.UUID, provider string) (*AdminView, error) {
+	var cred *Credential
+	var err error
+	if strings.TrimSpace(provider) == "" {
+		cred, err = s.repo.GetCredential(ctx, tenantID)
+	} else {
+		cred, err = s.repo.GetCredentialByProvider(ctx, tenantID, provider)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +91,13 @@ func (s *Service) TestConnection(ctx context.Context, tenantID uuid.UUID) (*Admi
 	}
 
 	if testErr != nil {
-		_ = s.repo.MarkError(ctx, tenantID, testErr.Error())
+		_ = s.repo.MarkError(ctx, tenantID, cred.Provider, testErr.Error())
 		return nil, testErr
 	}
-	if err := s.repo.MarkVerified(ctx, tenantID); err != nil {
+	if err := s.repo.MarkVerified(ctx, tenantID, cred.Provider); err != nil {
 		return nil, err
 	}
-	return s.repo.GetAdminView(ctx, tenantID)
+	return s.repo.GetAdminViewByProvider(ctx, tenantID, cred.Provider)
 }
 
 // pingXendit: GET /balance. 200 = key valid; 401 = key salah.

@@ -177,6 +177,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.POST("/payment-setup/snooze", cfg.TenantHandler.SnoozePaymentSetup)
 					if cfg.PaymentGatewayHandler != nil {
 						ownerAdmin.GET("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Get)
+						ownerAdmin.GET("/payment-gateway/all", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.List)
+						ownerAdmin.POST("/payment-gateway/activate", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.SetActive)
 						ownerAdmin.PUT("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Save)
 						ownerAdmin.POST("/payment-gateway/test", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Test)
 						ownerAdmin.DELETE("/payment-gateway", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement), cfg.PaymentGatewayHandler.Delete)

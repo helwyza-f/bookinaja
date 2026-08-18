@@ -36,9 +36,63 @@ func (h *Handler) Get(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
 		return
 	}
+	// ?provider=midtrans|xendit → konfigurasi provider itu; tanpa param → aktif.
+	if p := c.Query("provider"); p != "" {
+		view, err := h.svc.GetByProvider(c.Request.Context(), tenantID, p)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memuat konfigurasi gateway"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": view})
+		return
+	}
 	view, err := h.svc.Get(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memuat konfigurasi gateway"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": view})
+}
+
+// List mengembalikan semua provider tersimpan + provider aktif (untuk mobile
+// yang mengelola Midtrans & Xendit berdampingan).
+func (h *Handler) List(c *gin.Context) {
+	tenantID, ok := adminTenantID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
+		return
+	}
+	items, err := h.svc.List(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memuat konfigurasi gateway"})
+		return
+	}
+	active := ""
+	for _, v := range items {
+		if v.IsActive {
+			active = v.Provider
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "active_provider": active})
+}
+
+// SetActive memilih provider aktif tanpa isi ulang kredensial.
+func (h *Handler) SetActive(c *gin.Context) {
+	tenantID, ok := adminTenantID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
+		return
+	}
+	var req struct {
+		Provider string `json:"provider"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Provider == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider tidak valid"})
+		return
+	}
+	view, err := h.svc.SetActive(c.Request.Context(), tenantID, req.Provider)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "gagal mengaktifkan provider"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": view})
@@ -87,7 +141,7 @@ func (h *Handler) Test(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
 		return
 	}
-	view, err := h.svc.TestConnection(c.Request.Context(), tenantID)
+	view, err := h.svc.TestConnection(c.Request.Context(), tenantID, c.Query("provider"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -101,7 +155,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
 		return
 	}
-	if err := h.svc.Delete(c.Request.Context(), tenantID); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), tenantID, c.Query("provider")); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghapus konfigurasi gateway"})
 		return
 	}

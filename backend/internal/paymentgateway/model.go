@@ -59,6 +59,7 @@ type AdminView struct {
 	Status            string     `json:"status"`
 	LastError         string     `json:"last_error,omitempty"`
 	VerifiedAt        *time.Time `json:"verified_at,omitempty"`
+	IsActive          bool       `json:"is_active"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
