@@ -48,7 +48,10 @@ dependencies:
   url_launcher: ^6.3.2
   webview_flutter: ^4.14.1
   # Cetak struk ke printer thermal Bluetooth (Android classic + iOS BLE).
-  print_bluetooth_thermal: ^1.1.1
+  # Di-vendor ke third_party/ dgn build.gradle yg dimigrasikan ke Built-in
+  # Kotlin — versi pub.dev (1.2.2) masih apply KGP sendiri & memicu warning.
+  print_bluetooth_thermal:
+    path: third_party/print_bluetooth_thermal
   # Susun byte ESC/POS (generator perintah cetak) untuk struk 58/80mm.
   esc_pos_utils_plus: ^2.0.4
   # Minta izin Bluetooth/lokasi runtime (Android 12+ butuh BLUETOOTH_SCAN/CONNECT).

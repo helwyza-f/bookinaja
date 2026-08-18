@@ -1,0 +1,26 @@
+// Vendored dari print_bluetooth_thermal 1.2.2, dimigrasikan ke "Built-in
+// Kotlin" Flutter. KUNCI: plugin TIDAK mendeklarasikan Kotlin Gradle Plugin
+// sendiri (baik `apply plugin: "kotlin-android"` maupun
+// `plugins { id "org.jetbrains.kotlin.android" }`) — itu yang memicu warning
+// KGP. Cukup com.android.library; flutter_tools otomatis meng-apply
+// kotlin-android dgn versi dari pluginManagement app
+// (android/settings.gradle.kts: org.jetbrains.kotlin.android 2.3.20).
+plugins {
+    id "com.android.library"
+}
+
+group = "app.web.groons.print_bluetooth_thermal"
+version = "1.0-SNAPSHOT"
+
+android {
+    namespace = "app.web.groons.print_bluetooth_thermal"
+    compileSdk = 34
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = 21
+    }
+}
