@@ -108,6 +108,8 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const BusinessLandingScreen())),
           ),
+          // TODO: aktifkan (buang soon + wire ke BusinessDiscoveryScreen) begitu
+          // feed Explore Bookinaja sudah berjalan. Layar sudah siap.
           _tile(
             context,
             icon: Icons.travel_explore_outlined,
@@ -123,7 +125,7 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
 
   Widget _previewCard() {
     return Container(
-      height: 200,
+      height: 360,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: BK.card,
@@ -132,11 +134,15 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
       ),
       child: Stack(children: [
         // WebView interaktif (bisa di-scroll/klik) meski di dalam ListView.
+        // EagerGestureRecognizer mengklaim semua gesture untuk WebView, jadi
+        // scroll internal tetap jalan walau induknya ListView yang ikut mau
+        // drag vertikal (VerticalDragGestureRecognizer saja tak konsisten di
+        // sini). Scroll halaman tetap bisa lewat area di luar kartu preview.
         Positioned.fill(
           child: WebViewWidget(
             controller: _web,
             gestureRecognizers: {
-              Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()),
+              Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
             },
           ),
         ),

@@ -225,11 +225,14 @@ class _BusinessThemeScreenState extends State<BusinessThemeScreen> {
           border: Border.all(color: BK.line),
         ),
         child: Stack(children: [
+          // EagerGestureRecognizer mengklaim semua gesture untuk WebView agar
+          // scroll internal preview tetap jalan di dalam ListView (VerticalDrag
+          // saja tak konsisten menang di gesture arena).
           Positioned.fill(
             child: WebViewWidget(
               controller: _web,
               gestureRecognizers: {
-                Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()),
+                Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
               },
             ),
           ),

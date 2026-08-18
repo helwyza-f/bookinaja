@@ -36,9 +36,13 @@ class MoreHubScreen extends StatelessWidget {
             _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
             }),
-          _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
-          }),
+          // Customer (CRM admin) berbasis booking — riwayatnya menarik dari
+          // tabel bookings, bukan sales_order. Di pos_only (booking mati) tile
+          // ini disembunyikan; walk-in POS tak memakai CRM ini.
+          if (auth.bookingEnabled)
+            _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
+            }),
           if (auth.kasirEnabled)
             _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
