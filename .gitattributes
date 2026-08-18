@@ -1,0 +1,32 @@
+# Normalisasi akhir baris lintas device (2 Windows + Mac mini).
+# Semua file teks disimpan & di-checkout sebagai LF, jadi tidak ada keributan
+# CRLF/LF apa pun setting core.autocrlf tiap mesin.
+* text=auto eol=lf
+
+# Skrip khusus Windows wajib CRLF agar bisa dijalankan.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Skrip shell & gradlew wajib LF (dijalankan di macOS/Linux/CI).
+*.sh     text eol=lf
+gradlew  text eol=lf
+
+# Berkas biner — jangan diutak-atik line ending / diff.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.svg   binary
+*.pdf   binary
+*.jar   binary
+*.keystore binary
+*.jks   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.mp4   binary
+*.zip   binary
