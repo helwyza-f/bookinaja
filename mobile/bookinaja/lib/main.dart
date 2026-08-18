@@ -172,6 +172,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _i = 0;
+  bool? _lastBookingEnabled; // deteksi perubahan mode → reset tab
 
   @override
   void initState() {
@@ -188,6 +189,12 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    // Set tab bergeser saat booking dinyala/matikan (jumlah tab berubah) →
+    // kembalikan ke tab pertama agar tidak menunjuk tab yang salah.
+    if (_lastBookingEnabled != null && _lastBookingEnabled != auth.bookingEnabled) {
+      _i = 0;
+    }
+    _lastBookingEnabled = auth.bookingEnabled;
     final workspaceSlug = auth.workspace?.slug ?? '';
     if (workspaceSlug.isNotEmpty) {
       RealtimeClient.instance.setChannels([
