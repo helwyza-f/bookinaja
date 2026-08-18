@@ -101,8 +101,8 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "sesi tidak valid"})
 		return
 	}
-	if err := h.svc.Disable(c.Request.Context(), tenantID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menonaktifkan gateway"})
+	if err := h.svc.Delete(c.Request.Context(), tenantID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghapus konfigurasi gateway"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

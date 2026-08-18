@@ -213,3 +213,12 @@ func (r *Repository) Disable(ctx context.Context, tenantID uuid.UUID) error {
 		WHERE tenant_id = $1`, tenantID)
 	return err
 }
+
+// Delete menghapus permanen konfigurasi gateway tenant (hard delete). Setelah
+// ini GetAdminView mengembalikan nil dan tenant kembali ke keadaan belum-setup.
+func (r *Repository) Delete(ctx context.Context, tenantID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM tenant_payment_gateways
+		WHERE tenant_id = $1`, tenantID)
+	return err
+}

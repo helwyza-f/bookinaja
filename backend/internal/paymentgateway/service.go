@@ -39,6 +39,11 @@ func (s *Service) Disable(ctx context.Context, tenantID uuid.UUID) error {
 	return s.repo.Disable(ctx, tenantID)
 }
 
+// Delete menghapus permanen konfigurasi gateway (hard delete).
+func (s *Service) Delete(ctx context.Context, tenantID uuid.UUID) error {
+	return s.repo.Delete(ctx, tenantID)
+}
+
 // TestConnection memverifikasi kredensial dengan memanggil endpoint ringan
 // gateway (tanpa membuat transaksi nyata). Sukses → status verified.
 func (s *Service) TestConnection(ctx context.Context, tenantID uuid.UUID) (*AdminView, error) {
