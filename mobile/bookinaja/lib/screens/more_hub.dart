@@ -5,7 +5,6 @@ import '../ui/toast.dart';
 import '../state/auth_controller.dart';
 import 'kasir.dart';
 import 'customers.dart';
-import 'cancellation_settings.dart';
 import 'settings_hub.dart';
 import 'fnb_menu_screen.dart';
 import 'expenses_screen.dart';
@@ -53,16 +52,13 @@ class MoreHubScreen extends StatelessWidget {
           const SizedBox(height: 18),
           const Text('WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          // Resource & kebijakan pembatalan hanya relevan saat booking aktif.
+          // Resource hanya relevan saat booking aktif. Kebijakan pembatalan
+          // dipindah ke Settings hub (section BOOKING) agar tak duplikat.
           if (auth.bookingEnabled)
             _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
             }),
           _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
-          if (auth.bookingEnabled)
-            _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan', 'Cancel, cutoff, refund DP', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CancellationSettingsScreen()));
-            }),
           _tile(context, Icons.settings_outlined, 'Pengaturan lain', 'Bayar, promo, nota, staff', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
           }),

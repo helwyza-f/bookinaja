@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../state/auth_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import 'cancellation_settings.dart';
@@ -16,6 +18,7 @@ class SettingsHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
@@ -28,6 +31,16 @@ class SettingsHubScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
+          // Mode Aplikasi = setting app-wide (bukan booking), diletakkan paling
+          // atas & selalu tampil — termasuk pintu untuk keluar dari pos_only.
+          _section('APLIKASI'),
+          _tile(context, Icons.dashboard_customize_outlined, 'Mode Aplikasi',
+              'Booking, kasir, atau keduanya', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const FnbModeSettingsScreen()));
+          }),
+          const SizedBox(height: 18),
+
           _section('PEMBAYARAN'),
           _tile(context, Icons.account_balance_wallet_outlined, 'Metode pembayaran',
               'Transfer, e-wallet, QRIS, tunai', () {
@@ -40,20 +53,18 @@ class SettingsHubScreen extends StatelessWidget {
               'Header, footer, printer', () => _soon(context, 'Nota'), soon: true),
           const SizedBox(height: 18),
 
-          _section('BOOKING'),
-          _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan',
-              'Cancel, cutoff, refund DP', () {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const CancellationSettingsScreen()));
-          }),
-          _tile(context, Icons.local_offer_outlined, 'Promo & voucher',
-              'Diskon & kode promo', () => _soon(context, 'Promo'), soon: true),
-          _tile(context, Icons.dashboard_customize_outlined, 'Mode Aplikasi',
-              'Booking, kasir, atau keduanya', () {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const FnbModeSettingsScreen()));
-          }),
-          const SizedBox(height: 18),
+          // Section booking disembunyikan utuh saat mode kasir-saja.
+          if (auth.bookingEnabled) ...[
+            _section('BOOKING'),
+            _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan',
+                'Cancel, cutoff, refund DP', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const CancellationSettingsScreen()));
+            }),
+            _tile(context, Icons.local_offer_outlined, 'Promo & voucher',
+                'Diskon & kode promo', () => _soon(context, 'Promo'), soon: true),
+            const SizedBox(height: 18),
+          ],
 
           _section('TIM & USAHA'),
           _tile(context, Icons.group_outlined, 'Staff & akses',
