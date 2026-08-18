@@ -9,8 +9,9 @@ class PaymentGateway {
   final String serverKeyMasked;
   final bool serverKeySet;
   final bool callbackSecretSet;
-  final String status; // 'active' | 'error' | 'unconfigured' | ...
+  final String status; // 'verified' | 'unverified' | 'disabled' | ...
   final String lastError;
+  final bool isActive; // provider ini yang aktif dipakai tenant
 
   const PaymentGateway({
     this.provider = '',
@@ -21,6 +22,7 @@ class PaymentGateway {
     this.callbackSecretSet = false,
     this.status = '',
     this.lastError = '',
+    this.isActive = false,
   });
 
   /// Kredensial inti tersimpan. Cukup provider + server key (samakan dgn web:
@@ -58,5 +60,6 @@ class PaymentGateway {
         callbackSecretSet: j['callback_secret_set'] == true,
         status: '${j['status'] ?? ''}',
         lastError: '${j['last_error'] ?? ''}',
+        isActive: j['is_active'] == true,
       );
 }

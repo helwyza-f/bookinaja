@@ -113,11 +113,30 @@ class SettingsRepository {
     return PaymentGateway.fromJson(data);
   }
 
-  /// POST /admin/payment-gateway/test — cek koneksi kredensial tersimpan.
-  Future<void> testPaymentGateway() => _api.post('/admin/payment-gateway/test');
+  /// GET /admin/payment-gateway/all → {items:[AdminView], active_provider}.
+  /// Semua provider tersimpan (Midtrans & Xendit berdampingan) + mana yg aktif.
+  Future<({List<PaymentGateway> items, String activeProvider})> getPaymentGateways() async {
+    final res = await _api.get('/admin/payment-gateway/all');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    final items = list
+        .whereType<Map>()
+        .map((e) => PaymentGateway.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final active = (res is Map) ? '${res['active_provider'] ?? ''}' : '';
+    return (items: items, activeProvider: active);
+  }
 
-  /// DELETE /admin/payment-gateway — hapus konfigurasi gateway.
-  Future<void> deletePaymentGateway() => _api.delete('/admin/payment-gateway');
+  /// POST /admin/payment-gateway/activate — pilih provider aktif tanpa isi ulang.
+  Future<void> setActivePaymentGateway(String provider) =>
+      _api.post('/admin/payment-gateway/activate', body: {'provider': provider});
+
+  /// POST /admin/payment-gateway/test — cek koneksi. [provider] kosong = aktif.
+  Future<void> testPaymentGateway({String provider = ''}) => _api.post(
+      '/admin/payment-gateway/test${provider.isEmpty ? '' : '?provider=$provider'}');
+
+  /// DELETE /admin/payment-gateway — hapus konfigurasi. [provider] kosong = semua.
+  Future<void> deletePaymentGateway({String provider = ''}) => _api.delete(
+      '/admin/payment-gateway${provider.isEmpty ? '' : '?provider=$provider'}');
 
   // --- Pengaturan nota / struk ---
 
