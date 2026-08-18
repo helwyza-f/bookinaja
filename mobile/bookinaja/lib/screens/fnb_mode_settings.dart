@@ -48,8 +48,9 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
 
   Map<String, dynamic>? _profile; // objek Tenant mentah (untuk PUT utuh)
   String _mode = 'booking_pos';
-  bool _posStandalone = true; // Kasir A
-  bool _posOnSession = true; // Kasir B
+  bool _posStandalone = true; // Kasir A (walk-in / customer)
+  bool _posOnSession = true; // F&B nempel ke sesi
+  bool _posAddonOnSession = true; // Add-on nempel ke sesi
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -72,6 +73,7 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
       var mode = '${map['app_mode'] ?? ''}';
       var standalone = map['pos_standalone'] != false;
       var onSession = map['pos_on_session'] != false;
+      var addonOnSession = map['pos_addon_on_session'] != false;
       // Fallback ke fnb_mode legacy bila app_mode belum ada.
       if (mode != 'booking_pos' && mode != 'booking_only' && mode != 'pos_only') {
         switch ('${map['fnb_mode'] ?? ''}') {
@@ -94,6 +96,7 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
         _mode = mode;
         _posStandalone = standalone;
         _posOnSession = onSession;
+        _posAddonOnSession = addonOnSession;
         _loading = false;
       });
     } catch (e) {
@@ -122,6 +125,7 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
     cfg['app_mode'] = _mode;
     cfg['pos_standalone'] = _posStandalone;
     cfg['pos_on_session'] = _posOnSession;
+    cfg['pos_addon_on_session'] = _posAddonOnSession;
     cfg['fnb_mode'] = _legacyFnbMode; // backward-compat
     profile['booking_form_config'] = cfg;
     try {
@@ -225,24 +229,39 @@ class _FnbModeSettingsScreenState extends State<FnbModeSettingsScreen> {
           if (showToggles) ...[
             const SizedBox(height: 12),
             const Divider(height: 1, color: BK.line),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
+            _groupLabel('KASIR MANDIRI'),
             _toggleRow(
-              title: 'Kasir walk-in / customer',
+              title: 'Walk-in / customer',
               subtitle: 'Transaksi kasir berdiri sendiri',
               value: _posStandalone,
               onChanged: (v) => setState(() => _posStandalone = v),
             ),
+            const SizedBox(height: 6),
+            _groupLabel('SAAT SESI BERJALAN'),
             _toggleRow(
-              title: 'Kasir nempel ke sesi',
+              title: 'Jual F&B',
               subtitle: 'Tombol “Tambah F&B” di detail booking',
               value: _posOnSession,
               onChanged: (v) => setState(() => _posOnSession = v),
+            ),
+            _toggleRow(
+              title: 'Tawarkan add-on',
+              subtitle: 'Tombol “Add-on” (layanan tambahan) di detail booking',
+              value: _posAddonOnSession,
+              onChanged: (v) => setState(() => _posAddonOnSession = v),
             ),
           ],
         ]),
       ),
     );
   }
+
+  Widget _groupLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 2, left: 2),
+        child: Text(text,
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: .8, color: BK.ink3)),
+      );
 
   Widget _toggleRow({
     required String title,

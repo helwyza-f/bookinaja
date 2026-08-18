@@ -56,10 +56,16 @@ class AuthController extends ChangeNotifier {
       _appMode.appMode == 'pos_only' ||
       (_appMode.appMode == 'booking_pos' && _appMode.posStandalone);
 
-  /// Kasir B (F&B nempel ke sesi): tombol "Tambah F&B" di detail booking.
-  /// Butuh sesi, jadi hanya berlaku saat `booking_pos`.
-  bool get sessionFnbEnabled =>
-      _appMode.appMode == 'booking_pos' && _appMode.posOnSession;
+  /// F&B nempel ke sesi (Kasir B): tombol "Tambah F&B" di detail booking.
+  /// Butuh sesi → mati di `pos_only`. Di `booking_pos` ikut toggle; di
+  /// `booking_only` mengikuti flag per-booking (tak dipaksa mati).
+  bool get sessionFnbEnabled => bookingEnabled &&
+      (_appMode.appMode == 'booking_pos' ? _appMode.posOnSession : true);
+
+  /// Add-on/layanan resource nempel ke sesi: tombol "Add-on" di detail booking.
+  /// Aturan sama seperti [sessionFnbEnabled] — butuh sesi.
+  bool get sessionAddonEnabled => bookingEnabled &&
+      (_appMode.appMode == 'booking_pos' ? _appMode.posAddonOnSession : true);
 
   Future<void> _refreshAppMode() async {
     _appMode = await _repo.fetchAppMode();

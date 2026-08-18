@@ -1251,10 +1251,11 @@ func (r *Repository) GetTenantFnbMode(ctx context.Context, tenantID uuid.UUID) (
 // TenantAppMode adalah konfigurasi "Mode Aplikasi" mentah dari
 // booking_form_config JSONB tenant. FnbMode disertakan untuk fallback klien lama.
 type TenantAppMode struct {
-	AppMode       string `db:"app_mode"`
-	PosStandalone bool   `db:"pos_standalone"`
-	PosOnSession  bool   `db:"pos_on_session"`
-	FnbMode       string `db:"fnb_mode"`
+	AppMode           string `db:"app_mode"`
+	PosStandalone     bool   `db:"pos_standalone"`
+	PosOnSession      bool   `db:"pos_on_session"`
+	PosAddonOnSession bool   `db:"pos_addon_on_session"`
+	FnbMode           string `db:"fnb_mode"`
 }
 
 // GetTenantAppMode membaca app_mode + pos_standalone/pos_on_session (+ fnb_mode
@@ -1263,10 +1264,11 @@ func (r *Repository) GetTenantAppMode(ctx context.Context, tenantID uuid.UUID) (
 	var cfg TenantAppMode
 	err := r.db.GetContext(ctx, &cfg,
 		`SELECT
-		    COALESCE(booking_form_config->>'app_mode', '')                       AS app_mode,
-		    COALESCE((booking_form_config->>'pos_standalone')::boolean, true)    AS pos_standalone,
-		    COALESCE((booking_form_config->>'pos_on_session')::boolean, true)    AS pos_on_session,
-		    COALESCE(booking_form_config->>'fnb_mode', '')                       AS fnb_mode
+		    COALESCE(booking_form_config->>'app_mode', '')                          AS app_mode,
+		    COALESCE((booking_form_config->>'pos_standalone')::boolean, true)       AS pos_standalone,
+		    COALESCE((booking_form_config->>'pos_on_session')::boolean, true)       AS pos_on_session,
+		    COALESCE((booking_form_config->>'pos_addon_on_session')::boolean, true) AS pos_addon_on_session,
+		    COALESCE(booking_form_config->>'fnb_mode', '')                          AS fnb_mode
 		 FROM tenants WHERE id = $1`,
 		tenantID)
 	return cfg, err

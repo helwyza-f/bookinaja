@@ -2819,6 +2819,7 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	item.Features.AppMode = "booking_pos"
 	item.Features.PosStandalone = true
 	item.Features.PosOnSession = true
+	item.Features.PosAddonOnSession = true
 	item.Features.FnbMode = "integrated" // legacy, untuk klien mobile lama
 	if cfg, cErr := s.repo.GetTenantAppMode(ctx, tenantID); cErr == nil {
 		switch cfg.AppMode {
@@ -2827,6 +2828,7 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 			item.Features.AppMode = cfg.AppMode
 			item.Features.PosStandalone = cfg.PosStandalone
 			item.Features.PosOnSession = cfg.PosOnSession
+			item.Features.PosAddonOnSession = cfg.PosAddonOnSession
 			switch {
 			case cfg.AppMode == "booking_only":
 				item.Features.FnbMode = "off"

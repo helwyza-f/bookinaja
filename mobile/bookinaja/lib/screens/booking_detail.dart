@@ -648,12 +648,12 @@ class _DetailView extends StatelessWidget {
           icon: Icon(icon, size: 18),
           label: Text(label),
         );
-    // Tombol "Tambah F&B" (Kasir B) juga ikut mode aplikasi: butuh
-    // sessionFnbEnabled, bukan hanya flag enableFnb per-booking.
-    final sessionFnb = context.read<AuthController>().sessionFnbEnabled;
+    // Tombol F&B & Add-on juga ikut mode aplikasi (butuh sesi), bukan hanya
+    // flag per-booking enableFnb/enableAddons.
+    final auth = context.read<AuthController>();
     final btns = <Widget>[
-      if (d.enableFnb && sessionFnb) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
-      if (d.enableAddons) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
+      if (d.enableFnb && auth.sessionFnbEnabled) catalogBtn(Icons.ramen_dining, 'Tambah F&B', () => _fnbSheet(context, d)),
+      if (d.enableAddons && auth.sessionAddonEnabled) catalogBtn(Icons.add_circle_outline, 'Add-on', () => _addonSheet(context, d)),
     ];
     if (btns.isEmpty) return const SizedBox.shrink();
     return Padding(

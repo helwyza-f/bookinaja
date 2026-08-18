@@ -19,20 +19,25 @@ class RestoredSession {
 ///   berarti saat `booking_pos`; di `pos_only` selalu aktif.
 /// - [posOnSession]: F&B nempel ke sesi booking — tombol "Tambah F&B" di detail
 ///   booking (Kasir B). Hanya berarti saat `booking_pos`.
+/// - [posAddonOnSession]: Add-on/layanan resource nempel ke sesi — tombol
+///   "Add-on" di detail booking. Hanya berarti saat `booking_pos`.
 class AppModeConfig {
   final String appMode;
   final bool posStandalone;
   final bool posOnSession;
+  final bool posAddonOnSession;
   const AppModeConfig({
     required this.appMode,
     required this.posStandalone,
     required this.posOnSession,
+    required this.posAddonOnSession,
   });
 
   static const fallback = AppModeConfig(
     appMode: 'booking_pos',
     posStandalone: true,
     posOnSession: true,
+    posAddonOnSession: true,
   );
 
   /// Baca dari blok `features` bootstrap. Mendukung skema baru (`app_mode` +
@@ -45,14 +50,15 @@ class AppModeConfig {
         appMode: appMode,
         posStandalone: features['pos_standalone'] != false, // default true
         posOnSession: features['pos_on_session'] != false, // default true
+        posAddonOnSession: features['pos_addon_on_session'] != false, // default true
       );
     }
-    // Legacy fnb_mode → app_mode.
+    // Legacy fnb_mode → app_mode. Add-on independen dari fnb → default true.
     switch ('${features['fnb_mode'] ?? ''}') {
       case 'standalone':
-        return const AppModeConfig(appMode: 'booking_pos', posStandalone: true, posOnSession: false);
+        return const AppModeConfig(appMode: 'booking_pos', posStandalone: true, posOnSession: false, posAddonOnSession: true);
       case 'off':
-        return const AppModeConfig(appMode: 'booking_only', posStandalone: false, posOnSession: false);
+        return const AppModeConfig(appMode: 'booking_only', posStandalone: false, posOnSession: false, posAddonOnSession: true);
       case 'integrated':
       default:
         return AppModeConfig.fallback;
