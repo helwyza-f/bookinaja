@@ -118,40 +118,43 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
     }
   }
 
-  /// Nonaktifkan gateway. Backend hanya set status 'disabled' (kredensial tetap
-  /// tersimpan agar bisa diaktifkan lagi tanpa isi ulang) — labelnya jujur
-  /// "Nonaktifkan", bukan "Hapus".
-  Future<void> _disable() async {
+  /// Hapus permanen konfigurasi gateway (hard delete di backend). Setelah ini
+  /// kredensial hilang total & tenant kembali ke keadaan belum-setup.
+  Future<void> _delete() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: BK.card,
-        title: const Text('Nonaktifkan gateway?', style: TextStyle(fontSize: 16)),
+        title: const Text('Hapus konfigurasi gateway?', style: TextStyle(fontSize: 16)),
         content: const Text(
-            'Pembayaran online akan dimatikan. Kredensial tetap tersimpan, jadi '
-            'bisa diaktifkan lagi tanpa isi ulang.',
+            'Kredensial (server key, callback secret, dll) dihapus permanen dan '
+            'pembayaran online dimatikan. Untuk memakainya lagi harus isi ulang.',
             style: TextStyle(fontSize: 13.5, color: BK.ink2)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: BK.crit),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Nonaktifkan'),
+            child: const Text('Hapus'),
           ),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      await _repo.deletePaymentGateway(); // endpoint DELETE = Disable di backend
+      await _repo.deletePaymentGateway(); // hard delete
       await _deactivateOnlineMethods(); // korelasi: online ikut mati & tersimpan
       if (!mounted) return;
-      BkToast.success(context, 'Gateway dinonaktifkan',
+      // Bersihkan field & state lokal agar layar benar-benar "kosong".
+      _serverKey.clear();
+      _clientKey.clear();
+      _callbackSecret.clear();
+      BkToast.success(context, 'Konfigurasi gateway dihapus',
           subtitle: 'Pembayaran online dimatikan.');
       _load();
     } catch (e) {
       if (!mounted) return;
-      BkToast.error(context, 'Gagal menonaktifkan', subtitle: '$e');
+      BkToast.error(context, 'Gagal menghapus', subtitle: '$e');
     }
   }
 
@@ -292,9 +295,9 @@ class _PaymentGatewaySettingsScreenState extends State<PaymentGatewaySettingsScr
                       const SizedBox(height: 10),
                       TextButton.icon(
                         style: TextButton.styleFrom(foregroundColor: BK.crit),
-                        onPressed: _disable,
-                        icon: const Icon(Icons.power_off_rounded, size: 18),
-                        label: const Text('Nonaktifkan gateway'),
+                        onPressed: _delete,
+                        icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                        label: const Text('Hapus konfigurasi'),
                       ),
                     ],
                   ],
