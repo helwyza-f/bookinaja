@@ -49,7 +49,7 @@ class PosController extends ChangeNotifier {
   PosResult? lastResult;
 
   List<String> get categories {
-    final set = {'Semua', ...(_menu.data ?? const []).map((m) => m.category)};
+    final set = {'Semua', ...(_menu.data ?? const []).map((m) => m.categoryLabel)};
     return set.toList();
   }
 
@@ -57,9 +57,9 @@ class PosController extends ChangeNotifier {
     final all = _menu.data ?? const [];
     final q = query.trim().toLowerCase();
     return all.where((m) {
-      if (category != 'Semua' && m.category != category) return false;
+      if (category != 'Semua' && m.categoryLabel != category) return false;
       if (q.isEmpty) return true;
-      return m.name.toLowerCase().contains(q) || m.category.toLowerCase().contains(q);
+      return m.name.toLowerCase().contains(q) || m.categoryLabel.toLowerCase().contains(q);
     }).toList();
   }
 

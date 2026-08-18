@@ -9,6 +9,7 @@ import '../repositories/fnb_repository.dart';
 import '../state/fnb_menu_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
+import '../utils/fnb_category.dart';
 
 /// Layar admin: kelola menu F&B. Fokus operasional — toggle Ready/Habis cepat
 /// per item, plus tambah/edit lewat form ringkas.
@@ -319,8 +320,8 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
   final _picker = ImagePicker();
   late final TextEditingController _name;
   late final TextEditingController _price;
-  late final TextEditingController _category;
   late final TextEditingController _desc;
+  late String _category;
   String? _imageUrl;
   String? _localPreview;
   bool _available = true;
@@ -335,7 +336,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
     final e = widget.existing;
     _name = TextEditingController(text: e?.name ?? '');
     _price = TextEditingController(text: e != null && e.price > 0 ? rupiah(e.price) : '');
-    _category = TextEditingController(text: e?.category ?? '');
+    _category = _initialCategory(e?.category);
     _desc = TextEditingController(text: e?.description ?? '');
     _imageUrl = e?.imageUrl;
     _available = e?.isAvailable ?? true;
@@ -345,7 +346,6 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
   void dispose() {
     _name.dispose();
     _price.dispose();
-    _category.dispose();
     _desc.dispose();
     super.dispose();
   }
@@ -387,7 +387,7 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
     final item = base.copyWith(
       name: name,
       price: price,
-      category: _category.text.trim(),
+      category: _category,
       description: _desc.text.trim(),
       imageUrl: _imageUrl,
       isAvailable: _available,
@@ -474,29 +474,9 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
                       Expanded(child: _field('Nama item', _name, hint: 'mis. Nasi Goreng Spesial')),
                     ]),
                     const SizedBox(height: 14),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(
-                        child: _field('Harga (Rp)', _price, hint: '25.000', keyboard: TextInputType.number, onChanged: _onPriceChanged),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: _field('Kategori', _category, hint: 'Makanan')),
-                    ]),
-                    if (widget.controller.categories.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(spacing: 7, runSpacing: 7, children: [
-                        for (final cat in widget.controller.categories)
-                          GestureDetector(
-                            onTap: () => setState(() => _category.text = cat),
-                            child: Chip(
-                              label: Text(cat, style: const TextStyle(fontSize: 11.5)),
-                              backgroundColor: BK.card,
-                              side: const BorderSide(color: BK.line),
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                      ]),
-                    ],
+                    _field('Harga (Rp)', _price, hint: '25.000', keyboard: TextInputType.number, onChanged: _onPriceChanged),
+                    const SizedBox(height: 14),
+                    _categorySelector(),
                     const SizedBox(height: 14),
                     _field('Deskripsi (opsional)', _desc, hint: 'Catatan singkat menu', maxLines: 2),
                     const SizedBox(height: 14),
@@ -567,6 +547,57 @@ class _ItemFormSheetState extends State<_ItemFormSheet> {
           border: Border.all(color: BK.line),
         ),
         child: inner,
+      ),
+    );
+  }
+
+  /// Kategori awal: item baru default "Makanan"; edit → ternormalisasi.
+  String _initialCategory(String? raw) =>
+      (raw ?? '').trim().isEmpty ? 'Makanan' : normalizeFnbCategory(raw);
+
+  /// Opsi chip = 3 kanonik + kategori item saat ini bila di luar daftar
+  /// (mempertahankan data lama saat edit).
+  List<String> get _categoryOptions {
+    final opts = [...fnbCategories];
+    if (!opts.contains(_category)) opts.add(_category);
+    return opts;
+  }
+
+  Widget _categorySelector() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Kategori', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+      const SizedBox(height: 7),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final cat in _categoryOptions) _categoryChip(cat),
+      ]),
+    ]);
+  }
+
+  Widget _categoryChip(String cat) {
+    final on = _category == cat;
+    return GestureDetector(
+      onTap: () => setState(() => _category = cat),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        decoration: BoxDecoration(
+          color: on ? BK.accent : BK.card,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: on ? BK.accent : BK.line),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (on) ...[
+            const Icon(Icons.check_rounded, size: 15, color: Colors.white),
+            const SizedBox(width: 5),
+          ],
+          Text(cat,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .3,
+                color: on ? Colors.white : BK.ink2,
+              )),
+        ]),
       ),
     );
   }

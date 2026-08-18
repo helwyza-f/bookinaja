@@ -1,3 +1,5 @@
+import '../utils/fnb_category.dart';
+
 /// Item menu F&B milik tenant. Cermin tabel `fnb_items` di backend.
 /// Endpoint: /admin/fnb (GET/POST/PUT/DELETE).
 class FnbItem {
@@ -19,8 +21,8 @@ class FnbItem {
     this.isAvailable = true,
   });
 
-  /// Kategori tampilan — kosong jadi "Lainnya".
-  String get categoryLabel => category.trim().isEmpty ? 'Lainnya' : category.trim();
+  /// Kategori tampilan ternormalisasi (Bahasa Indonesia, Title Case).
+  String get categoryLabel => normalizeFnbCategory(category);
 
   factory FnbItem.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;

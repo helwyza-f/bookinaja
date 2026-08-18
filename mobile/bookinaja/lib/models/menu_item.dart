@@ -1,3 +1,5 @@
+import '../utils/fnb_category.dart';
+
 class MenuItem {
   final String id;
   final String name;
@@ -16,6 +18,9 @@ class MenuItem {
   });
 
   bool get hasImage => imageUrl.trim().isNotEmpty;
+
+  /// Kategori ternormalisasi (Bahasa Indonesia, Title Case) untuk tampilan.
+  String get categoryLabel => normalizeFnbCategory(category);
 
   factory MenuItem.fromJson(Map<String, dynamic> j) {
     int money(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
