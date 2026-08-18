@@ -16,6 +16,17 @@ android {
     namespace = "app.web.groons.print_bluetooth_thermal"
     compileSdk = 34
 
+    // Samakan target JVM Java & Kotlin. Tanpa ini keduanya jatuh ke default
+    // berbeda (Java 11 vs Kotlin 17) → "Inconsistent JVM-target compatibility".
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
+
     sourceSets {
         main.java.srcDirs += "src/main/kotlin"
     }
