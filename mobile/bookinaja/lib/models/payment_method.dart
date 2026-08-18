@@ -39,11 +39,16 @@ class PaymentMethod {
 
   /// Metode manual (transfer/e-wallet/QRIS) — butuh detail rekening & bisa
   /// diedit admin. Tunai (cash) & gateway TIDAK termasuk; hanya di-on/off-kan.
-  bool get isManual => verificationType.toLowerCase() == 'manual' && !isCash;
+  bool get isManual => verificationType.toLowerCase() == 'manual' && !isCash && !isGateway;
 
   /// Metode berbasis payment gateway (Midtrans/Xendit) — hanya bisa diaktifkan
-  /// bila gateway tenant sudah di-setup.
-  bool get isGateway => verificationType.toLowerCase() == 'gateway';
+  /// bila gateway tenant sudah di-setup. Backend memakai category 'gateway'
+  /// dengan verification_type 'auto' (bukan 'gateway'), jadi deteksi via
+  /// category agar metode online terdeteksi benar.
+  bool get isGateway =>
+      category.toLowerCase() == 'gateway' ||
+      verificationType.toLowerCase() == 'gateway' ||
+      verificationType.toLowerCase() == 'auto';
 
   /// Subtipe metode manual, menentukan form yang tepat.
   PaymentManualKind get manualKind {

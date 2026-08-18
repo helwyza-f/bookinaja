@@ -552,7 +552,7 @@ class _MethodCardState extends State<_MethodCard> {
     if (c.contains('cash') || code.contains('cash')) return Icons.payments_outlined;
     if (c.contains('qris') || code.contains('qris')) return Icons.qr_code_2_rounded;
     if (c.contains('ewallet') || c.contains('wallet')) return Icons.account_balance_wallet_outlined;
-    if (m.verificationType.toLowerCase() == 'gateway') return Icons.credit_card_rounded;
+    if (m.isGateway) return Icons.credit_card_rounded;
     if (c.contains('transfer') || c.contains('bank')) return Icons.account_balance_outlined;
     return Icons.payment_rounded;
   }

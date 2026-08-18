@@ -8,6 +8,7 @@ import 'cancellation_settings.dart';
 import 'app_mode_settings.dart';
 import 'business_profile_hub.dart';
 import 'payment_methods_settings.dart';
+import 'payment_gateway_settings.dart';
 import 'promo_settings_screen.dart';
 import 'receipt_settings_screen.dart';
 
@@ -51,7 +52,10 @@ class SettingsHubScreen extends StatelessWidget {
                 builder: (_) => const PaymentMethodsSettingsScreen()));
           }),
           _tile(context, Icons.vpn_key_outlined, 'Payment gateway',
-              'Midtrans / Xendit otomatis', () => _soon(context, 'Payment gateway'), soon: true),
+              'Midtrans / Xendit otomatis', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const PaymentGatewaySettingsScreen()));
+          }),
           _tile(context, Icons.receipt_long_outlined, 'Nota / struk',
               'Branding, template & printer', () {
             Navigator.of(context).push(MaterialPageRoute(
