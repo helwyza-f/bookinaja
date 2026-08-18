@@ -131,7 +131,7 @@ class BookinajaAdmin extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PosFeedController(posFeedRepo)),
       ],
       child: MaterialApp(
-        title: 'Bookinaja Admin',
+        title: 'Bookinaja',
         debugShowCheckedModeBanner: false,
         theme: BK.theme(),
         // Tutup keyboard saat tap di area kosong (penting di iOS yang tak
