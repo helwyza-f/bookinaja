@@ -435,8 +435,13 @@ class _MethodCardState extends State<_MethodCard> {
 
   Widget _lockedNotice() {
     return GestureDetector(
-      onTap: () => Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => const PaymentGatewaySettingsScreen())),
+      onTap: () async {
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const PaymentGatewaySettingsScreen()));
+        if (!mounted) return;
+        // Perbarui status gateway agar metode ter-unlock bila baru di-setup.
+        await context.read<PaymentMethodsController>().refreshGateway();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(11)),

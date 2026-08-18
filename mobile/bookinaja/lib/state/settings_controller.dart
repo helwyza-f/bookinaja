@@ -41,19 +41,34 @@ class PaymentMethodsController extends ChangeNotifier {
       } catch (_) {
         gateway = const PaymentGateway();
       }
-      state = AsyncValue.data(methods);
+      state = AsyncValue.data(_gated(methods));
     } catch (e) {
       state = AsyncValue.error(e);
     }
     notifyListeners();
   }
 
-  /// Muat ulang hanya status gateway (mis. setelah kembali dari layar setup).
+  /// Muat ulang hanya status gateway (mis. setelah kembali dari layar setup /
+  /// menghapus konfigurasi), lalu terapkan ulang gating ke daftar metode.
   Future<void> refreshGateway() async {
     try {
       gateway = await _repo.getPaymentGateway();
-      notifyListeners();
-    } catch (_) {}
+    } catch (_) {
+      gateway = const PaymentGateway();
+    }
+    if (state.hasData) state = AsyncValue.data(_gated(items));
+    notifyListeners();
+  }
+
+  /// Korelasi gateway ⇄ pembayaran online: metode berbasis gateway TIDAK boleh
+  /// aktif bila gateway belum di-setup. Backend menyimpan is_active apa adanya,
+  /// jadi gating ditegakkan di sini — dipaksa nonaktif saat gateway tak siap,
+  /// baik untuk tampilan maupun payload simpan.
+  List<PaymentMethod> _gated(List<PaymentMethod> list) {
+    if (gatewayReady) return list;
+    return [
+      for (final m in list) (m.isGateway && m.isActive) ? m.copyWith(isActive: false) : m,
+    ];
   }
 
   /// Ganti satu metode di daftar lokal (tanpa simpan).
@@ -71,7 +86,9 @@ class PaymentMethodsController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      state = AsyncValue.data(await _repo.savePaymentMethods(items));
+      // Tegakkan gating sebelum kirim: metode online tak pernah tersimpan aktif
+      // tanpa gateway siap.
+      state = AsyncValue.data(_gated(await _repo.savePaymentMethods(_gated(items))));
       saving = false;
       notifyListeners();
       return true;
