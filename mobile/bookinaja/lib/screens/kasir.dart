@@ -5,7 +5,6 @@ import '../theme.dart';
 import '../ui/toast.dart';
 import '../models/menu_item.dart';
 import '../state/pos_controller.dart';
-import 'kasir_history.dart';
 import 'kasir_open_orders.dart';
 import 'pos_payment_sheet.dart';
 
@@ -51,6 +50,7 @@ class _KasirScreenState extends State<KasirScreen> {
       appBar: AppBar(
         backgroundColor: BK.bg,
         elevation: 0,
+        centerTitle: false,
         leadingWidth: 52,
         titleSpacing: 0,
         title: const Text(
@@ -59,34 +59,17 @@ class _KasirScreenState extends State<KasirScreen> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.only(right: 12),
             child: TextButton.icon(
               onPressed: () => _openOpenOrders(context),
               style: TextButton.styleFrom(
                 foregroundColor: BK.accent,
                 backgroundColor: BK.accentSoft,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              icon: const Icon(Icons.table_restaurant_rounded, size: 18),
-              label: const Text('Terbuka', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: TextButton.icon(
-              onPressed: () => _openHistory(context),
-              style: TextButton.styleFrom(
-                foregroundColor: BK.ink2,
-                backgroundColor: BK.card,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               icon: const Icon(Icons.receipt_long_rounded, size: 18),
-              label: const Text(
-                'Riwayat',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-              ),
+              label: const Text('Pesanan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
             ),
           ),
         ],
@@ -237,14 +220,6 @@ class _KasirScreenState extends State<KasirScreen> {
           ? BkToast.success(context, 'Pesanan dibuka', subtitle: 'Tersimpan di Pesanan terbuka.')
           : BkToast.error(context, ctrl.checkoutError ?? 'Gagal membuka pesanan');
     }
-  }
-
-  Future<void> _openHistory(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const KasirHistoryScreen(),
-      ),
-    );
   }
 
   Future<void> _openOpenOrders(BuildContext context) async {

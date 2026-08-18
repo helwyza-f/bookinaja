@@ -42,6 +42,7 @@ class _View extends StatelessWidget {
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
+        centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
         title: const Text('Biaya Operasional',
@@ -543,25 +544,7 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
                     const SizedBox(height: 14),
                     _dateRow(),
                     const SizedBox(height: 14),
-                    _label('Kategori'),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 7, runSpacing: 7, children: [
-                      for (final cat in kExpenseCategories)
-                        GestureDetector(
-                          onTap: () => setState(() => _category = cat),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: _category == cat ? BK.accentSoft : BK.card,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: _category == cat ? BK.accent : BK.line, width: _category == cat ? 1.3 : 1),
-                            ),
-                            child: Text(cat,
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w700, color: _category == cat ? BK.accent : BK.ink2)),
-                          ),
-                        ),
-                    ]),
+                    _categoryRow(),
                     const SizedBox(height: 14),
                     _field('Catatan (opsional)', _notes, hint: 'Vendor, no. nota, dll.', maxLines: 2),
                     const SizedBox(height: 14),
@@ -648,6 +631,64 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
 
   Widget _label(String t) =>
       Text(t, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BK.ink2));
+
+  Widget _categoryRow() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _label('Kategori'),
+      const SizedBox(height: 6),
+      InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: _pickCategory,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(11), border: Border.all(color: BK.line)),
+          child: Row(children: [
+            const Icon(Icons.sell_outlined, size: 16, color: BK.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(_category,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+            ),
+            const Icon(Icons.expand_more_rounded, size: 18, color: BK.ink3),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
+  Future<void> _pickCategory() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: BK.card,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 10),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 14, 20, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Kategori', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BK.ink)),
+            ),
+          ),
+          for (final cat in kExpenseCategories)
+            ListTile(
+              title: Text(cat,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _category == cat ? BK.accent : BK.ink)),
+              trailing: _category == cat ? const Icon(Icons.check_rounded, color: BK.accent, size: 20) : null,
+              onTap: () => Navigator.pop(ctx, cat),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (picked != null) setState(() => _category = picked);
+  }
 
   Widget _dateRow() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

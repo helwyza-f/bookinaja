@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/pos_order.dart';
 import '../state/pos_controller.dart';
 import '../theme.dart';
+import 'kasir_history.dart';
 import 'kasir_order_detail.dart';
 
 /// Daftar pesanan terbuka (bon berjalan) — dine-in / self-order yang belum
@@ -39,10 +40,22 @@ class _KasirOpenOrdersScreenState extends State<KasirOpenOrdersScreen> {
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
+        centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
-        title: const Text('Pesanan terbuka',
+        title: const Text('Pesanan',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: BK.ink)),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const KasirHistoryScreen()),
+            ),
+            style: TextButton.styleFrom(foregroundColor: BK.accent),
+            icon: const Icon(Icons.history_rounded, size: 18),
+            label: const Text('Riwayat', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: FutureBuilder<List<PosOrder>>(
         future: _future,

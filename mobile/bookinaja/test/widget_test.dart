@@ -15,6 +15,7 @@ import 'package:bookinaja/repositories/reports_repository.dart';
 import 'package:bookinaja/repositories/resource_admin_repository.dart';
 import 'package:bookinaja/repositories/discovery_repository.dart';
 import 'package:bookinaja/repositories/customer_booking_repository.dart';
+import 'package:bookinaja/repositories/expense_repository.dart';
 import 'package:bookinaja/repositories/customer_reservation_repository.dart';
 import 'package:bookinaja/repositories/customer_payment_repository.dart';
 import 'package:bookinaja/state/auth_controller.dart';
@@ -37,6 +38,7 @@ void main() {
       fnbRepo: FnbRepository(api),
       reportsRepo: ReportsRepository(api),
       resourceAdminRepo: ResourceAdminRepository(api),
+      expenseRepo: ExpenseRepository(api),
       discoveryRepo: DiscoveryRepository(api),
       customerBookingRepo: CustomerBookingRepository(api),
       customerReservationRepo: CustomerReservationRepository(api),

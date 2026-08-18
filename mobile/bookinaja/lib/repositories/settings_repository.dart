@@ -34,6 +34,24 @@ class SettingsRepository {
         .toList();
   }
 
+  // --- Profil tenant (owner) ---
+
+  /// GET /admin/profile → objek Tenant mentah (map). Dipakai untuk setting yang
+  /// tersimpan di profil, mis. `booking_form_config.fnb_mode`.
+  Future<Map<String, dynamic>> getProfile() async {
+    final res = await _api.get('/admin/profile');
+    return res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+  }
+
+  /// PUT /admin/profile — endpoint menerima objek Tenant UTUH, jadi kirim balik
+  /// map yang sudah dimodifikasi (pola sama seperti web: merge lalu simpan).
+  Future<Map<String, dynamic>> saveProfile(Map<String, dynamic> profile) async {
+    final res = await _api.put('/admin/profile', body: profile);
+    return (res is Map && res['data'] is Map)
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : profile;
+  }
+
   // Simpan sementara untuk mode demo (biar perubahan terlihat dalam sesi).
   static CancellationPolicy _demo = CancellationPolicy.initial;
 

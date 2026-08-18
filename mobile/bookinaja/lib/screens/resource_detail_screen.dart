@@ -50,6 +50,7 @@ class _ViewState extends State<_View> {
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
+        centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
         title: const Text('Detail resource',

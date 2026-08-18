@@ -47,6 +47,7 @@ class _KasirHistoryScreenState extends State<KasirHistoryScreen> {
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
+        centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
         title: const Text(
