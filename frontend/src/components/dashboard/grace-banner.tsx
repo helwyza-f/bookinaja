@@ -12,7 +12,7 @@ import { useAdminSession } from "@/components/dashboard/admin-session-context";
  *   Fase 2 (friksi, hari friction..lock-1): kenyamanan (export, nota WA,
  *     analitik) dicabut + hitung mundur menuju lock. Nada mendesak (orange).
  *   Fase 3 (lock, hari lock+): transaksi/booking/order baru dikunci. Nada
- *     kritis (merah) — "bayar untuk lanjut operasi".
+ *     kritis (merah) — "upgrade untuk lanjut operasi".
  */
 export function GraceBanner({ onUpgrade }: { onUpgrade?: () => void }) {
   const { trialInfo } = useAdminSession();
@@ -33,8 +33,8 @@ export function GraceBanner({ onUpgrade }: { onUpgrade?: () => void }) {
           btn: "bg-red-600 hover:bg-red-700",
           heading: "Operasi dikunci",
           message:
-            "Transaksi, booking, dan order baru dikunci karena langganan lama tidak aktif. Bayar untuk melanjutkan operasi.",
-          cta: "Bayar sekarang",
+            "Transaksi, booking, dan order baru dikunci karena langganan lama tidak aktif. Upgrade untuk melanjutkan operasi.",
+          cta: "Upgrade sekarang",
         }
       : phase >= 2
         ? {
