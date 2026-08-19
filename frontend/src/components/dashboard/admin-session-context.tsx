@@ -16,6 +16,10 @@ export type TrialInfo = {
   plan?: string;
   status?: string;
   daysLeft?: number | null;
+  // Grace mode: langganan non-aktif (trial habis / belum bayar). graceActive =
+  // tak boleh buat item baru; canCreate = kebalikannya. Selaras backend.
+  graceActive?: boolean;
+  canCreate?: boolean;
 };
 
 type AdminSessionContextValue = {

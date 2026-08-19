@@ -66,6 +66,47 @@ class AppModeConfig {
   }
 }
 
+/// Status langganan (grace) tenant aktif. [graceActive] = langganan tidak aktif
+/// (trial habis / belum bayar) → tenant boleh transaksi tapi TIDAK boleh membuat
+/// item baru (unit/resource/promo/item F&B). Selaras dgn middleware backend
+/// RequireActiveSubscription (402 subscription_inactive).
+class GraceState {
+  final bool graceActive;
+  final bool canCreate;
+  final String status; // trial | active | inactive | expired | ...
+
+  const GraceState({
+    required this.graceActive,
+    required this.canCreate,
+    required this.status,
+  });
+
+  /// Default aman: bukan grace (jangan halangi tenant saat data tak tersedia).
+  static const none = GraceState(graceActive: false, canCreate: true, status: '');
+
+  /// Baca dari blok `tenant` bootstrap. Backend lama tanpa field ini → default
+  /// aman (canCreate true) agar tak tiba-tiba memblokir.
+  factory GraceState.fromTenant(Map tenant) {
+    if (!tenant.containsKey('can_create') && !tenant.containsKey('grace_active')) {
+      return none;
+    }
+    final canCreate = tenant['can_create'] != false;
+    return GraceState(
+      graceActive: tenant['grace_active'] == true,
+      canCreate: canCreate,
+      status: '${tenant['status'] ?? ''}',
+    );
+  }
+}
+
+/// Hasil bootstrap admin: Mode Aplikasi + status langganan (grace), dimuat
+/// sekali dari `/admin/me/bootstrap`.
+class BootstrapResult {
+  final AppModeConfig appMode;
+  final GraceState grace;
+  const BootstrapResult({required this.appMode, required this.grace});
+}
+
 /// Autentikasi account-first: login → daftar workspace → pilih workspace.
 class AuthRepository {
   AuthRepository(this._api, this._store);
@@ -105,13 +146,18 @@ class AuthRepository {
   /// gating Mode Aplikasi (booking / kasir A / kasir B). Default [AppModeConfig.fallback]
   /// bila gagal (backend lama / offline) agar app tetap penuh, bukan tiba-tiba
   /// kehilangan booking/kasir.
-  Future<AppModeConfig> fetchAppMode() async {
+  Future<BootstrapResult> fetchBootstrap() async {
     try {
       final res = await _api.get('/admin/me/bootstrap');
       final features = (res is Map && res['features'] is Map) ? res['features'] as Map : const {};
-      return AppModeConfig.fromFeatures(features);
+      final tenant = (res is Map && res['tenant'] is Map) ? res['tenant'] as Map : const {};
+      return BootstrapResult(
+        appMode: AppModeConfig.fromFeatures(features),
+        grace: GraceState.fromTenant(tenant),
+      );
     } catch (_) {
-      return AppModeConfig.fallback;
+      // Backend lama / offline → jangan menghukum tenant: app penuh & tanpa grace.
+      return const BootstrapResult(appMode: AppModeConfig.fallback, grace: GraceState.none);
     }
   }
 

@@ -10,6 +10,7 @@ import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../state/reports_controller.dart';
 import '../theme.dart';
+import '../widgets/grace_banner.dart';
 import 'booking_detail.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
@@ -36,6 +37,7 @@ class DashboardScreen extends StatelessWidget {
           children: [
             const _Header(),
             const SizedBox(height: 14),
+            const GraceBanner(),
             _Hero(dash: dash),
             const SizedBox(height: 16),
             const _SectionLabel('AKSI CEPAT'),

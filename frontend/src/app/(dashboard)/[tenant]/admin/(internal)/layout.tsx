@@ -29,6 +29,7 @@ import { clearTenantSession } from "@/lib/tenant-session";
 import { resolveWorkspaceSwitchUrl } from "@/lib/workspace-routing";
 import { getSettingsDefaultRoute } from "@/components/dashboard/workspace-shell-config";
 import { UpgradePlanDialog } from "@/components/dashboard/upgrade-plan-dialog";
+import { GraceBanner } from "@/components/dashboard/grace-banner";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -210,7 +211,10 @@ export default function DashboardInternalLayout({
               </div>
             </div>
 
-            <AdminMainContent>{children}</AdminMainContent>
+            <AdminMainContent>
+              <GraceBanner onUpgrade={handleOpenUpgrade} />
+              {children}
+            </AdminMainContent>
           </div>
 
           <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />

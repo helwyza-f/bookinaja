@@ -35,6 +35,9 @@ type AdminBootstrapResponse = {
     business_category?: string;
     plan?: string;
     status?: string;
+    period_end?: string | null;
+    grace_active?: boolean;
+    can_create?: boolean;
   };
   features?: {
     enable_discovery_posts?: boolean;
@@ -148,6 +151,11 @@ export function useAdminBootstrap() {
           plan: bootstrap.tenant?.plan || "",
           status: bootstrap.tenant?.status || "",
           daysLeft: null,
+          // Grace: langganan non-aktif → tak boleh buat item baru (selaras
+          // middleware backend RequireActiveSubscription). Default aman:
+          // canCreate true bila backend lama tak mengirim field.
+          graceActive: bootstrap.tenant?.grace_active === true,
+          canCreate: bootstrap.tenant?.can_create !== false,
         },
       });
     } catch (error) {

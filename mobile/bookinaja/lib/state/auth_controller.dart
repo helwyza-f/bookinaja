@@ -30,6 +30,10 @@ class AuthController extends ChangeNotifier {
   // Lihat [AppModeConfig].
   AppModeConfig _appMode = AppModeConfig.fallback;
 
+  // Status langganan (grace) tenant aktif. Menentukan boleh/tidak membuat item
+  // baru (selaras middleware backend RequireActiveSubscription).
+  GraceState _grace = GraceState.none;
+
   AuthRole get role => _role;
   bool get isStaff => _role == AuthRole.tenantStaff;
   bool get isCustomer => _role == AuthRole.customer;
@@ -67,8 +71,17 @@ class AuthController extends ChangeNotifier {
   bool get sessionAddonEnabled =>
       _appMode.appMode == 'booking_pos' && _appMode.posAddonOnSession;
 
+  /// Langganan tenant tidak aktif (trial habis / belum bayar) → mode grace:
+  /// boleh transaksi, tak boleh buat item baru. Untuk banner & disable tombol.
+  bool get graceActive => _grace.graceActive;
+
+  /// Boleh membuat item baru (unit/resource/promo/item F&B). Kebalikan grace.
+  bool get canCreate => _grace.canCreate;
+
   Future<void> _refreshAppMode() async {
-    _appMode = await _repo.fetchAppMode();
+    final res = await _repo.fetchBootstrap();
+    _appMode = res.appMode;
+    _grace = res.grace;
     notifyListeners();
   }
 
@@ -163,6 +176,7 @@ class AuthController extends ChangeNotifier {
     await _repo.leaveWorkspace();
     _workspace = null;
     _appMode = AppModeConfig.fallback;
+    _grace = GraceState.none;
     notifyListeners();
   }
 
@@ -254,6 +268,7 @@ class AuthController extends ChangeNotifier {
     _customer = null;
     _role = AuthRole.none;
     _appMode = AppModeConfig.fallback;
+    _grace = GraceState.none;
     notifyListeners();
   }
 }

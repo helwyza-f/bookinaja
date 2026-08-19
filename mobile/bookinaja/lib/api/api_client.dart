@@ -14,6 +14,11 @@ class ApiException implements Exception {
 
   bool get isUnauthorized => statusCode == 401;
 
+  /// Langganan tenant tidak aktif — backend menolak aksi "buat baru" (grace
+  /// mode, lihat middleware RequireActiveSubscription). Klien bisa mengarahkan
+  /// ke upgrade alih-alih menampilkan error generik.
+  bool get isSubscriptionInactive => statusCode == 402;
+
   @override
   String toString() => message;
 }
