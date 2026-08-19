@@ -8,6 +8,7 @@ import 'booking_dp_settings.dart';
 import 'app_mode_settings.dart';
 import 'payment_methods_settings.dart';
 import 'payment_gateway_settings.dart';
+import 'payment_setup_wizard_screen.dart';
 import 'promo_settings_screen.dart';
 import 'receipt_settings_screen.dart';
 
@@ -43,6 +44,11 @@ class SettingsHubScreen extends StatelessWidget {
           const SizedBox(height: 18),
 
           _section('PEMBAYARAN'),
+          _tile(context, Icons.checklist_rtl, 'Setup wizard',
+              'Panduan setup pembayaran step-by-step', () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const PaymentSetupWizardScreen()));
+          }),
           _tile(context, Icons.account_balance_wallet_outlined, 'Metode pembayaran',
               'Transfer, e-wallet, QRIS, tunai', () {
             Navigator.of(context).push(MaterialPageRoute(

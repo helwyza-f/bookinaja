@@ -20,6 +20,7 @@ import 'kasir_open_orders.dart';
 import 'reports_screen.dart';
 import 'expenses_screen.dart';
 import 'subscription_screen.dart';
+import 'onboarding_progress_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -66,6 +67,29 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(width: 9),
                 _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
               ],
+            ),
+            const SizedBox(height: 18),
+            // Setup status card — quick link ke onboarding progress
+            GestureDetector(
+              onTap: () => _go(context, const OnboardingProgressScreen()),
+              child: BKCard(
+                child: Row(
+                  children: [
+                    const Icon(Icons.checklist_outlined, color: BK.accent, size: 22),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Setup & Status', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
+                          Text('Lihat progress setup bisnis', style: TextStyle(fontSize: 11.5, color: BK.ink3)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 16, color: BK.ink3),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 18),
             if (dash.error != null && !dash.loading)

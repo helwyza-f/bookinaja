@@ -12,6 +12,7 @@ import 'fnb_menu_screen.dart';
 import 'expenses_screen.dart';
 import 'reports_screen.dart';
 import 'resources_screen.dart';
+import 'owner_account_settings.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -81,6 +82,9 @@ class MoreHubScreen extends StatelessWidget {
           const SizedBox(height: 9),
           _tile(context, Icons.storefront_outlined, 'Profil bisnis', 'Nama, kontak, tampilan', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BusinessProfileHubScreen()));
+          }),
+          _tile(context, Icons.person_outline, 'Akun owner', 'Password, email, linked accounts', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerAccountSettingsScreen()));
           }),
           _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
           _tile(context, Icons.tune, 'Pengaturan lanjutan', 'Mode aplikasi, pembayaran, nota, promo', () {
