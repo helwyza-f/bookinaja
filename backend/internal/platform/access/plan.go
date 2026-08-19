@@ -83,55 +83,71 @@ var (
 	planFeatures   = defaultPlanFeatures()
 )
 
+// setOf membangun set fitur dari daftar (dipakai agar tier bisa "mewarisi"
+// tier bawahnya tanpa mengetik ulang & tanpa risiko drift).
+func setOf(features ...Feature) map[Feature]struct{} {
+	out := make(map[Feature]struct{}, len(features))
+	for _, f := range features {
+		out[f] = struct{}{}
+	}
+	return out
+}
+
+// merge menggabungkan beberapa set fitur menjadi satu (tier atas = tier bawah +
+// tambahan).
+func merge(sets ...map[Feature]struct{}) map[Feature]struct{} {
+	out := map[Feature]struct{}{}
+	for _, s := range sets {
+		for f := range s {
+			out[f] = struct{}{}
+		}
+	}
+	return out
+}
+
 func defaultPlanFeatures() map[BillingPlan]map[Feature]struct{} {
+	// Model monetisasi: LANGGANAN. Tidak ada "Free" sebagai produk yang dijual —
+	// Free hanya STATE akun non-aktif (trial habis / belum bayar) yang tetap
+	// boleh menerima DP manual & merampungkan booking berjalan, tapi kehilangan
+	// otomasi. Tangga fitur dibuat monoton: Free ⊂ Starter ⊂ Pro ⊂ Scale, dan
+	// Trial = mirror Pro (mencicipi penuh sebelum bayar).
+	free := setOf(
+		// Non-aktif tetap bisa terima uang (transfer/QRIS + verifikasi admin)
+		// agar aliran DP & booking berjalan tak pernah mati.
+		FeatureManualPaymentVerification,
+	)
+	starter := merge(free, setOf(
+		FeaturePosWorkflow,
+		FeaturePricingRulesFlexible,
+		FeatureAdvancedReceiptBranding,
+		FeatureCustomerImport,
+		FeatureCrmBasic,
+	))
+	pro := merge(starter, setOf(
+		FeaturePaymentMethodManagement, // gateway otomatis Midtrans/Xendit
+		FeatureStaffAccounts,
+		FeatureRolePermissions,
+		FeatureWhatsAppBroadcast,
+		FeatureAdvancedAnalytics,
+		FeatureSmartDevice,
+	))
+	scale := merge(pro, setOf(
+		FeatureMembershipEnabled,
+		FeatureMembershipAutoJoin,
+		FeatureMembershipRewardRedeem,
+		FeatureMembershipAnalytics,
+		FeatureRetentionAnalytics,
+		FeatureGrowthAnalytics,
+		FeatureMultiOutletEnabled,
+		FeatureAdvancedAutomation,
+		FeatureFranchiseVisibility,
+	))
 	return map[BillingPlan]map[Feature]struct{}{
-		PlanTrial: {
-			// Trial fokus evaluasi flow inti. Verifikasi pembayaran manual
-			// dibuka agar tenant bisa menerima DP (transfer/QRIS, verifikasi
-			// admin) selama uji coba; gateway otomatis (Midtrans/Xendit) tetap
-			// terkunci sampai upgrade ke plan berbayar.
-			FeatureManualPaymentVerification: {},
-		},
-		PlanStarter: {
-			// Starter = core booking ops only.
-		},
-		PlanPro: {
-			FeatureAdvancedReceiptBranding:   {},
-			FeatureStaffAccounts:             {},
-			FeatureRolePermissions:           {},
-			FeaturePosWorkflow:               {},
-			FeaturePaymentMethodManagement:   {},
-			FeatureManualPaymentVerification: {},
-			FeatureCustomerImport:            {},
-			FeatureWhatsAppBroadcast:         {},
-			FeaturePricingRulesFlexible:      {},
-			FeatureCrmBasic:                  {},
-			FeatureAdvancedAnalytics:         {},
-			FeatureSmartDevice:               {},
-		},
-		PlanScale: {
-			FeatureAdvancedReceiptBranding:   {},
-			FeatureStaffAccounts:             {},
-			FeatureRolePermissions:           {},
-			FeaturePosWorkflow:               {},
-			FeaturePaymentMethodManagement:   {},
-			FeatureManualPaymentVerification: {},
-			FeatureCustomerImport:            {},
-			FeatureWhatsAppBroadcast:         {},
-			FeaturePricingRulesFlexible:      {},
-			FeatureCrmBasic:                  {},
-			FeatureAdvancedAnalytics:         {},
-			FeatureMembershipEnabled:         {},
-			FeatureMembershipAutoJoin:        {},
-			FeatureMembershipRewardRedeem:    {},
-			FeatureMembershipAnalytics:       {},
-			FeatureRetentionAnalytics:        {},
-			FeatureGrowthAnalytics:           {},
-			FeatureMultiOutletEnabled:        {},
-			FeatureAdvancedAutomation:        {},
-			FeatureFranchiseVisibility:       {},
-			FeatureSmartDevice:               {},
-		},
+		PlanFree:    free,
+		PlanTrial:   pro, // trial mencicipi Pro penuh selama 30 hari
+		PlanStarter: starter,
+		PlanPro:     pro,
+		PlanScale:   scale,
 	}
 }
 
@@ -247,6 +263,7 @@ func NormalizePlanFeatureMatrix(input map[string][]string) map[string][]string {
 	}
 
 	out := map[string][]string{
+		string(PlanFree):    {},
 		string(PlanTrial):   {},
 		string(PlanStarter): {},
 		string(PlanPro):     {},
@@ -269,6 +286,7 @@ func MarshalNormalizedPlanFeatureMatrix(input map[string][]string) ([]byte, erro
 
 func SetPlanFeatureMatrix(input map[string][]string) {
 	normalized := map[BillingPlan]map[Feature]struct{}{
+		PlanFree:    {},
 		PlanTrial:   {},
 		PlanStarter: {},
 		PlanPro:     {},
@@ -296,7 +314,7 @@ func SetPlanFeatureMatrix(input map[string][]string) {
 
 func cloneFeatureMatrix(src map[BillingPlan]map[Feature]struct{}) map[string][]string {
 	out := map[string][]string{}
-	for _, plan := range []BillingPlan{PlanTrial, PlanStarter, PlanPro, PlanScale} {
+	for _, plan := range []BillingPlan{PlanFree, PlanTrial, PlanStarter, PlanPro, PlanScale} {
 		raw := src[plan]
 		list := make([]string, 0, len(raw))
 		for feature := range raw {
