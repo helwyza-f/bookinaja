@@ -86,7 +86,11 @@ var (
 func defaultPlanFeatures() map[BillingPlan]map[Feature]struct{} {
 	return map[BillingPlan]map[Feature]struct{}{
 		PlanTrial: {
-			// Trial sengaja minim, fokus evaluasi flow inti.
+			// Trial fokus evaluasi flow inti. Verifikasi pembayaran manual
+			// dibuka agar tenant bisa menerima DP (transfer/QRIS, verifikasi
+			// admin) selama uji coba; gateway otomatis (Midtrans/Xendit) tetap
+			// terkunci sampai upgrade ke plan berbayar.
+			FeatureManualPaymentVerification: {},
 		},
 		PlanStarter: {
 			// Starter = core booking ops only.
