@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, Lock, ShieldAlert, X } from "lucide-react";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 
 /**
@@ -21,13 +21,14 @@ export function GraceInterstitial({ onUpgrade }: { onUpgrade?: () => void }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (phase < 2) return;
+    // Muncul sejak fase Soft (≥1): tekanan lembut tapi konsisten tiap buka app.
+    if (phase < 1) return;
     if (typeof window === "undefined") return;
     if (window.sessionStorage.getItem(DISMISS_KEY) === String(phase)) return;
     setOpen(true);
   }, [phase]);
 
-  if (!open || phase < 2) return null;
+  if (!open || phase < 1) return null;
 
   const dismiss = () => {
     if (typeof window !== "undefined") {
@@ -37,6 +38,7 @@ export function GraceInterstitial({ onUpgrade }: { onUpgrade?: () => void }) {
   };
 
   const locked = phase >= 3;
+  const soft = phase < 2; // fase 1: fitur masih penuh, hanya "buat baru" terkunci
   const lockDay = trialInfo?.lockDay ?? 15;
   const days = trialInfo?.graceDays ?? 0;
   const daysToLock = Math.max(0, lockDay - days);
@@ -61,21 +63,31 @@ export function GraceInterstitial({ onUpgrade }: { onUpgrade?: () => void }) {
           className={`flex h-12 w-12 items-center justify-center rounded-xl ${
             locked
               ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
-              : "bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400"
+              : soft
+                ? "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
+                : "bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400"
           }`}
         >
-          {locked ? <ShieldAlert className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
+          {locked ? (
+            <ShieldAlert className="h-6 w-6" />
+          ) : soft ? (
+            <Lock className="h-6 w-6" />
+          ) : (
+            <AlertTriangle className="h-6 w-6" />
+          )}
         </div>
 
         <h2 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
-          {locked ? "Operasi terkunci" : "Langganan perlu diperpanjang"}
+          {locked ? "Operasi terkunci" : soft ? "Langganan berakhir" : "Langganan perlu diperpanjang"}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
           {locked
             ? "Karena langganan sudah lama tidak aktif, transaksi, booking, dan order baru kini dikunci. Pembayaran memulihkan operasi seketika."
-            : daysToLock > 0
-              ? `Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Transaksi masih berjalan ${daysToLock} hari lagi sebelum operasi dikunci.`
-              : "Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Operasi akan segera dikunci."}
+            : soft
+              ? "Transaksi & booking masih berjalan penuh, tapi menambah unit, promo, atau item baru terkunci. Perpanjang untuk membukanya kembali."
+              : daysToLock > 0
+                ? `Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Transaksi masih berjalan ${daysToLock} hari lagi sebelum operasi dikunci.`
+                : "Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Operasi akan segera dikunci."}
         </p>
 
         <div className="mt-6 flex gap-3">

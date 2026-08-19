@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../screens/paywall_screen.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
 
@@ -74,6 +75,24 @@ class GraceBanner extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          Align(
+            alignment: Alignment.center,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: accent,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => PaywallScreen.show(context),
+              child: Text(
+                phase >= 3 ? 'Bayar' : 'Upgrade',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -86,7 +105,7 @@ class GraceBanner extends StatelessWidget {
 int _graceInterstitialShownPhase = -1;
 
 /// Widget nol-ukuran yang, saat pertama dibangun pada sesi app, memunculkan
-/// dialog paywall bila fase grace ≥ 2 (friksi/lock). Bisa ditutup. Letakkan di
+/// dialog paywall bila grace aktif (fase ≥ 1: soft/friksi/lock). Bisa ditutup. Letakkan di
 /// pohon layar utama (mis. children ListView dashboard).
 class GraceInterstitial extends StatefulWidget {
   const GraceInterstitial({super.key});
@@ -106,49 +125,13 @@ class _GraceInterstitialState extends State<GraceInterstitial> {
     if (!mounted) return;
     final auth = context.read<AuthController>();
     final phase = auth.gracePhase;
-    if (phase < 2) return;
+    // Muncul sejak fase Soft (≥1): tekanan lembut tapi konsisten tiap buka-app.
+    if (phase < 1) return;
     if (_graceInterstitialShownPhase == phase) return;
     _graceInterstitialShownPhase = phase;
 
-    final locked = phase >= 3;
-    final daysToLock = (auth.graceLockDay - auth.graceDays).clamp(0, 9999);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: BK.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        icon: Icon(
-          locked ? Icons.lock_outline : Icons.warning_amber_rounded,
-          color: BK.crit,
-          size: 32,
-        ),
-        title: Text(
-          locked ? 'Operasi terkunci' : 'Langganan perlu diperpanjang',
-          style: const TextStyle(fontWeight: FontWeight.w800, color: BK.ink, fontSize: 17),
-        ),
-        content: Text(
-          locked
-              ? 'Karena langganan sudah lama tidak aktif, transaksi, booking, dan order baru kini dikunci. Pembayaran memulihkan operasi seketika.'
-              : (daysToLock > 0
-                  ? 'Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Transaksi masih berjalan $daysToLock hari lagi sebelum operasi dikunci.'
-                  : 'Kenyamanan seperti export laporan, kirim nota WhatsApp, dan analitik sudah dinonaktifkan. Operasi akan segera dikunci.'),
-          style: const TextStyle(color: BK.ink2, fontSize: 13, height: 1.4),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Nanti dulu', style: TextStyle(color: BK.ink2)),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: BK.crit),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(locked ? 'Bayar sekarang' : 'Upgrade'),
-          ),
-        ],
-      ),
-    );
+    // Paywall full-screen yang menyela — bisa ditutup. Menggantikan dialog kecil.
+    PaywallScreen.show(context);
   }
 
   @override
@@ -168,6 +151,11 @@ bool guardCanCreate(BuildContext context, {String? item}) {
       SnackBar(
         backgroundColor: BK.ink,
         content: Text('Langganan berakhir — upgrade untuk menambah $label.'),
+        action: SnackBarAction(
+          label: 'Upgrade',
+          textColor: Colors.white,
+          onPressed: () => PaywallScreen.show(context),
+        ),
       ),
     );
   return false;
@@ -186,6 +174,11 @@ bool guardCanTransact(BuildContext context, {String? action}) {
       SnackBar(
         backgroundColor: BK.crit,
         content: Text('Operasi dikunci — bayar langganan untuk melanjutkan $label.'),
+        action: SnackBarAction(
+          label: 'Bayar',
+          textColor: Colors.white,
+          onPressed: () => PaywallScreen.show(context),
+        ),
       ),
     );
   return false;
