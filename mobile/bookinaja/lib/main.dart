@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'api/api_client.dart';
 import 'data/token_store.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/billing_repository.dart';
 import 'repositories/customer_auth_repository.dart';
 import 'repositories/booking_repository.dart';
 import 'repositories/pos_repository.dart';
@@ -50,6 +51,7 @@ void main() {
         CustomerAuthRepository(api, tokenStore),
       )..bootstrap(),
       bookingRepo: BookingRepository(api),
+      billingRepo: BillingRepository(api),
       posRepo: PosRepository(api),
       customersRepo: CustomersRepository(api),
       posFeedRepo: PosFeedRepository(api),
@@ -70,6 +72,7 @@ void main() {
 class BookinajaAdmin extends StatelessWidget {
   final AuthController authController;
   final BookingRepository bookingRepo;
+  final BillingRepository billingRepo;
   final PosRepository posRepo;
   final CustomersRepository customersRepo;
   final PosFeedRepository posFeedRepo;
@@ -87,6 +90,7 @@ class BookinajaAdmin extends StatelessWidget {
     super.key,
     required this.authController,
     required this.bookingRepo,
+    required this.billingRepo,
     required this.posRepo,
     required this.customersRepo,
     required this.posFeedRepo,
@@ -107,6 +111,7 @@ class BookinajaAdmin extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<BookingRepository>.value(value: bookingRepo),
+        Provider<BillingRepository>.value(value: billingRepo),
         Provider<CatalogRepository>.value(value: catalogRepo),
         Provider<PosRepository>.value(value: posRepo),
         Provider<CustomersRepository>.value(value: customersRepo),

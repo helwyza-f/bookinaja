@@ -86,6 +86,10 @@ class GraceState {
   final int lockDay;
   final bool transactionsAllowed;
 
+  /// Akhir masa berlaku langganan/trial (tenant.period_end). Untuk hitung mundur
+  /// sisa trial di hero & chip nudge.
+  final DateTime? periodEnd;
+
   const GraceState({
     required this.graceActive,
     required this.canCreate,
@@ -95,6 +99,7 @@ class GraceState {
     this.frictionDay = 8,
     this.lockDay = 15,
     this.transactionsAllowed = true,
+    this.periodEnd,
   });
 
   /// Default aman: bukan grace (jangan halangi tenant saat data tak tersedia).
@@ -119,16 +124,32 @@ class GraceState {
       frictionDay: tenant['grace_friction_day'] is int ? tenant['grace_friction_day'] as int : 8,
       lockDay: tenant['grace_lock_day'] is int ? tenant['grace_lock_day'] as int : 15,
       transactionsAllowed: tenant['transactions_allowed'] != false,
+      periodEnd: (tenant['period_end'] is String && (tenant['period_end'] as String).isNotEmpty)
+          ? DateTime.tryParse(tenant['period_end'] as String)
+          : null,
     );
   }
 }
 
-/// Hasil bootstrap admin: Mode Aplikasi + status langganan (grace), dimuat
-/// sekali dari `/admin/me/bootstrap`.
+/// Hasil bootstrap admin: Mode Aplikasi + status langganan (grace) + plan &
+/// fitur efektif, dimuat sekali dari `/admin/me/bootstrap`.
 class BootstrapResult {
   final AppModeConfig appMode;
   final GraceState grace;
-  const BootstrapResult({required this.appMode, required this.grace});
+
+  /// Tier langganan tenant (free|trial|starter|pro|scale). Dari `tenant.plan`.
+  final String plan;
+
+  /// Daftar fitur EFEKTIF (sudah grace-aware dari backend). Dari
+  /// `features.plan_features`.
+  final List<String> planFeatures;
+
+  const BootstrapResult({
+    required this.appMode,
+    required this.grace,
+    this.plan = '',
+    this.planFeatures = const [],
+  });
 }
 
 /// Autentikasi account-first: login → daftar workspace → pilih workspace.
@@ -178,6 +199,10 @@ class AuthRepository {
       return BootstrapResult(
         appMode: AppModeConfig.fromFeatures(features),
         grace: GraceState.fromTenant(tenant),
+        plan: '${tenant['plan'] ?? ''}'.toLowerCase(),
+        planFeatures: (features['plan_features'] is List)
+            ? (features['plan_features'] as List).map((e) => '$e').toList()
+            : const [],
       );
     } catch (_) {
       // Backend lama / offline → jangan menghukum tenant: app penuh & tanpa grace.

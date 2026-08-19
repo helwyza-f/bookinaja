@@ -9,14 +9,17 @@ import '../state/async_value.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../state/reports_controller.dart';
+import '../models/subscription_view.dart';
 import '../theme.dart';
 import '../widgets/grace_banner.dart';
 import 'booking_detail.dart';
+import 'paywall_screen.dart';
 import 'create_booking.dart';
 import 'kasir.dart';
 import 'kasir_open_orders.dart';
 import 'reports_screen.dart';
 import 'expenses_screen.dart';
+import 'subscription_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -37,8 +40,6 @@ class DashboardScreen extends StatelessWidget {
           children: [
             const _Header(),
             const SizedBox(height: 14),
-            const GraceInterstitial(),
-            const GraceBanner(),
             _Hero(dash: dash),
             const SizedBox(height: 16),
             const _SectionLabel('AKSI CEPAT'),
@@ -116,6 +117,36 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
+/// Chip langganan mungil di header saat grace aktif — tenang, bisa diabaikan,
+/// warna ikut fase (Berakhir/Dibatasi/Terkunci). Tap → paywall kontekstual.
+class _GraceChip extends StatelessWidget {
+  final SubView view;
+  const _GraceChip({required this.view});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (view.tone) {
+      SubTone.soft => BK.pend,
+      SubTone.friction => const Color(0xFFEA6D24),
+      SubTone.locked => BK.crit,
+      _ => BK.pend,
+    };
+    final icon = view.tone == SubTone.locked ? Icons.lock_outline : Icons.error_outline;
+    return GestureDetector(
+      onTap: () => PaywallScreen.show(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(view.pill, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+        ]),
+      ),
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   const _Header();
 
@@ -147,6 +178,28 @@ class _Header extends StatelessWidget {
             ],
           ]),
         ),
+        // Chip langganan di header — pengganti banner sebalok yang mengganggu.
+        // Grace (fase-aware) didahulukan; kalau tidak, tampilkan nudge trial.
+        if (auth.graceActive) ...[
+          _GraceChip(view: auth.subView),
+          const SizedBox(width: 8),
+        ] else if (auth.trialDaysLeft != null && auth.trialDaysLeft! <= 7) ...[
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SubscriptionScreen())),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(color: BK.pendSoft, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.access_time, size: 13, color: BK.pend),
+                const SizedBox(width: 5),
+                Text(auth.trialDaysLeft == 0 ? 'Trial · hari ini' : 'Trial · ${auth.trialDaysLeft} hari',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.pend)),
+              ]),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         const SizedBox(width: 10),
         PopupMenuButton<String>(
           onSelected: (v) {
@@ -608,8 +661,6 @@ class _KasirDashboardView extends StatelessWidget {
           children: [
             const _Header(),
             const SizedBox(height: 14),
-            const GraceInterstitial(),
-            const GraceBanner(),
             _KasirHero(state: state),
             const SizedBox(height: 16),
             const _SectionLabel('AKSI CEPAT'),

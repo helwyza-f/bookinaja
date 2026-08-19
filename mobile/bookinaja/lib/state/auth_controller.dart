@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/account.dart';
 import '../models/customer_account.dart';
+import '../models/subscription_view.dart';
 import '../models/workspace.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/customer_auth_repository.dart';
@@ -33,6 +34,11 @@ class AuthController extends ChangeNotifier {
   // Status langganan (grace) tenant aktif. Menentukan boleh/tidak membuat item
   // baru (selaras middleware backend RequireActiveSubscription).
   GraceState _grace = GraceState.none;
+
+  // Tier langganan & fitur efektif tenant aktif (dari bootstrap), untuk paywall
+  // & layar langganan.
+  String _plan = '';
+  List<String> _planFeatures = const [];
 
   AuthRole get role => _role;
   bool get isStaff => _role == AuthRole.tenantStaff;
@@ -89,10 +95,47 @@ class AuthController extends ChangeNotifier {
   /// Boleh membuat transaksi/booking/order baru. False hanya di fase lock.
   bool get transactionsAllowed => _grace.transactionsAllowed;
 
+  /// Tier langganan tenant (free|trial|starter|pro|scale).
+  String get plan => _plan;
+
+  /// Status langganan (trial|active|inactive|expired|...).
+  String get subscriptionStatus => _grace.status;
+
+  /// Fitur efektif (grace-aware) yang aktif untuk tenant.
+  List<String> get planFeatures => _planFeatures;
+
+  /// Owner workspace aktif — hanya owner yang boleh checkout langganan
+  /// (endpoint billing owner-only). Staff diarahkan minta owner.
+  bool get isOwner => (_workspace?.role ?? '').toLowerCase() == 'owner';
+
+  /// Akhir masa berlaku langganan/trial.
+  DateTime? get periodEnd => _grace.periodEnd;
+
+  /// Sisa hari trial (null bila bukan trial atau tanpa tanggal). Dipakai chip
+  /// nudge di header dashboard.
+  int? get trialDaysLeft {
+    if (subscriptionStatus != 'trial' || _grace.periodEnd == null) return null;
+    final d = _grace.periodEnd!.difference(DateTime.now()).inDays;
+    return d < 0 ? 0 : d;
+  }
+
+  /// Deskriptor state langganan — sumber kebenaran untuk hero & kartu status.
+  SubView get subView => SubView.of(
+        grace: graceActive,
+        status: subscriptionStatus,
+        plan: _plan,
+        trialDaysLeft: trialDaysLeft,
+        periodEnd: _grace.periodEnd,
+        gracePhase: gracePhase,
+        daysToLock: (graceLockDay - graceDays).clamp(0, 9999),
+      );
+
   Future<void> _refreshAppMode() async {
     final res = await _repo.fetchBootstrap();
     _appMode = res.appMode;
     _grace = res.grace;
+    _plan = res.plan;
+    _planFeatures = res.planFeatures;
     notifyListeners();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/subscription_view.dart';
 import '../theme.dart';
 import '../models/workspace.dart';
 import '../state/auth_controller.dart';
@@ -76,6 +77,7 @@ class _WorkspaceCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(BK.radius),
       onTap: () => context.read<AuthController>().selectWorkspace(w),
       child: BKCard(
+        padding: const EdgeInsets.all(13),
         child: Row(children: [
           Container(
             width: 48, height: 48,
@@ -85,18 +87,58 @@ class _WorkspaceCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(w.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: BK.ink)),
-              const SizedBox(height: 3),
-              Row(children: [
-                Text(w.slug, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
-                if (w.role.isNotEmpty) ...[const SizedBox(width: 8), Pill.mut(w.role)],
-                if (w.plan.isNotEmpty) ...[const SizedBox(width: 6), Pill.acc(w.plan)],
+              Text(w.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: BK.ink)),
+              const SizedBox(height: 6),
+              // Peran + badge langganan. State langganan (plan/grace) kini
+              // disertakan di list workspace (dari tenants), jadi bisa dipratinjau
+              // sebelum masuk. State detail tetap di hero "Langganan" di dalam.
+              Wrap(spacing: 8, runSpacing: 5, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                _rolePill,
+                _subPill,
               ]),
             ]),
           ),
-          const Icon(Icons.arrow_forward_ios, size: 16, color: BK.ink3),
+          const SizedBox(width: 4),
+          const Icon(Icons.arrow_forward_ios, size: 15, color: BK.ink3),
         ]),
       ),
+    );
+  }
+
+  /// Peran anggota di workspace, huruf kapital rapi (Owner / Staff / …).
+  Widget get _rolePill {
+    final r = w.role.trim();
+    if (r.isEmpty) return const SizedBox.shrink();
+    final label = r[0].toUpperCase() + r.substring(1).toLowerCase();
+    final owner = r.toLowerCase() == 'owner';
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(owner ? Icons.verified_user_outlined : Icons.badge_outlined, size: 13, color: BK.ink3),
+      const SizedBox(width: 5),
+      Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BK.ink2)),
+    ]);
+  }
+
+  /// Badge langganan ringkas (Aktif / Trial / Berakhir / Dibatasi / Terkunci),
+  /// warna naik bertingkat sesuai fase grace.
+  Widget get _subPill {
+    final v = w.subView;
+    final color = switch (v.tone) {
+      SubTone.active => BK.live,
+      SubTone.trial => BK.accent,
+      SubTone.soft => BK.pend,
+      SubTone.friction => const Color(0xFFEA6D24),
+      SubTone.locked => BK.crit,
+      SubTone.unknown => BK.ink3,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(v.pill,
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

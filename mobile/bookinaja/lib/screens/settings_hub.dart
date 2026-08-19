@@ -3,22 +3,18 @@ import 'package:provider/provider.dart';
 
 import '../state/auth_controller.dart';
 import '../theme.dart';
-import '../ui/toast.dart';
 import 'cancellation_settings.dart';
 import 'app_mode_settings.dart';
-import 'business_profile_hub.dart';
 import 'payment_methods_settings.dart';
 import 'payment_gateway_settings.dart';
 import 'promo_settings_screen.dart';
 import 'receipt_settings_screen.dart';
 
-/// Hub pengaturan tenant — kumpulan setting dikelompokkan. Yang belum dibangun
-/// menampilkan toast "segera hadir".
+/// Pengaturan lanjutan tenant — config sekali-atur (mode aplikasi, pembayaran,
+/// nota, kebijakan booking, promo). Item akun yang sering disentuh (Langganan,
+/// Profil bisnis, Staff) hidup di hub "Lainnya", bukan di sini.
 class SettingsHubScreen extends StatelessWidget {
   const SettingsHubScreen({super.key});
-
-  void _soon(BuildContext c, String m) =>
-      BkToast.info(c, m, subtitle: 'Fitur ini segera hadir.');
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +25,7 @@ class SettingsHubScreen extends StatelessWidget {
         centerTitle: false,
         backgroundColor: BK.bg,
         elevation: 0,
-        title: const Text('Pengaturan',
+        title: const Text('Pengaturan lanjutan',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
       ),
       body: ListView(
@@ -78,15 +74,6 @@ class SettingsHubScreen extends StatelessWidget {
             }),
             const SizedBox(height: 18),
           ],
-
-          _section('TIM & USAHA'),
-          _tile(context, Icons.group_outlined, 'Staff & akses',
-              'Anggota tim & role', () => _soon(context, 'Staff'), soon: true),
-          _tile(context, Icons.storefront_outlined, 'Profil bisnis',
-              'Nama, kontak, tampilan', () {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const BusinessProfileHubScreen()));
-          }),
         ],
       ),
     );

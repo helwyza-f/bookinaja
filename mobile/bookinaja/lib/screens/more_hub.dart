@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../state/auth_controller.dart';
+import '../widgets/langganan_hero.dart';
 import 'kasir.dart';
 import 'customers.dart';
 import 'settings_hub.dart';
+import 'business_profile_hub.dart';
 import 'fnb_menu_screen.dart';
 import 'expenses_screen.dart';
 import 'reports_screen.dart';
@@ -28,14 +30,16 @@ class MoreHubScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text('${auth.account?.name ?? ''} · ${ws?.name ?? ''} (${ws?.role ?? ''})', style: const TextStyle(fontSize: 12.5, color: BK.ink3)),
           const SizedBox(height: 16),
-          const Text('OPERASIONAL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+
+          // Hero Langganan di puncak — status akun paling bernilai, dipindah ke
+          // sini dari Setelan agar tak terkubur satu tap lebih dalam.
+          const LanggananHero(),
+          const SizedBox(height: 18),
+
+          // KELOLA = objek & alat bisnis harian (data yang dikelola). Resource
+          // dulu salah kamar di "WORKSPACE"; sekarang sekamar dg Customer/Menu.
+          const Text('KELOLA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
           const SizedBox(height: 9),
-          // Kasir disembunyikan total saat mode F&B "Matikan" — tenant itu
-          // pakai app POS lain (mis. Majoo), Bookinaja fokus booking saja.
-          if (auth.kasirEnabled)
-            _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
-            }),
           // Customer (CRM admin) berbasis booking — riwayatnya menarik dari
           // tabel bookings, bukan sales_order. Di pos_only (booking mati) tile
           // ini disembunyikan; walk-in POS tak memakai CRM ini.
@@ -43,27 +47,43 @@ class MoreHubScreen extends StatelessWidget {
             _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
             }),
-          if (auth.kasirEnabled)
-            _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
-            }),
-          _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExpensesScreen()));
-          }),
-          _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()));
-          }),
-          const SizedBox(height: 18),
-          const Text('WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 9),
-          // Resource hanya relevan saat booking aktif. Kebijakan pembatalan
-          // dipindah ke Settings hub (section BOOKING) agar tak duplikat.
+          // Resource hanya relevan saat booking aktif.
           if (auth.bookingEnabled)
             _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
             }),
+          // Kasir disembunyikan total saat mode F&B "Matikan" — tenant itu
+          // pakai app POS lain (mis. Majoo), Bookinaja fokus booking saja.
+          if (auth.kasirEnabled)
+            _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
+            }),
+          if (auth.kasirEnabled)
+            _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
+            }),
+          const SizedBox(height: 18),
+
+          // KEUANGAN = insight & uang, kelompok mental sendiri.
+          const Text('KEUANGAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 9),
+          _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()));
+          }),
+          _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExpensesScreen()));
+          }),
+          const SizedBox(height: 18),
+
+          // AKUN & PENGATURAN = yang sering disentuh naik ke permukaan; config
+          // sekali-atur diringkas jadi "Pengaturan lanjutan".
+          const Text('AKUN & PENGATURAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+          const SizedBox(height: 9),
+          _tile(context, Icons.storefront_outlined, 'Profil bisnis', 'Nama, kontak, tampilan', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BusinessProfileHubScreen()));
+          }),
           _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
-          _tile(context, Icons.settings_outlined, 'Pengaturan lain', 'Bayar, promo, nota, staff', () {
+          _tile(context, Icons.tune, 'Pengaturan lanjutan', 'Mode aplikasi, pembayaran, nota, promo', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
           }),
           const SizedBox(height: 18),
