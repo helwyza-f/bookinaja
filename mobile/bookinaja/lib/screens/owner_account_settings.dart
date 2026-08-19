@@ -184,6 +184,7 @@ class _View extends StatelessWidget {
     final newPasswordCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
 
+    try {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -233,11 +234,11 @@ class _View extends StatelessWidget {
             style: FilledButton.styleFrom(backgroundColor: BK.accent),
             onPressed: () async {
               if (newPasswordCtrl.text.isEmpty || newPasswordCtrl.text.length < 8) {
-                BkToast.info(context, 'Password minimal 8 karakter');
+                BkToast.info(ctx, 'Password minimal 8 karakter');
                 return;
               }
               if (newPasswordCtrl.text != confirmCtrl.text) {
-                BkToast.info(context, 'Password tidak cocok');
+                BkToast.info(ctx, 'Password tidak cocok');
                 return;
               }
               final ok = await c.updatePassword(
@@ -257,6 +258,11 @@ class _View extends StatelessWidget {
         ],
       ),
     );
+    } finally {
+      oldPasswordCtrl.dispose();
+      newPasswordCtrl.dispose();
+      confirmCtrl.dispose();
+    }
   }
 
   Future<void> _linkGoogle(BuildContext context, OwnerAccountSettingsController c) async {
