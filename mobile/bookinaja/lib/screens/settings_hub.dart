@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
 import 'cancellation_settings.dart';
+import 'booking_dp_settings.dart';
 import 'app_mode_settings.dart';
 import 'payment_methods_settings.dart';
 import 'payment_gateway_settings.dart';
@@ -62,6 +63,11 @@ class SettingsHubScreen extends StatelessWidget {
           // Section booking disembunyikan utuh saat mode kasir-saja.
           if (auth.bookingEnabled) ...[
             _section('BOOKING'),
+            _tile(context, Icons.payments_outlined, 'Kebijakan DP',
+                'Jaminan pembayaran dimuka', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const BookingDpSettingsScreen()));
+            }),
             _tile(context, Icons.event_busy_outlined, 'Kebijakan pembatalan',
                 'Cancel, cutoff, refund DP', () {
               Navigator.of(context).push(MaterialPageRoute(

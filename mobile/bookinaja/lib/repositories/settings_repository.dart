@@ -236,4 +236,36 @@ class SettingsRepository {
     final data = (res is Map && res['data'] is Map) ? Map<String, dynamic>.from(res['data'] as Map) : null;
     return data != null ? CancellationPolicy.fromJson(data) : p;
   }
+
+  // --- Kebijakan DP (Down Payment) ---
+
+  static dynamic _demoDpPolicy = {'dp_mode': 'off', 'dp_value': 0};
+
+  /// GET /admin/booking-dp-settings → global DP policy (mode + value).
+  /// Dipanggil dari BookingDpSettingsScreen.
+  Future<dynamic> getBookingDpPolicy() async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return _demoDpPolicy;
+    }
+    try {
+      final res = await _api.get('/admin/booking-dp-settings');
+      if (res is Map && res['data'] is Map) {
+        return Map<String, dynamic>.from(res['data'] as Map);
+      }
+      return res is Map ? res : {'dp_mode': 'off', 'dp_value': 0};
+    } catch (_) {
+      return {'dp_mode': 'off', 'dp_value': 0};
+    }
+  }
+
+  /// PUT /admin/booking-dp-settings → simpan global DP policy.
+  Future<void> saveBookingDpPolicy(dynamic policy) async {
+    if (AppConfig.useDemoData) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      _demoDpPolicy = policy;
+      return;
+    }
+    await _api.put('/admin/booking-dp-settings', body: policy is Map ? policy : {'dp_mode': 'off', 'dp_value': 0});
+  }
 }
