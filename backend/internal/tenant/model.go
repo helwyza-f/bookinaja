@@ -465,6 +465,17 @@ type AdminBootstrapTenant struct {
 	// "＋ Buat". Selaras dgn middleware RequireActiveSubscription.
 	GraceActive bool `json:"grace_active"`
 	CanCreate   bool `json:"can_create"`
+	// Eskalasi grace berbasis WAKTU (lihat access.GracePhase):
+	//   GracePhase: 0 aktif | 1 soft (katalog beku, fitur penuh) | 2 friksi
+	//     (convenience dicabut, interstitial) | 3 lock (transaksi baru dikunci)
+	//   GraceDays: umur grace dalam hari sejak langganan lewat
+	//   GraceFrictionDay / GraceLockDay: ambang hari (utk hitung mundur klien)
+	//   TransactionsAllowed: boleh buat transaksi/booking/order baru (false di lock)
+	GracePhase          int  `json:"grace_phase"`
+	GraceDays           int  `json:"grace_days"`
+	GraceFrictionDay    int  `json:"grace_friction_day"`
+	GraceLockDay        int  `json:"grace_lock_day"`
+	TransactionsAllowed bool `json:"transactions_allowed"`
 }
 
 type AdminBootstrapFeatures struct {

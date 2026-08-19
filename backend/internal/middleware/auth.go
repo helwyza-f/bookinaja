@@ -341,10 +341,60 @@ func RequireActiveSubscription(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 402: langganan non-aktif. code dipakai klien utk memunculkan banner
-		// upgrade & menonaktifkan tombol "buat baru".
+		// upgrade & menonaktifkan tombol "buat baru". grace_phase menyertakan
+		// tingkat eskalasi agar klien tahu ini fase soft/friksi (bukan lock).
 		c.JSON(http.StatusPaymentRequired, gin.H{
-			"error": "Langganan berakhir. Upgrade untuk membuat item baru.",
-			"code":  "subscription_inactive",
+			"error":       "Langganan berakhir. Upgrade untuk membuat item baru.",
+			"code":        "subscription_inactive",
+			"grace_phase": int(access.CurrentGracePhase(snapshot.Status, snapshot.PeriodEnd)),
+		})
+		c.Abort()
+	}
+}
+
+// RequireTransactionsAllowed memblokir pembuatan TRANSAKSI/booking/order baru
+// hanya saat langganan sudah lama non-aktif (fase lock operasional, hari ke-15+
+// default). Ini "opsi terakhir" eskalasi grace: fase soft & friksi tetap boleh
+// bertransaksi — tenant harus bisa menjalankan bisnis selama masih dalam
+// jangkauan tekanan yang lebih lunak. Status dibaca LIVE dari DB.
+func RequireTransactionsAllowed(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if db == nil {
+			c.Next()
+			return
+		}
+		tenantID := strings.TrimSpace(c.GetString("tenantID"))
+		if tenantID == "" {
+			abortForbidden(c, "Context tenant tidak ditemukan")
+			return
+		}
+
+		var snapshot struct {
+			Plan      string     `db:"plan"`
+			Status    string     `db:"subscription_status"`
+			PeriodEnd *time.Time `db:"subscription_current_period_end"`
+		}
+		if err := db.GetContext(
+			c.Request.Context(),
+			&snapshot,
+			`SELECT plan, subscription_status, subscription_current_period_end FROM tenants WHERE id = $1::uuid LIMIT 1`,
+			tenantID,
+		); err != nil {
+			abortForbidden(c, "Tenant tidak ditemukan")
+			return
+		}
+
+		if access.TransactionsAllowed(snapshot.Status, snapshot.PeriodEnd) {
+			c.Next()
+			return
+		}
+
+		// 402 fase lock: transaksi baru dikunci. code berbeda agar klien
+		// menampilkan pesan "bayar untuk lanjut operasi", bukan sekadar banner.
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error":       "Langganan lama tidak aktif. Bayar untuk melanjutkan operasi (transaksi baru dikunci).",
+			"code":        "operations_locked",
+			"grace_phase": int(access.CurrentGracePhase(snapshot.Status, snapshot.PeriodEnd)),
 		})
 		c.Abort()
 	}

@@ -2,7 +2,9 @@ package access
 
 import (
 	"encoding/json"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,14 +20,115 @@ const (
 	PlanScale   BillingPlan = "scale"
 )
 
-// EffectivePlan mengembalikan tier efektif setelah mempertimbangkan status
-// langganan. Jika langganan tidak aktif (mis. trial sudah lewat, atau
-// inactive), tenant jatuh ke tier Free — apa pun nilai kolom plan-nya.
+// GracePhase adalah tingkat eskalasi berbasis WAKTU saat langganan non-aktif.
+// Filosofinya: jangan potong transaksi begitu langganan lewat — naikkan friksi
+// bertahap, dan lock operasional hanya sebagai opsi terakhir yang bisa
+// diantisipasi (bukan cap mendadak). Lihat CurrentGracePhase.
+type GracePhase int
+
+const (
+	// GracePhaseActive: langganan aktif (atau trial berjalan) — tanpa batasan.
+	GracePhaseActive GracePhase = 0
+	// GracePhaseSoft: grace lunak (hari 0..friction-1). Katalog beku (tak boleh
+	// buat item baru) TAPI fitur plan tetap penuh — transaksi, kasir, export,
+	// WA, analitik semua jalan. Cuma banner + tombol "＋ Buat" dikunci.
+	GracePhaseSoft GracePhase = 1
+	// GracePhaseFriction: friksi naik (hari friction..lock-1). Tenant turun ke
+	// tier Free → kehilangan "kenyamanan" (export laporan, kirim nota WA,
+	// analitik) tapi transaksi & kasir MASIH jalan. Klien memunculkan
+	// interstitial paywall yang bisa ditutup.
+	GracePhaseFriction GracePhase = 2
+	// GracePhaseLocked: lock operasional (hari lock+). Baru di sini transaksi/
+	// booking/order baru diblokir — biner, dengan peringatan berhari-hari
+	// sebelumnya. Opsi terakhir.
+	GracePhaseLocked GracePhase = 3
+)
+
+// Ambang hari eskalasi grace, bisa ditimpa lewat env agar tak perlu deploy
+// ulang untuk menyetel tekanan: GRACE_FRICTION_DAY (default 8), GRACE_LOCK_DAY
+// (default 15). friction < lock; nilai tak valid diabaikan (pakai default).
+var (
+	graceFrictionDay = 8
+	graceLockDay     = 15
+)
+
+func init() {
+	f := envInt("GRACE_FRICTION_DAY", graceFrictionDay)
+	l := envInt("GRACE_LOCK_DAY", graceLockDay)
+	if f >= 1 && l > f {
+		graceFrictionDay = f
+		graceLockDay = l
+	}
+}
+
+func envInt(key string, fallback int) int {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
+// GraceThresholds mengembalikan ambang hari (friction, lock) yang berlaku —
+// dipakai klien untuk menampilkan hitung mundur & pesan yang tepat.
+func GraceThresholds() (frictionDay, lockDay int) {
+	return graceFrictionDay, graceLockDay
+}
+
+// DaysSinceLapse: berapa hari (penuh) sejak langganan lewat masa berlaku.
+// periodEnd nil (non-aktif tanpa tanggal) → anggap baru lapse (0). Negatif
+// (periodEnd di masa depan tapi status non-aktif) → clamp ke 0.
+func DaysSinceLapse(periodEnd *time.Time) int {
+	if periodEnd == nil {
+		return 0
+	}
+	d := int(time.Now().UTC().Sub(periodEnd.UTC()).Hours() / 24)
+	if d < 0 {
+		return 0
+	}
+	return d
+}
+
+// CurrentGracePhase menurunkan fase eskalasi dari status + tanggal akhir
+// langganan. Tak perlu kolom baru: umur grace = now - periodEnd.
+func CurrentGracePhase(status string, periodEnd *time.Time) GracePhase {
+	if IsSubscriptionActive(status, periodEnd) {
+		return GracePhaseActive
+	}
+	switch days := DaysSinceLapse(periodEnd); {
+	case days < graceFrictionDay:
+		return GracePhaseSoft
+	case days < graceLockDay:
+		return GracePhaseFriction
+	default:
+		return GracePhaseLocked
+	}
+}
+
+// CanCreateNew: boleh membuat item baru (unit/resource/promo/item) — hanya saat
+// langganan benar-benar aktif. Grace fase apa pun → katalog beku.
+func CanCreateNew(status string, periodEnd *time.Time) bool {
+	return CurrentGracePhase(status, periodEnd) == GracePhaseActive
+}
+
+// TransactionsAllowed: boleh membuat transaksi/booking/order baru. Diblokir
+// hanya di fase lock (opsi terakhir).
+func TransactionsAllowed(status string, periodEnd *time.Time) bool {
+	return CurrentGracePhase(status, periodEnd) < GracePhaseLocked
+}
+
+// EffectivePlan mengembalikan tier efektif setelah mempertimbangkan fase grace.
+// Fase aktif & soft → plan asli (grace lunak tetap fitur penuh). Fase friksi &
+// lock → Free: "kenyamanan" (export/WA/analitik) dicabut, sisakan transaksi
+// dasar + verifikasi pembayaran manual.
 func EffectivePlan(plan, status string, periodEnd *time.Time) BillingPlan {
-	if !IsSubscriptionActive(status, periodEnd) {
+	switch CurrentGracePhase(status, periodEnd) {
+	case GracePhaseActive, GracePhaseSoft:
+		return NormalizePlan(plan)
+	default:
 		return PlanFree
 	}
-	return NormalizePlan(plan)
 }
 
 // UnitLimit adalah batas jumlah resource/unit per tier. -1 = tanpa batas.
@@ -184,16 +287,13 @@ func NormalizeStatus(value string) SubscriptionStatus {
 }
 
 func HasFeature(plan, status string, feature Feature, periodEnd *time.Time) bool {
-	if !IsSubscriptionActive(status, periodEnd) {
-		return false
-	}
-
-	normalizedPlan := NormalizePlan(plan)
+	// Grace-aware: fase soft tetap fitur penuh, fase friksi/lock jatuh ke Free.
+	effective := EffectivePlan(plan, status, periodEnd)
 
 	planFeaturesMu.RLock()
 	defer planFeaturesMu.RUnlock()
 
-	features := planFeatures[normalizedPlan]
+	features := planFeatures[effective]
 	_, ok := features[feature]
 	return ok
 }
@@ -255,6 +355,15 @@ func ResolvePlanFeaturesWithMatrix(plan string, matrix map[string][]string) []st
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ResolveEffectivePlanFeaturesWithMatrix mengembalikan daftar fitur EFEKTIF
+// sesuai fase grace: fase aktif/soft → fitur plan asli; fase friksi/lock →
+// fitur Free. Dipakai di bootstrap & snapshot JWT agar gating klien dan
+// gating server sepakat (convenience benar-benar hilang di fase friksi).
+func ResolveEffectivePlanFeaturesWithMatrix(plan, status string, periodEnd *time.Time, matrix map[string][]string) []string {
+	effective := EffectivePlan(plan, status, periodEnd)
+	return ResolvePlanFeaturesWithMatrix(string(effective), matrix)
 }
 
 func NormalizePlanFeatureMatrix(input map[string][]string) map[string][]string {

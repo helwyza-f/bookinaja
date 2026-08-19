@@ -38,6 +38,11 @@ type AdminBootstrapResponse = {
     period_end?: string | null;
     grace_active?: boolean;
     can_create?: boolean;
+    grace_phase?: number;
+    grace_days?: number;
+    grace_friction_day?: number;
+    grace_lock_day?: number;
+    transactions_allowed?: boolean;
   };
   features?: {
     enable_discovery_posts?: boolean;
@@ -156,6 +161,17 @@ export function useAdminBootstrap() {
           // canCreate true bila backend lama tak mengirim field.
           graceActive: bootstrap.tenant?.grace_active === true,
           canCreate: bootstrap.tenant?.can_create !== false,
+          gracePhase:
+            typeof bootstrap.tenant?.grace_phase === "number"
+              ? bootstrap.tenant.grace_phase
+              : bootstrap.tenant?.grace_active === true
+                ? 1
+                : 0,
+          graceDays: bootstrap.tenant?.grace_days ?? 0,
+          frictionDay: bootstrap.tenant?.grace_friction_day ?? 8,
+          lockDay: bootstrap.tenant?.grace_lock_day ?? 15,
+          // Default aman: backend lama tanpa field → anggap transaksi boleh.
+          transactionsAllowed: bootstrap.tenant?.transactions_allowed !== false,
         },
       });
     } catch (error) {

@@ -30,6 +30,7 @@ import { resolveWorkspaceSwitchUrl } from "@/lib/workspace-routing";
 import { getSettingsDefaultRoute } from "@/components/dashboard/workspace-shell-config";
 import { UpgradePlanDialog } from "@/components/dashboard/upgrade-plan-dialog";
 import { GraceBanner } from "@/components/dashboard/grace-banner";
+import { GraceInterstitial } from "@/components/dashboard/grace-interstitial";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -217,6 +218,7 @@ export default function DashboardInternalLayout({
             </AdminMainContent>
           </div>
 
+          <GraceInterstitial onUpgrade={handleOpenUpgrade} />
           <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
         </div>
       </TooltipProvider>

@@ -10,7 +10,11 @@ import '../config.dart';
 class ApiException implements Exception {
   final int statusCode;
   final String message;
-  ApiException(this.statusCode, this.message);
+
+  /// Kode mesin dari backend (mis. `subscription_inactive`, `operations_locked`)
+  /// untuk membedakan jenis 402 tanpa mengandalkan teks pesan.
+  final String? code;
+  ApiException(this.statusCode, this.message, {this.code});
 
   bool get isUnauthorized => statusCode == 401;
 
@@ -18,6 +22,10 @@ class ApiException implements Exception {
   /// mode, lihat middleware RequireActiveSubscription). Klien bisa mengarahkan
   /// ke upgrade alih-alih menampilkan error generik.
   bool get isSubscriptionInactive => statusCode == 402;
+
+  /// Fase lock operasional (hari ke-15+): transaksi/booking/order baru dikunci
+  /// (middleware RequireTransactionsAllowed, code `operations_locked`).
+  bool get isOperationsLocked => statusCode == 402 && code == 'operations_locked';
 
   @override
   String toString() => message;
@@ -127,7 +135,8 @@ class ApiClient {
     final msg = (parsed is Map && parsed['error'] is String)
         ? parsed['error'] as String
         : 'Terjadi kesalahan (${res.statusCode}).';
-    throw ApiException(res.statusCode, msg);
+    final code = (parsed is Map && parsed['code'] is String) ? parsed['code'] as String : null;
+    throw ApiException(res.statusCode, msg, code: code);
   }
 
   dynamic _tryDecode(String s) {

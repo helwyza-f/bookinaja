@@ -78,6 +78,17 @@ class AuthController extends ChangeNotifier {
   /// Boleh membuat item baru (unit/resource/promo/item F&B). Kebalikan grace.
   bool get canCreate => _grace.canCreate;
 
+  /// Fase eskalasi grace berbasis waktu: 0 aktif | 1 soft | 2 friksi | 3 lock.
+  int get gracePhase => _grace.phase;
+
+  /// Umur grace (hari sejak langganan lewat) & ambang hari lock, utk hitung
+  /// mundur di banner/interstitial.
+  int get graceDays => _grace.days;
+  int get graceLockDay => _grace.lockDay;
+
+  /// Boleh membuat transaksi/booking/order baru. False hanya di fase lock.
+  bool get transactionsAllowed => _grace.transactionsAllowed;
+
   Future<void> _refreshAppMode() async {
     final res = await _repo.fetchBootstrap();
     _appMode = res.appMode;

@@ -2777,7 +2777,11 @@ func (s *Service) buildEntitlementSnapshot(ctx context.Context, tenantID uuid.UU
 	return auth.EntitlementSnapshot{
 		Plan:               tenant.Plan,
 		SubscriptionStatus: tenant.SubscriptionStatus,
-		PlanFeatures:       access.ResolvePlanFeaturesWithMatrix(tenant.Plan, matrix),
+		// Grace-aware: fase friksi/lock jatuh ke fitur Free (convenience dicabut).
+		// JWT claim & gating server jadi sepakat dgn UX klien.
+		PlanFeatures: access.ResolveEffectivePlanFeaturesWithMatrix(
+			tenant.Plan, tenant.SubscriptionStatus, tenant.SubscriptionCurrentPeriodEnd, matrix,
+		),
 		EntitlementVersion: version,
 	}, nil
 }
@@ -2810,13 +2814,25 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 		return nil, err
 	}
 	item.Features.PlanFeatureMatrix = matrix
-	item.Features.PlanFeatures = access.ResolvePlanFeaturesWithMatrix(item.Tenant.Plan, matrix)
-	// Mode grace: langganan non-aktif → tak boleh buat item baru (selaras dgn
-	// middleware RequireActiveSubscription). Klien pakai flag ini utk banner
-	// upgrade & menonaktifkan tombol "＋ Buat".
-	active := access.IsSubscriptionActive(item.Tenant.Status, item.Tenant.PeriodEnd)
-	item.Tenant.GraceActive = !active
-	item.Tenant.CanCreate = active
+	// Grace-aware: fase friksi/lock → daftar fitur Free (convenience dicabut),
+	// selaras JWT snapshot & gating server.
+	item.Features.PlanFeatures = access.ResolveEffectivePlanFeaturesWithMatrix(
+		item.Tenant.Plan, item.Tenant.Status, item.Tenant.PeriodEnd, matrix,
+	)
+	// Eskalasi grace berbasis waktu. Fase apa pun ≥ soft → katalog beku (tak
+	// boleh buat item baru, selaras middleware RequireActiveSubscription); fase
+	// lock → transaksi baru dikunci (RequireTransactionsAllowed). Klien pakai
+	// grace_phase + ambang hari utk banner bertingkat, interstitial, & hitung
+	// mundur.
+	phase := access.CurrentGracePhase(item.Tenant.Status, item.Tenant.PeriodEnd)
+	frictionDay, lockDay := access.GraceThresholds()
+	item.Tenant.GracePhase = int(phase)
+	item.Tenant.GraceActive = phase != access.GracePhaseActive
+	item.Tenant.CanCreate = phase == access.GracePhaseActive
+	item.Tenant.TransactionsAllowed = phase < access.GracePhaseLocked
+	item.Tenant.GraceDays = access.DaysSinceLapse(item.Tenant.PeriodEnd)
+	item.Tenant.GraceFrictionDay = frictionDay
+	item.Tenant.GraceLockDay = lockDay
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}

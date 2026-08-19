@@ -37,6 +37,7 @@ class DashboardScreen extends StatelessWidget {
           children: [
             const _Header(),
             const SizedBox(height: 14),
+            const GraceInterstitial(),
             const GraceBanner(),
             _Hero(dash: dash),
             const SizedBox(height: 16),
@@ -46,14 +47,18 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 // Booking disembunyikan saat mode kasir-saja (pos_only).
                 if (auth.bookingEnabled) ...[
-                  _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () => _go(context, const CreateBookingScreen())),
+                  _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () {
+                    if (guardCanTransact(context, action: 'booking baru')) _go(context, const CreateBookingScreen());
+                  }),
                   const SizedBox(width: 9),
                 ],
                 // Kasir selalu tampil sebagai quick action (bukan tab bottom
                 // nav) agar letaknya konsisten di semua mode — kecuali saat
                 // Kasir A dimatikan (kasirEnabled == false).
                 if (auth.kasirEnabled) ...[
-                  _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
+                  _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
+                    if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
+                  }),
                   const SizedBox(width: 9),
                 ],
                 _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
@@ -603,12 +608,16 @@ class _KasirDashboardView extends StatelessWidget {
           children: [
             const _Header(),
             const SizedBox(height: 14),
+            const GraceInterstitial(),
+            const GraceBanner(),
             _KasirHero(state: state),
             const SizedBox(height: 16),
             const _SectionLabel('AKSI CEPAT'),
             const SizedBox(height: 9),
             Row(children: [
-              _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () => _go(context, const KasirScreen())),
+              _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
+                if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
+              }),
               const SizedBox(width: 9),
               _QuickAction(Icons.receipt_long_outlined, 'Order', BK.accent, onTap: () => _go(context, const KasirOpenOrdersScreen())),
               const SizedBox(width: 9),

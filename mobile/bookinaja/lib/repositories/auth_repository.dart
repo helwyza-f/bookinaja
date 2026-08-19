@@ -74,11 +74,27 @@ class GraceState {
   final bool graceActive;
   final bool canCreate;
   final String status; // trial | active | inactive | expired | ...
+  // Eskalasi grace berbasis WAKTU (selaras access.GracePhase backend):
+  //   phase: 0 aktif | 1 soft (katalog beku) | 2 friksi (convenience dicabut)
+  //          | 3 lock (transaksi baru dikunci)
+  //   days: umur grace (hari sejak langganan lewat)
+  //   frictionDay/lockDay: ambang hari utk hitung mundur
+  //   transactionsAllowed: boleh buat transaksi/booking/order baru
+  final int phase;
+  final int days;
+  final int frictionDay;
+  final int lockDay;
+  final bool transactionsAllowed;
 
   const GraceState({
     required this.graceActive,
     required this.canCreate,
     required this.status,
+    this.phase = 0,
+    this.days = 0,
+    this.frictionDay = 8,
+    this.lockDay = 15,
+    this.transactionsAllowed = true,
   });
 
   /// Default aman: bukan grace (jangan halangi tenant saat data tak tersedia).
@@ -91,10 +107,18 @@ class GraceState {
       return none;
     }
     final canCreate = tenant['can_create'] != false;
+    final graceActive = tenant['grace_active'] == true;
     return GraceState(
-      graceActive: tenant['grace_active'] == true,
+      graceActive: graceActive,
       canCreate: canCreate,
       status: '${tenant['status'] ?? ''}',
+      phase: tenant['grace_phase'] is int
+          ? tenant['grace_phase'] as int
+          : (graceActive ? 1 : 0),
+      days: tenant['grace_days'] is int ? tenant['grace_days'] as int : 0,
+      frictionDay: tenant['grace_friction_day'] is int ? tenant['grace_friction_day'] as int : 8,
+      lockDay: tenant['grace_lock_day'] is int ? tenant['grace_lock_day'] as int : 15,
+      transactionsAllowed: tenant['transactions_allowed'] != false,
     );
   }
 }

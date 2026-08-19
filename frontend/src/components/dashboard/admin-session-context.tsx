@@ -20,6 +20,16 @@ export type TrialInfo = {
   // tak boleh buat item baru; canCreate = kebalikannya. Selaras backend.
   graceActive?: boolean;
   canCreate?: boolean;
+  // Eskalasi grace berbasis WAKTU (selaras access.GracePhase backend):
+  //   gracePhase: 0 aktif | 1 soft | 2 friksi | 3 lock
+  //   graceDays: umur grace (hari sejak langganan lewat)
+  //   frictionDay / lockDay: ambang hari utk hitung mundur
+  //   transactionsAllowed: boleh buat transaksi/booking/order baru
+  gracePhase?: number;
+  graceDays?: number;
+  frictionDay?: number;
+  lockDay?: number;
+  transactionsAllowed?: boolean;
 };
 
 type AdminSessionContextValue = {
