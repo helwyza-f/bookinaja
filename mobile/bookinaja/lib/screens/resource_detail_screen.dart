@@ -694,6 +694,8 @@ class _BasicsSheetState extends State<_BasicsSheet> {
   late final TextEditingController _category;
   late final TextEditingController _desc;
   late final TextEditingController _about;
+  late final TextEditingController _dpPercentage;
+  late bool _dpEnabled;
 
   @override
   void initState() {
@@ -702,6 +704,8 @@ class _BasicsSheetState extends State<_BasicsSheet> {
     _category = TextEditingController(text: widget.resource.category);
     _desc = TextEditingController(text: widget.resource.description);
     _about = TextEditingController(text: widget.resource.about);
+    _dpPercentage = TextEditingController(text: widget.resource.dpPercentage == 0 ? '' : widget.resource.dpPercentage.toStringAsFixed(0));
+    _dpEnabled = widget.resource.dpEnabled;
   }
 
   @override
@@ -710,6 +714,7 @@ class _BasicsSheetState extends State<_BasicsSheet> {
     _category.dispose();
     _desc.dispose();
     _about.dispose();
+    _dpPercentage.dispose();
     super.dispose();
   }
 
@@ -719,11 +724,14 @@ class _BasicsSheetState extends State<_BasicsSheet> {
       BkToast.warning(context, 'Nama wajib diisi');
       return;
     }
+    final dpPct = double.tryParse(_dpPercentage.text) ?? 0;
     Navigator.of(context).pop(widget.resource.copyWith(
       name: name,
       category: _category.text.trim().toUpperCase(),
       description: _desc.text.trim(),
       about: _about.text.trim(),
+      dpEnabled: _dpEnabled,
+      dpPercentage: dpPct.clamp(0, 100),
     ));
   }
 
@@ -759,6 +767,53 @@ class _BasicsSheetState extends State<_BasicsSheet> {
                     style: TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
                 const SizedBox(height: 12),
                 _field('Tentang unit ini (opsional)', _about, hint: 'Deskripsi naratif, bukan daftar', maxLines: 4),
+                const SizedBox(height: 18),
+                const Divider(height: 1, color: BK.line),
+                const SizedBox(height: 12),
+                // DP Override section
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Override DP', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink)),
+                          Text('Gunakan % custom untuk unit ini', style: TextStyle(fontSize: 11, color: BK.ink3)),
+                        ],
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: 0.8,
+                      child: Switch(
+                        value: _dpEnabled,
+                        activeThumbColor: BK.live,
+                        onChanged: (v) => setState(() => _dpEnabled = v),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_dpEnabled) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _dpPercentage,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            hintText: '0-100',
+                            hintStyle: const TextStyle(color: BK.ink3),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onChanged: (v) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('%', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,

@@ -266,4 +266,67 @@ class SettingsRepository {
     }
     await _api.put('/deposit-settings', body: policy);
   }
+
+  // --- Owner Account Settings ---
+
+  /// GET /admin/account → data akun owner (name, email, password status, google link).
+  Future<Map<String, dynamic>> getOwnerAccount() async {
+    try {
+      final res = await _api.get('/admin/account');
+      return res is Map ? Map<String, dynamic>.from(res) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// POST /admin/account/password/change → ubah password (ada password lama)
+  /// atau POST /admin/account/password/setup → setup password pertama kali.
+  Future<void> updateOwnerPassword({String? oldPassword, required String newPassword}) async {
+    if (oldPassword == null || oldPassword.isEmpty) {
+      // Setup pertama kali (no old password)
+      await _api.post('/admin/account/password/setup', body: {'new_password': newPassword});
+    } else {
+      // Change (ada old password)
+      await _api.post('/admin/account/password/change', body: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      });
+    }
+  }
+
+  /// POST /admin/account/google/link → hubungkan akun Google.
+  Future<void> linkOwnerGoogle() async {
+    await _api.post('/admin/account/google/link');
+  }
+
+  /// DELETE /admin/account → hapus akun owner & workspace selamanya.
+  Future<void> deleteOwnerAccount() async {
+    await _api.delete('/admin/account');
+  }
+
+  // --- Onboarding Progress ---
+
+  /// GET /admin/tenant/onboarding-summary → checklist setup tasks.
+  /// Response: {tasks: [{id, name, description, completed, action_url}]}
+  Future<Map<String, dynamic>> getOnboardingProgress() async {
+    try {
+      final res = await _api.get('/admin/tenant/onboarding-summary');
+      return res is Map ? Map<String, dynamic>.from(res) : {'tasks': []};
+    } catch (_) {
+      return {'tasks': []};
+    }
+  }
+
+  // --- Payment Setup Wizard ---
+
+  /// GET /admin/payment-setup/status → check payment setup progress.
+  /// Response: {has_gateway, has_payment_method, has_test_payment}
+  Future<Map<String, dynamic>> getPaymentSetupStatus() async {
+    try {
+      final res = await _api.get('/admin/payment-setup/status');
+      return res is Map ? Map<String, dynamic>.from(res) : {};
+    } catch (_) {
+      return {};
+    }
+  }
 }
