@@ -133,7 +133,13 @@ class ResourceDetailController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Simpan perubahan data utama (nama, kategori, deskripsi, status, dsb.).
+  /// Update resource state locally (untuk UI real-time).
+  void editResource(AdminResource next) {
+    state = AsyncValue.data(next);
+    notifyListeners();
+  }
+
+  /// Simpan perubahan data utama (nama, kategori, deskripsi, status, DP override, dsb.).
   Future<bool> saveBasics(AdminResource next) async {
     saving = true;
     error = null;

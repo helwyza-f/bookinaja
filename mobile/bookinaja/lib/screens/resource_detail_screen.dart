@@ -354,6 +354,10 @@ class _ViewState extends State<_View> {
             _advancedRow('Fasilitas', r.description.isEmpty ? '—' : r.description),
             if (r.about.isNotEmpty) _advancedRow('Tentang', r.about),
             _advancedRow('Mode operasi', r.operatingMode.isEmpty ? 'Default' : r.operatingMode),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: BK.line),
+            const SizedBox(height: 12),
+            _dpOverrideSection(context, c, r),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
@@ -379,6 +383,61 @@ class _ViewState extends State<_View> {
           ],
         ),
       ),
+    );
+  }
+
+  /// DP override section — toggle + percentage input untuk override global policy.
+  Widget _dpOverrideSection(BuildContext context, ResourceDetailController c, AdminResource r) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Override DP', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink)),
+                  Text('Gunakan % custom untuk resource ini', style: TextStyle(fontSize: 11, color: BK.ink3)),
+                ],
+              ),
+            ),
+            Transform.scale(
+              scale: 0.8,
+              child: Switch(
+                value: r.dpEnabled,
+                activeThumbColor: BK.live,
+                onChanged: (v) => c.editResource(r.copyWith(dpEnabled: v)),
+              ),
+            ),
+          ],
+        ),
+        if (r.dpEnabled) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: r.dpPercentage == 0 ? '' : r.dpPercentage.toStringAsFixed(0)),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: '0-100',
+                    hintStyle: const TextStyle(color: BK.ink3),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onChanged: (v) {
+                    final pct = double.tryParse(v) ?? 0;
+                    c.editResource(r.copyWith(dpPercentage: pct.clamp(0, 100)));
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text('%', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: BK.ink)),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
