@@ -239,33 +239,31 @@ class SettingsRepository {
 
   // --- Kebijakan DP (Down Payment) ---
 
-  static dynamic _demoDpPolicy = {'dp_mode': 'off', 'dp_value': 0};
+  static dynamic _demoDpPolicy = {'dp_enabled': false, 'dp_percentage': 0, 'resource_configs': []};
 
-  /// GET /admin/booking-dp-settings → global DP policy (mode + value).
-  /// Dipanggil dari BookingDpSettingsScreen.
+  /// GET /deposit-settings → global DP policy dari backend.
+  /// Response: {dp_enabled, dp_percentage, resource_configs[]}
   Future<dynamic> getBookingDpPolicy() async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       return _demoDpPolicy;
     }
     try {
-      final res = await _api.get('/admin/booking-dp-settings');
-      if (res is Map && res['data'] is Map) {
-        return Map<String, dynamic>.from(res['data'] as Map);
-      }
-      return res is Map ? res : {'dp_mode': 'off', 'dp_value': 0};
+      final res = await _api.get('/deposit-settings');
+      return res is Map ? res : {'dp_enabled': false, 'dp_percentage': 0, 'resource_configs': []};
     } catch (_) {
-      return {'dp_mode': 'off', 'dp_value': 0};
+      return {'dp_enabled': false, 'dp_percentage': 0, 'resource_configs': []};
     }
   }
 
-  /// PUT /admin/booking-dp-settings → simpan global DP policy.
-  Future<void> saveBookingDpPolicy(dynamic policy) async {
+  /// PUT /deposit-settings → simpan global DP policy.
+  /// Body: {dp_enabled, dp_percentage, resource_configs[]}
+  Future<void> saveBookingDpPolicy(Map<String, dynamic> policy) async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 400));
       _demoDpPolicy = policy;
       return;
     }
-    await _api.put('/admin/booking-dp-settings', body: policy is Map ? policy : {'dp_mode': 'off', 'dp_value': 0});
+    await _api.put('/deposit-settings', body: policy);
   }
 }

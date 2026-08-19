@@ -83,59 +83,67 @@ class _View extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('MODE DP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-              const SizedBox(height: 10),
-              _modeOption('Nonaktif', 'off', p.mode == 'off', () => c.edit(p.copyWith(mode: 'off'))),
-              const SizedBox(height: 10),
-              _modeOption('Persentase dari harga', 'percentage', p.mode == 'percentage', () => c.edit(p.copyWith(mode: 'percentage'))),
-              const SizedBox(height: 10),
-              _modeOption('Nominal tetap', 'fixed', p.mode == 'fixed', () => c.edit(p.copyWith(mode: 'fixed'))),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Aktifkan DP', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink)),
+                        SizedBox(height: 2),
+                        Text('Customer bayar % dari harga saat booking',
+                            style: TextStyle(fontSize: 11.5, color: BK.ink3)),
+                      ],
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: p.dpEnabled,
+                      activeThumbColor: BK.live,
+                      onChanged: (v) => c.edit(p.copyWith(dpEnabled: v)),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
         const SizedBox(height: 16),
 
-        // Input DP value (hanya tampil kalau mode aktif)
-        if (p.mode != 'off') ...[
+        // Percentage input (hanya tampil kalau enabled)
+        if (p.dpEnabled) ...[
           BKCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  p.mode == 'percentage' ? 'PERSENTASE' : 'NOMINAL',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3),
-                ),
+                const Text('PERSENTASE DP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: TextEditingController(text: '${p.value}'),
+                        controller: TextEditingController(text: p.dpPercentage == 0 ? '' : p.dpPercentage.toStringAsFixed(0)),
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          hintText: p.mode == 'percentage' ? '0-100' : '0',
+                          hintText: '0-100',
                           hintStyle: const TextStyle(color: BK.ink3),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         ),
                         onChanged: (v) {
-                          final val = int.tryParse(v) ?? 0;
-                          c.edit(p.copyWith(value: val.clamp(0, p.mode == 'percentage' ? 100 : 999999999)));
+                          final val = double.tryParse(v) ?? 0;
+                          c.edit(p.copyWith(dpPercentage: val.clamp(0, 100)));
                         },
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      p.mode == 'percentage' ? '%' : 'Rp',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: BK.ink),
-                    ),
+                    const Text('%', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: BK.ink)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  p.mode == 'percentage'
-                      ? 'Customer bayar ${p.value}% dari harga resource saat booking.'
-                      : 'Customer bayar Rp${(p.value).toStringAsFixed(0)} sebagai DP untuk setiap booking.',
+                  'Customer wajib bayar ${p.dpPercentage.toStringAsFixed(0)}% dari harga booking sebagai DP.',
                   style: const TextStyle(fontSize: 11.5, color: BK.ink3, height: 1.4),
                 ),
               ],
@@ -148,21 +156,19 @@ class _View extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: BK.card2, borderRadius: BorderRadius.circular(12), border: Border.all(color: BK.line)),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(children: [
+              Row(children: [
                 Icon(Icons.info_outline, size: 16, color: BK.accent),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'DP ditampilkan di halaman booking customer. Sisa pembayaran dibayar saat kedatangan atau sesuai policy.',
+                    'DP global berlaku untuk semua resource. Override per-resource tersedia di advanced settings resource detail.',
                     style: TextStyle(fontSize: 12, color: BK.ink2, height: 1.4),
                   ),
                 ),
               ]),
-              const SizedBox(height: 10),
-              const Text('Tip: Override per-resource ada di detail resource (advanced).', style: TextStyle(fontSize: 11, color: BK.ink3, fontStyle: FontStyle.italic)),
             ],
           ),
         ),
@@ -170,70 +176,85 @@ class _View extends StatelessWidget {
     );
   }
 
-  Widget _modeOption(String label, String mode, bool selected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? BK.accentSoft : BK.card2,
-          border: Border.all(color: selected ? BK.accent : BK.line),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              size: 20,
-              color: selected ? BK.accent : BK.ink3,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(label, style: TextStyle(fontSize: 13.5, color: selected ? BK.accent : BK.ink, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // --- Controller ---
 
+/// Global DP policy dari backend (/deposit-settings).
+/// dp_enabled: true jika DP wajib, false = nonaktif.
+/// dp_percentage: % dari harga resource yang harus dibayar sebagai DP.
 class BookingDpPolicy {
-  final String mode; // off | percentage | fixed
-  final int value; // persentase (0-100) atau nominal (Rp)
+  final bool dpEnabled;
+  final double dpPercentage; // 0-100
+  final List<ResourceDpOverride> resourceConfigs;
 
   const BookingDpPolicy({
-    this.mode = 'off',
-    this.value = 0,
+    this.dpEnabled = false,
+    this.dpPercentage = 0,
+    this.resourceConfigs = const [],
   });
 
-  BookingDpPolicy copyWith({String? mode, int? value}) {
+  BookingDpPolicy copyWith({bool? dpEnabled, double? dpPercentage, List<ResourceDpOverride>? resourceConfigs}) {
     return BookingDpPolicy(
-      mode: mode ?? this.mode,
-      value: value ?? this.value,
+      dpEnabled: dpEnabled ?? this.dpEnabled,
+      dpPercentage: dpPercentage ?? this.dpPercentage,
+      resourceConfigs: resourceConfigs ?? this.resourceConfigs,
     );
   }
 
   factory BookingDpPolicy.fromJson(Map json) {
-    final m = '${json['dp_mode'] ?? 'off'}'.toLowerCase();
+    final configs = (json['resource_configs'] is List)
+        ? (json['resource_configs'] as List).whereType<Map>().map((e) => ResourceDpOverride.fromJson(Map<String, dynamic>.from(e))).toList()
+        : <ResourceDpOverride>[];
     return BookingDpPolicy(
-      mode: m,
-      value: (json['dp_value'] is num) ? (json['dp_value'] as num).toInt() : 0,
+      dpEnabled: json['dp_enabled'] == true,
+      dpPercentage: (json['dp_percentage'] is num) ? (json['dp_percentage'] as num).toDouble() : 0,
+      resourceConfigs: configs,
     );
   }
 
   Map toJson() => {
-        'dp_mode': mode,
-        'dp_value': value,
+        'dp_enabled': dpEnabled,
+        'dp_percentage': dpPercentage,
+        'resource_configs': resourceConfigs.map((e) => e.toJson()).toList(),
+      };
+}
+
+/// Per-resource DP override (optional).
+class ResourceDpOverride {
+  final String resourceId;
+  final bool overrideDp;
+  final bool dpEnabled;
+  final double dpPercentage;
+
+  const ResourceDpOverride({
+    required this.resourceId,
+    this.overrideDp = false,
+    this.dpEnabled = false,
+    this.dpPercentage = 0,
+  });
+
+  factory ResourceDpOverride.fromJson(Map<String, dynamic> json) {
+    return ResourceDpOverride(
+      resourceId: '${json['resource_id'] ?? ''}',
+      overrideDp: json['override_dp'] == true,
+      dpEnabled: json['dp_enabled'] == true,
+      dpPercentage: (json['dp_percentage'] is num) ? (json['dp_percentage'] as num).toDouble() : 0,
+    );
+  }
+
+  Map toJson() => {
+        'resource_id': resourceId,
+        'override_dp': overrideDp,
+        'dp_enabled': dpEnabled,
+        'dp_percentage': dpPercentage,
       };
 }
 
 class BookingDpSettingsController extends ChangeNotifier {
   final SettingsRepository _repo;
   AsyncValue<BookingDpPolicy> state = const AsyncValue.loading();
-  BookingDpPolicy _policy = const BookingDpPolicy();
+  BookingDpPolicy _policy = const BookingDpPolicy(dpEnabled: false, dpPercentage: 0);
   bool saving = false;
   String? error;
 
@@ -265,7 +286,8 @@ class BookingDpSettingsController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      await _repo.saveBookingDpPolicy(_policy.toJson());
+      final json = Map<String, dynamic>.from(_policy.toJson());
+      await _repo.saveBookingDpPolicy(json);
       saving = false;
       notifyListeners();
       return true;
