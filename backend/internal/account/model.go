@@ -177,8 +177,11 @@ type FirstBookingReq struct {
 
 type WorkspaceListItem struct {
 	Workspace
-	Role            string           `json:"role"`
-	OnboardingState *OnboardingState `json:"onboarding_state,omitempty"`
+	Role string `json:"role"`
+	// Sumber langganan dari tenants (kebenaran), untuk badge plan/grace di picker.
+	SubscriptionPeriodEnd *time.Time       `db:"subscription_current_period_end" json:"subscription_period_end,omitempty"`
+	GracePhase            int              `db:"-" json:"grace_phase"`
+	OnboardingState       *OnboardingState `json:"onboarding_state,omitempty"`
 }
 
 type CreateWorkspaceResponse struct {

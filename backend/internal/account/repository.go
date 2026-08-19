@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
@@ -241,13 +242,16 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 
 func (r *Repository) ListWorkspacesByAccountID(ctx context.Context, accountID uuid.UUID) ([]WorkspaceListItem, error) {
 	var rows []WorkspaceListItem
+	// Plan/status/period_end diambil dari tenants (sumber kebenaran langganan,
+	// sama dgn bootstrap), bukan kolom denormalisasi di workspaces yg bisa basi.
 	err := r.db.SelectContext(ctx, &rows, `
 		SELECT
-			w.id, w.tenant_id, w.owner_user_id, w.name, w.slug, w.business_category, w.business_type, w.status, w.plan,
-			w.subscription_status, w.timezone, w.whatsapp_number, w.created_at, w.updated_at,
-			wm.role
+			w.id, w.tenant_id, w.owner_user_id, w.name, w.slug, w.business_category, w.business_type, w.status,
+			t.plan, t.subscription_status, w.timezone, w.whatsapp_number, w.created_at, w.updated_at,
+			wm.role, t.subscription_current_period_end
 		FROM workspace_memberships wm
 		JOIN workspaces w ON w.id = wm.workspace_id
+		JOIN tenants t ON t.id = w.tenant_id
 		WHERE wm.account_id = $1
 		  AND wm.status = 'active'
 		ORDER BY wm.created_at ASC
@@ -257,6 +261,9 @@ func (r *Repository) ListWorkspacesByAccountID(ctx context.Context, accountID uu
 	}
 
 	for i := range rows {
+		// Fase grace dihitung server-side agar picker bisa tampilkan badge yang
+		// konsisten dgn bootstrap (soft/friksi/lock).
+		rows[i].GracePhase = int(access.CurrentGracePhase(rows[i].SubscriptionStatus, rows[i].SubscriptionPeriodEnd))
 		state, err := r.GetOnboardingState(ctx, rows[i].ID)
 		if err != nil {
 			return nil, err
