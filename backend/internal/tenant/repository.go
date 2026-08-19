@@ -1291,6 +1291,7 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 		BusinessCategory     string         `db:"business_category"`
 		TenantPlan           string         `db:"tenant_plan"`
 		TenantStatus         string         `db:"tenant_status"`
+		TenantPeriodEnd      *time.Time     `db:"tenant_period_end"`
 	}
 
 	var item row
@@ -1310,7 +1311,8 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			COALESCE(t.logo_url, '') AS tenant_logo_url,
 			t.business_category,
 			t.plan AS tenant_plan,
-			t.subscription_status AS tenant_status
+			t.subscription_status AS tenant_status,
+			t.subscription_current_period_end AS tenant_period_end
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
 		LEFT JOIN staff_roles sr ON sr.id = u.role_id
@@ -1360,6 +1362,7 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			BusinessCategory: item.BusinessCategory,
 			Plan:             item.TenantPlan,
 			Status:           item.TenantStatus,
+			PeriodEnd:        item.TenantPeriodEnd,
 		},
 		Features: AdminBootstrapFeatures{
 			EnableDiscoveryPosts: enableDiscoveryPosts,

@@ -451,13 +451,20 @@ type AdminBootstrapUser struct {
 }
 
 type AdminBootstrapTenant struct {
-	ID               uuid.UUID `json:"id"`
-	Name             string    `json:"name"`
-	Slug             string    `json:"slug"`
-	LogoURL          string    `json:"logo_url"`
-	BusinessCategory string    `json:"business_category"`
-	Plan             string    `json:"plan"`
-	Status           string    `json:"status"`
+	ID               uuid.UUID  `json:"id"`
+	Name             string     `json:"name"`
+	Slug             string     `json:"slug"`
+	LogoURL          string     `json:"logo_url"`
+	BusinessCategory string     `json:"business_category"`
+	Plan             string     `json:"plan"`
+	Status           string     `json:"status"`
+	PeriodEnd        *time.Time `json:"period_end,omitempty"`
+	// GraceActive: langganan non-aktif (trial habis / belum bayar) → tenant
+	// masuk mode grace (boleh transaksi, tak boleh buat item baru). CanCreate =
+	// kebalikannya; dipakai klien utk banner upgrade & menonaktifkan tombol
+	// "＋ Buat". Selaras dgn middleware RequireActiveSubscription.
+	GraceActive bool `json:"grace_active"`
+	CanCreate   bool `json:"can_create"`
 }
 
 type AdminBootstrapFeatures struct {

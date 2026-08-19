@@ -303,6 +303,53 @@ func PlatformOnly() gin.HandlerFunc {
 	}
 }
 
+// RequireActiveSubscription memblokir aksi "buat baru" (ekspansi katalog/
+// konfigurasi) ketika langganan tenant TIDAK aktif (trial habis / belum bayar).
+// Prinsip grace: tenant boleh MENJALANKAN bisnis (transaksi, pembayaran,
+// penyelesaian booking) tapi tidak MEMBANGUN (unit/resource/promo/item baru).
+// Status dibaca LIVE dari DB agar keputusan tak terpengaruh token yang basi.
+func RequireActiveSubscription(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if db == nil {
+			c.Next()
+			return
+		}
+		tenantID := strings.TrimSpace(c.GetString("tenantID"))
+		if tenantID == "" {
+			abortForbidden(c, "Context tenant tidak ditemukan")
+			return
+		}
+
+		var snapshot struct {
+			Plan      string     `db:"plan"`
+			Status    string     `db:"subscription_status"`
+			PeriodEnd *time.Time `db:"subscription_current_period_end"`
+		}
+		if err := db.GetContext(
+			c.Request.Context(),
+			&snapshot,
+			`SELECT plan, subscription_status, subscription_current_period_end FROM tenants WHERE id = $1::uuid LIMIT 1`,
+			tenantID,
+		); err != nil {
+			abortForbidden(c, "Tenant tidak ditemukan")
+			return
+		}
+
+		if access.IsSubscriptionActive(snapshot.Status, snapshot.PeriodEnd) {
+			c.Next()
+			return
+		}
+
+		// 402: langganan non-aktif. code dipakai klien utk memunculkan banner
+		// upgrade & menonaktifkan tombol "buat baru".
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error": "Langganan berakhir. Upgrade untuk membuat item baru.",
+			"code":  "subscription_inactive",
+		})
+		c.Abort()
+	}
+}
+
 func RequirePermission(required ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if HasAnyPermission(c, required...) {

@@ -2811,6 +2811,12 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	}
 	item.Features.PlanFeatureMatrix = matrix
 	item.Features.PlanFeatures = access.ResolvePlanFeaturesWithMatrix(item.Tenant.Plan, matrix)
+	// Mode grace: langganan non-aktif → tak boleh buat item baru (selaras dgn
+	// middleware RequireActiveSubscription). Klien pakai flag ini utk banner
+	// upgrade & menonaktifkan tombol "＋ Buat".
+	active := access.IsSubscriptionActive(item.Tenant.Status, item.Tenant.PeriodEnd)
+	item.Tenant.GraceActive = !active
+	item.Tenant.CanCreate = active
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}
