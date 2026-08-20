@@ -16,22 +16,25 @@ enum _Badge { wajib, opsional }
 /// B = bisa diisi nanti (bawah). Hanya dirender bila section-nya dipakai.
 typedef _LT = ({String tier, String group, String type, String key, String label, String hint, int maxLines});
 
+// hint = teks fallback asli yang dipakai frontend saat prop kosong, jadi
+// placeholder input = persis yang sedang tampil di halaman. Kosongkan field
+// = tetap pakai default ini.
 const List<_LT> _kLandingFields = [
-  (tier: 'A', group: 'DESKRIPSI HERO', type: 'hero', key: 'description', label: 'Deskripsi hero', hint: 'Kalimat pendukung di bawah tagline', maxLines: 2),
-  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'title', label: 'Judul', hint: 'mis. Kenapa orang pilih tempat ini', maxLines: 1),
-  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat penjelasan', maxLines: 3),
-  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'title', label: 'Judul', hint: 'mis. Pilihan tempat', maxLines: 1),
-  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 2),
-  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'eyebrow', label: 'Label kecil', hint: 'mis. Visual Experience', maxLines: 1),
-  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'title', label: 'Judul', hint: 'mis. Suasana tempat', maxLines: 1),
-  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 2),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'title', label: 'Judul', hint: '', maxLines: 1),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 3),
-  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
-  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'title', label: 'Judul', hint: '', maxLines: 1),
-  (tier: 'B', group: 'FAQ', type: 'faq', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
-  (tier: 'B', group: 'FAQ', type: 'faq', key: 'title', label: 'Judul', hint: '', maxLines: 1),
+  (tier: 'A', group: 'DESKRIPSI HERO', type: 'hero', key: 'description', label: 'Deskripsi hero', hint: 'Kelola tampilan halaman publik yang lebih sesuai dengan karakter bisnis kamu.', maxLines: 2),
+  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'title', label: 'Judul', hint: 'Kenapa orang pilih tempat ini', maxLines: 1),
+  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'description', label: 'Deskripsi', hint: 'Informasi yang penting buat customer dibikin singkat, jadi orang cepat paham apa yang menarik dari tempat ini.', maxLines: 3),
+  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'title', label: 'Judul', hint: 'Pilih Layanan', maxLines: 1),
+  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'description', label: 'Deskripsi', hint: 'Tampilkan resource, paket, atau unit yang paling relevan untuk customer.', maxLines: 2),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'eyebrow', label: 'Label kecil', hint: 'Visual Experience', maxLines: 1),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'title', label: 'Judul', hint: 'Inside The Hub.', maxLines: 1),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat (opsional)', maxLines: 2),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section (mis. Tentang)', maxLines: 1),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'title', label: 'Judul', hint: 'Tentang <nama bisnis>', maxLines: 1),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'description', label: 'Deskripsi', hint: 'Default ambil dari field Tentang', maxLines: 3),
+  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section', maxLines: 1),
+  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'title', label: 'Judul', hint: 'Kata pelanggan', maxLines: 1),
+  (tier: 'B', group: 'FAQ', type: 'faq', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section', maxLines: 1),
+  (tier: 'B', group: 'FAQ', type: 'faq', key: 'title', label: 'Judul', hint: 'Pertanyaan yang sering muncul', maxLines: 1),
 ];
 
 class BusinessIdentityScreen extends StatefulWidget {
@@ -421,6 +424,22 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                     // kini satu tempat bareng identitas biar tak terpencar.
                     if (_pb != null) ...[
                       const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          color: BK.card2,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(children: [
+                          Icon(Icons.info_outline_rounded, size: 15, color: BK.ink3),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Teks abu-abu = default yang sedang tampil. Biarkan kosong untuk pakai default, isi untuk mengganti.',
+                                style: TextStyle(fontSize: 11.5, color: BK.ink2, height: 1.35)),
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 12),
                       // Tier A (penting): hero desc -> fitur -> CTA -> keunggulan.
                       ..._landingGroups(tier: 'A', onlyTypes: const {'hero'}),
                       _group('FITUR (CHIPS DI ATAS)', field: 'features'),
