@@ -248,7 +248,7 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                     _field('Tentang', _about,
                         hint: 'Deskripsi singkat bisnismu',
                         maxLines: 4,
-                        location: 'Paragraf di bagian bawah halaman',
+                        location: 'Sub-judul di atas & paragraf di bawah',
                         badge: _Badge.wajib,
                         field: 'about_us'),
                     const SizedBox(height: 8),
