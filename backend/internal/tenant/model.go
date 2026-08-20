@@ -18,6 +18,7 @@ type RegisterReq struct {
 	BusinessCategory string `json:"business_category" binding:"required"` // gaming_hub, creative_space, dll
 	BusinessType     string `json:"business_type"`
 	BootstrapMode    string `json:"bootstrap_mode"`
+	AppMode          string `json:"app_mode"` // booking_pos | booking_only | pos_only
 	ReferralCode     string `json:"referral_code"`
 	AdminName        string `json:"admin_name" binding:"required"`
 	AdminEmail       string `json:"admin_email" binding:"required,email"`

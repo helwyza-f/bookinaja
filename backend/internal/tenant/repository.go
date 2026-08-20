@@ -1706,6 +1706,7 @@ type tenantOnboardingSnapshot struct {
 	HasVisualIdentity   bool `db:"has_visual_identity"`
 	ResourcesCount      int  `db:"resources_count"`
 	PricePackagesCount  int  `db:"price_packages_count"`
+	FnbItemsCount       int  `db:"fnb_items_count"`
 	PaymentReady        bool `db:"payment_ready"`
 	IsPublished         bool `db:"is_published"`
 }
@@ -1773,6 +1774,11 @@ func (r *Repository) GetTenantOnboardingSnapshot(ctx context.Context, tenantID u
 				  AND r.status != 'deleted'
 				  AND LOWER(COALESCE(ri.item_type, '')) IN ('main_option', 'main', 'console_option')
 			) AS price_packages_count,
+			(
+				SELECT COUNT(*)
+				FROM fnb_items
+				WHERE tenant_id = $1
+			) AS fnb_items_count,
 			EXISTS (
 				SELECT 1
 				FROM tenant_payment_methods tpm

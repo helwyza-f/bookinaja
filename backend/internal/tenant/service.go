@@ -1781,6 +1781,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 
 	slug := strings.ToLower(req.TenantSlug)
 	bootstrapMode := normalizeTenantBootstrapMode(req.BootstrapMode)
+	appMode := NormalizeAppMode(req.AppMode)
 	timezone, err := normalizeTenantTimezone(req.Timezone)
 	if err != nil {
 		return nil, err
@@ -1901,6 +1902,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 		PrimaryColor:                   defaultColor,
 		WhatsappNumber:                 req.WhatsappNumber,
 		Timezone:                       timezone,
+		BookingFormConfig:              JSONB(AppModeConfigJSON(appMode)),
 		DiscoveryHeadline:              defaultTagline,
 		DiscoverySubheadline:           fmt.Sprintf("Lihat %s, jadwal, dan penawaran awal dari %s.", strings.ToLower(displayType), req.TenantName),
 		DiscoveryTags:                  pq.StringArray{prettifyLabel(req.BusinessCategory)},
@@ -1954,7 +1956,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 	}
 
 	// 4. Seeding Template Asynchronous
-	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory, bootstrapMode)
+	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory, bootstrapMode, appMode)
 
 	return &RegisterResponse{
 		Token:   token,
@@ -1997,8 +1999,9 @@ func safeTenantHTML(value string) string {
 
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
-func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string, mode string) {
+func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string, mode string, appMode string) {
 	mode = normalizeTenantBootstrapMode(mode)
+	appMode = NormalizeAppMode(appMode)
 	if mode == tenantBootstrapBlank {
 		log.Printf("[SEEDER] bootstrap mode blank: tenant %s created without sample data", tenantID)
 		return
@@ -2023,6 +2026,16 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		return
 	}
 	tpl = reduceTenantTemplateByMode(tpl, mode)
+	// Sesuaikan katalog dengan Mode Aplikasi: pos_only tak butuh resource booking,
+	// booking_only tak butuh produk kasir (F&B).
+	switch appMode {
+	case AppModePosOnly:
+		tpl.Resources = nil
+		tpl.MainItems = nil
+		tpl.UnitAddons = nil
+	case AppModeBookingOnly:
+		tpl.FnbCatalog = nil
+	}
 
 	emptyMeta := json.RawMessage("{}")
 
@@ -2918,6 +2931,27 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 	paymentReady := s.paymentReadyForPublish(ctx, tenantID)
 	snapshot.PaymentReady = paymentReady
 
+	mode := s.tenantAppMode(ctx, tenantID)
+	catalogStep := TenantOnboardingStep{
+		ID:          "resources",
+		Label:       "Tambah resource dan harga",
+		Description: "Pastikan tenant punya resource aktif dan minimal satu paket harga utama.",
+		Href:        "/admin/resources",
+		Complete:    snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0,
+		Required:    true,
+	}
+	if NormalizeAppMode(mode) == AppModePosOnly {
+		// Mode kasir-saja: booking mati, jadi yang wajib adalah produk kasir.
+		catalogStep = TenantOnboardingStep{
+			ID:          "kasir_products",
+			Label:       "Tambah produk kasir",
+			Description: "Tambahkan minimal satu produk/menu supaya kasir bisa mulai transaksi.",
+			Href:        "/admin/fnb",
+			Complete:    snapshot.FnbItemsCount > 0,
+			Required:    true,
+		}
+	}
+
 	steps := []TenantOnboardingStep{
 		{
 			ID:          "identity",
@@ -2927,14 +2961,7 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 			Complete:    snapshot.HasBusinessIdentity && snapshot.HasBusinessContact,
 			Required:    true,
 		},
-		{
-			ID:          "resources",
-			Label:       "Tambah resource dan harga",
-			Description: "Pastikan tenant punya resource aktif dan minimal satu paket harga utama.",
-			Href:        "/admin/resources",
-			Complete:    snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0,
-			Required:    true,
-		},
+		catalogStep,
 		{
 			ID:          "payments",
 			Label:       "Review metode pembayaran",
@@ -2961,7 +2988,7 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 	}
 
 	canPublish := (snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) &&
-		(snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0) &&
+		catalogReady(mode, snapshot) &&
 		snapshot.PaymentReady
 
 	return &TenantOnboardingSummary{
@@ -2986,12 +3013,15 @@ func (s *Service) TenantPublishReadiness(ctx context.Context, tenantID uuid.UUID
 	if err != nil || snapshot == nil {
 		return false, nil, err
 	}
+	mode := s.tenantAppMode(ctx, tenantID)
 	var blocking []string
 	if !(snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) {
 		blocking = append(blocking, "identity")
 	}
-	if !(snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0) {
-		blocking = append(blocking, "resources")
+	// Kesiapan katalog tergantung Mode Aplikasi: pos_only butuh produk kasir,
+	// selain itu butuh resource booking + paket harga. Lihat [catalogReady].
+	if !catalogReady(mode, snapshot) {
+		blocking = append(blocking, catalogBlockingID(mode))
 	}
 	// Sejalan dgn wizard: butuh jalur online usable (transfer/QRIS/gateway), cash
 	// tak cukup. Lihat [paymentReadyForPublish].
@@ -2999,6 +3029,41 @@ func (s *Service) TenantPublishReadiness(ctx context.Context, tenantID uuid.UUID
 		blocking = append(blocking, "payments")
 	}
 	return len(blocking) == 0, blocking, nil
+}
+
+// tenantAppMode mengembalikan Mode Aplikasi kanonik tenant, menurunkan dari
+// skema legacy fnb_mode bila app_mode belum ada. Fallback aman = booking_pos.
+func (s *Service) tenantAppMode(ctx context.Context, tenantID uuid.UUID) string {
+	cfg, err := s.repo.GetTenantAppMode(ctx, tenantID)
+	if err != nil {
+		return AppModeBookingPos
+	}
+	switch cfg.AppMode {
+	case AppModeBookingPos, AppModeBookingOnly, AppModePosOnly:
+		return cfg.AppMode
+	}
+	// Skema lama: hanya "off" yang menandakan reservasi murni; sisanya booking_pos.
+	if strings.EqualFold(strings.TrimSpace(cfg.FnbMode), "off") {
+		return AppModeBookingOnly
+	}
+	return AppModeBookingPos
+}
+
+// catalogReady menyatakan apakah langkah katalog (resource/produk) sudah beres
+// untuk mode tertentu.
+func catalogReady(mode string, snap *tenantOnboardingSnapshot) bool {
+	if NormalizeAppMode(mode) == AppModePosOnly {
+		return snap.FnbItemsCount > 0
+	}
+	return snap.ResourcesCount > 0 && snap.PricePackagesCount > 0
+}
+
+// catalogBlockingID = id langkah katalog yang diblokir, sesuai mode.
+func catalogBlockingID(mode string) string {
+	if NormalizeAppMode(mode) == AppModePosOnly {
+		return "kasir_products"
+	}
+	return "resources"
 }
 
 // SetTenantPublished mengubah status terbit tenant (dipakai handler

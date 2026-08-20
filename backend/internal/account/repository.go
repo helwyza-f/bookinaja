@@ -146,7 +146,7 @@ func (r *Repository) GetTenantIDByReferralCode(ctx context.Context, code string)
 	return &id, nil
 }
 
-func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Workspace, accountID uuid.UUID) (*Workspace, *WorkspaceMembership, *OnboardingState, error) {
+func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Workspace, accountID uuid.UUID, bookingFormConfig []byte) (*Workspace, *WorkspaceMembership, *OnboardingState, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, nil, nil, err
@@ -171,12 +171,14 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 			plan, subscription_status,
 			subscription_current_period_start, subscription_current_period_end,
 			timezone, whatsapp_number,
-			tagline, about_us, primary_color, referral_code, referred_by_tenant_id, created_at
+			tagline, about_us, primary_color, referral_code, referred_by_tenant_id,
+			booking_form_config, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW() + INTERVAL '14 days', $8, $9, $10, $11, $12, $13, $14, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW() + INTERVAL '14 days', $8, $9, $10, $11, $12, $13, $14, $15, NOW())
 	`, tenantID, workspace.Name, workspace.Slug, workspace.BusinessCategory, workspace.BusinessType,
 		workspace.Plan, workspace.SubscriptionStatus, workspace.Timezone, workspace.WhatsappNumber,
-		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode, workspace.ReferredByTenantID); err != nil {
+		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode, workspace.ReferredByTenantID,
+		string(bookingFormConfig)); err != nil {
 		return nil, nil, nil, err
 	}
 

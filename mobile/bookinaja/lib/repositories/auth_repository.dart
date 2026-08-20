@@ -181,8 +181,14 @@ class AuthRepository {
   /// account yang login. Backend auto-generate slug dari nama, default kategori,
   /// dan set trial Pro 14 hari. Mengembalikan slug workspace baru agar bisa
   /// di-auto-pilih setelah daftar dimuat ulang.
-  Future<String> createWorkspace(String name) async {
-    final res = await _api.post('/app/workspaces', body: {'name': name.trim()});
+  /// [appMode] = Mode Aplikasi awal (booking_pos | booking_only | pos_only).
+  /// Ditulis ke booking_form_config tenant sejak dibuat, jadi setup & onboarding
+  /// langsung menyesuaikan.
+  Future<String> createWorkspace(String name, {String appMode = 'booking_pos'}) async {
+    final res = await _api.post('/app/workspaces', body: {
+      'name': name.trim(),
+      'app_mode': appMode,
+    });
     final ws = (res is Map && res['workspace'] is Map) ? res['workspace'] as Map : const {};
     return '${ws['slug'] ?? ''}';
   }

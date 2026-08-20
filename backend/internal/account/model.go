@@ -133,6 +133,7 @@ type CreateWorkspaceReq struct {
 	Name             string `json:"name" binding:"required"`
 	Slug             string `json:"slug"`
 	BusinessCategory string `json:"business_category"`
+	AppMode          string `json:"app_mode"` // booking_pos | booking_only | pos_only
 	ReferralCode     string `json:"referral_code"`
 }
 

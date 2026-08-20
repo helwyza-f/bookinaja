@@ -16,6 +16,7 @@ import (
 	platformenv "github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/mailer"
 	"github.com/helwiza/backend/internal/platformadmin"
+	"github.com/helwiza/backend/internal/tenant"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/api/idtoken"
@@ -587,7 +588,11 @@ func (s *Service) CreateWorkspace(ctx context.Context, accountID uuid.UUID, req 
 		ReferredByTenantID: referredBy,
 	}
 
-	createdWorkspace, membership, state, err := s.repo.CreateWorkspaceWithOwner(ctx, workspace, accountID)
+	// Mode Aplikasi dipilih owner saat buat workspace — ditulis ke
+	// booking_form_config sejak awal supaya setup & onboarding menyesuaikan.
+	bookingFormConfig := tenant.AppModeConfigJSON(req.AppMode)
+
+	createdWorkspace, membership, state, err := s.repo.CreateWorkspaceWithOwner(ctx, workspace, accountID, bookingFormConfig)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return nil, fmt.Errorf("slug workspace sudah dipakai")

@@ -13,6 +13,7 @@ import '../ui/toast.dart';
 import 'business_profile_hub.dart';
 import 'payment_setup_wizard_screen.dart' show PaymentSetupWizardScreen;
 import 'resources_screen.dart';
+import 'fnb_menu_screen.dart';
 
 /// Setup Bisnis — gerbang menuju "tayang". Menampilkan langkah wajib/opsional
 /// (actionable: tap membuka layar terkait), lalu tombol Terbitkan begitu semua
@@ -106,6 +107,9 @@ class _View extends StatelessWidget {
         return const BusinessProfileHubScreen();
       case 'resources':
         return const ResourcesScreen();
+      case 'kasir_products':
+        // Mode kasir-saja (pos_only): langkah katalog = produk/menu kasir.
+        return const FnbMenuScreen();
       case 'payments':
         // Wizard menuntun langkah demi langkah (transfer/QRIS wajib, gateway
         // opsional) — sejalan dgn definisi kesiapan bayar di gerbang publikasi.

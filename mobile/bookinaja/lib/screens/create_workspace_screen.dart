@@ -13,7 +13,32 @@ class CreateWorkspaceScreen extends StatefulWidget {
 }
 
 class _CreateWorkspaceScreenState extends State<CreateWorkspaceScreen> {
+  // Mode Aplikasi awal — menentukan apakah workspace jalan booking, kasir, atau
+  // keduanya. Nilai ini dikirim ke backend & dipakai untuk menyesuaikan setup +
+  // onboarding. Sama dengan opsi di AppModeSettingsScreen; bisa diubah nanti.
+  static const _modes = [
+    (
+      value: 'booking_pos',
+      label: 'Reservasi + Kasir',
+      desc: 'Booking dan kasir jalan bersamaan.',
+      icon: Icons.dashboard_customize_rounded,
+    ),
+    (
+      value: 'booking_only',
+      label: 'Reservasi saja',
+      desc: 'Booking murni — tanpa kasir atau F&B.',
+      icon: Icons.event_available_rounded,
+    ),
+    (
+      value: 'pos_only',
+      label: 'Kasir saja',
+      desc: 'Hanya kasir/POS. Tanpa booking.',
+      icon: Icons.point_of_sale_rounded,
+    ),
+  ];
+
   final _name = TextEditingController();
+  String _mode = 'booking_pos';
   bool _busy = false;
   String? _error;
 
@@ -50,7 +75,7 @@ class _CreateWorkspaceScreenState extends State<CreateWorkspaceScreen> {
       _error = null;
     });
     try {
-      await context.read<AuthController>().createWorkspace(name);
+      await context.read<AuthController>().createWorkspace(name, appMode: _mode);
       if (mounted) Navigator.of(context).pop(); // root beralih ke dashboard sendiri
     } catch (e) {
       if (mounted) {
@@ -60,6 +85,39 @@ class _CreateWorkspaceScreenState extends State<CreateWorkspaceScreen> {
         });
       }
     }
+  }
+
+  Widget _modeCard(({String value, String label, String desc, IconData icon}) m) {
+    final on = _mode == m.value;
+    return GestureDetector(
+      onTap: _busy ? null : () => setState(() => _mode = m.value),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: on ? BK.accentSoft : BK.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: on ? BK.accent : BK.line, width: on ? 1.5 : 1),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: on ? BK.accent : BK.card2, borderRadius: BorderRadius.circular(10)),
+            child: Icon(m.icon, size: 19, color: on ? Colors.white : BK.ink3),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(m.label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: on ? BK.accent : BK.ink)),
+              const SizedBox(height: 2),
+              Text(m.desc, style: const TextStyle(fontSize: 11.5, color: BK.ink3, height: 1.3)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Icon(on ? Icons.radio_button_checked : Icons.radio_button_off, size: 20, color: on ? BK.accent : BK.ink3),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -91,18 +149,28 @@ class _CreateWorkspaceScreenState extends State<CreateWorkspaceScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            const Text('Beri nama bisnismu', textAlign: TextAlign.center,
+            const Text('Buat workspace baru', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: BK.ink)),
             const SizedBox(height: 6),
-            const Text('Cukup nama dulu — sisanya bisa kamu lengkapi nanti sebelum tayang ke pelanggan.',
+            const Text('Pilih mode aplikasi dan beri nama — sisanya bisa dilengkapi nanti sebelum tayang.',
                 textAlign: TextAlign.center, style: TextStyle(color: BK.ink3, fontSize: 13.5, height: 1.4)),
-            const SizedBox(height: 28),
+            const SizedBox(height: 26),
 
+            const Text('MODE APLIKASI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: BK.ink3)),
+            const SizedBox(height: 4),
+            const Text('Pilih cara kerja aplikasi. Setup & langkah persiapan menyesuaikan pilihan ini — bisa diubah nanti di Pengaturan.',
+                style: TextStyle(color: BK.ink3, fontSize: 12, height: 1.35)),
+            const SizedBox(height: 10),
+            for (final m in _modes) ...[
+              _modeCard(m),
+              const SizedBox(height: 8),
+            ],
+
+            const SizedBox(height: 18),
             const Text('NAMA BISNIS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: BK.ink3)),
             const SizedBox(height: 8),
             TextField(
               controller: _name,
-              autofocus: true,
               enabled: !_busy,
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.done,
