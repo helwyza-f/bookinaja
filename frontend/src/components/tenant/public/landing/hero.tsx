@@ -212,7 +212,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive", sho
               <span className="md:hidden">{mobileTagline}</span>
               <span className="hidden md:inline">{heroTagline}</span>
             </h2>
-            <p className={cn("line-clamp-2 text-[13px] font-medium leading-5 md:text-base md:leading-7 md:line-clamp-none", tone.body, isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
+            <p data-field="hero_desc" className={cn("line-clamp-2 text-[13px] font-medium leading-5 md:text-base md:leading-7 md:line-clamp-none", tone.body, isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
               <span className="md:hidden">{mobileDescription}</span>
               <span className="hidden md:inline">{heroDescription}</span>
             </p>

@@ -249,7 +249,7 @@ function renderSection({
       );
     case "highlights":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="relative z-10 -mt-1 px-6 py-12 md:px-8 md:py-18">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field="highlights" className="relative z-10 -mt-1 px-6 py-12 md:px-8 md:py-18">
           <div className="mx-auto max-w-6xl">
             <div className="mb-8 space-y-3 md:mb-10">
               <div className="flex items-center gap-3">

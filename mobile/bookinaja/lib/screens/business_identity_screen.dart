@@ -55,11 +55,17 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   // Fitur (chips) — bagian dari profil tenant, disimpan bersama saveProfile.
   final List<String> _features = [];
   final _featureInput = TextEditingController();
-  // Label CTA booking — hidup di page-builder (booking_form), bukan profil.
-  // State page-builder lengkap disimpan agar bisa dikirim balik utuh.
+  // Label CTA booking + teks section (hero desc, highlights) — hidup di
+  // page-builder. State lengkap disimpan agar bisa dikirim balik utuh.
   final _cta = TextEditingController();
+  final _heroDesc = TextEditingController(); // section hero -> props.description
+  final _hlTitle = TextEditingController(); // section highlights -> props.title
+  final _hlDesc = TextEditingController(); // section highlights -> props.description
   Map<String, dynamic>? _pb;
   String _ctaInitial = '';
+  String _heroDescInitial = '';
+  String _hlTitleInitial = '';
+  String _hlDescInitial = '';
 
   @override
   void initState() {
@@ -69,7 +75,10 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok, _featureInput, _cta]) {
+    for (final c in [
+      _name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok,
+      _featureInput, _cta, _heroDesc, _hlTitle, _hlDesc,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -121,14 +130,50 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
       if (!mounted) return;
       final url = '${s['preview_url'] ?? ''}';
       final form = s['booking_form'] is Map ? Map<String, dynamic>.from(s['booking_form'] as Map) : <String, dynamic>{};
+      final hero = _sectionProps(s, 'hero');
+      final hl = _sectionProps(s, 'highlights');
       setState(() {
         _pb = s;
         _cta.text = '${form['cta_button_label'] ?? ''}';
+        _heroDesc.text = '${hero['description'] ?? ''}';
+        _hlTitle.text = '${hl['title'] ?? ''}';
+        _hlDesc.text = '${hl['description'] ?? ''}';
         _ctaInitial = _cta.text;
+        _heroDescInitial = _heroDesc.text;
+        _hlTitleInitial = _hlTitle.text;
+        _hlDescInitial = _hlDesc.text;
         if (url.isNotEmpty) _previewUrl = url;
       });
     } catch (_) {
       // Diabaikan — tombol "Lihat di halaman" & editor CTA cukup disembunyikan.
+    }
+  }
+
+  /// Props section pertama bertipe [type] dari state page-builder (read-only copy).
+  Map<String, dynamic> _sectionProps(Map<String, dynamic> pb, String type) {
+    final page = pb['page'] is Map ? pb['page'] as Map : const {};
+    final sections = page['sections'] is List ? page['sections'] as List : const [];
+    for (final s in sections) {
+      if (s is Map && '${s['type']}' == type && s['props'] is Map) {
+        return Map<String, dynamic>.from(s['props'] as Map);
+      }
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Tulis balik [key]=[value] ke props section pertama bertipe [type] di _pb.
+  void _setSectionProp(String type, String key, String value) {
+    final pb = _pb;
+    if (pb == null) return;
+    final page = pb['page'] is Map ? pb['page'] as Map : null;
+    final sections = page?['sections'] is List ? page!['sections'] as List : null;
+    if (sections == null) return;
+    for (final s in sections) {
+      if (s is Map && '${s['type']}' == type) {
+        final props = s['props'] is Map ? s['props'] as Map : (s['props'] = <String, dynamic>{});
+        props[key] = value;
+        return;
+      }
     }
   }
 
@@ -168,15 +213,26 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
     try {
       final repo = context.read<SettingsRepository>();
       await repo.saveProfile(profile);
-      // CTA hidup di page-builder — simpan terpisah hanya bila berubah, kirim
-      // page & theme apa adanya agar tak menimpa konfigurasi lain.
-      if (_pb != null && _cta.text.trim() != _ctaInitial.trim()) {
+      // Teks page-builder (CTA + section) disimpan terpisah, hanya bila ada
+      // yang berubah; page & theme dikirim utuh agar konfigurasi lain aman.
+      final ctaChanged = _cta.text.trim() != _ctaInitial.trim();
+      final pbChanged = ctaChanged ||
+          _heroDesc.text.trim() != _heroDescInitial.trim() ||
+          _hlTitle.text.trim() != _hlTitleInitial.trim() ||
+          _hlDesc.text.trim() != _hlDescInitial.trim();
+      if (_pb != null && pbChanged) {
         final form = _pb!['booking_form'] is Map
             ? Map<String, dynamic>.from(_pb!['booking_form'] as Map)
             : <String, dynamic>{};
         form['cta_button_label'] = _cta.text.trim();
+        _setSectionProp('hero', 'description', _heroDesc.text.trim());
+        _setSectionProp('highlights', 'title', _hlTitle.text.trim());
+        _setSectionProp('highlights', 'description', _hlDesc.text.trim());
         await repo.savePageBuilder(page: _pb!['page'] ?? const {}, theme: _pb!['theme'], bookingForm: form);
         _ctaInitial = _cta.text.trim();
+        _heroDescInitial = _heroDesc.text.trim();
+        _hlTitleInitial = _hlTitle.text.trim();
+        _hlDescInitial = _hlDesc.text.trim();
       }
       if (!mounted) return;
       // Tetap di form (tidak auto-keluar) — owner bisa lanjut edit bagian lain.
@@ -331,8 +387,23 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                     // kini satu tempat bareng identitas biar tak terpencar.
                     if (_pb != null) ...[
                       const SizedBox(height: 8),
+                      _group('DESKRIPSI HERO', field: 'hero_desc'),
+                      _field('Deskripsi hero', _heroDesc,
+                          hint: 'Kalimat pendukung di bawah tagline',
+                          maxLines: 2,
+                          location: 'Teks kecil di bawah tagline (atas)'),
+                      const SizedBox(height: 8),
                       _group('FITUR (CHIPS DI ATAS)', field: 'features'),
                       _featuresEditor(),
+                      const SizedBox(height: 8),
+                      _group('KEUNGGULAN UTAMA', field: 'highlights'),
+                      _field('Judul', _hlTitle,
+                          hint: 'mis. Kenapa orang pilih tempat ini',
+                          location: 'Judul section keunggulan (tengah halaman)'),
+                      _field('Deskripsi', _hlDesc,
+                          hint: 'Paragraf singkat penjelasan',
+                          maxLines: 3,
+                          location: 'Paragraf di section keunggulan'),
                       const SizedBox(height: 8),
                       _group('TOMBOL BOOKING', field: 'cta'),
                       _field('Label tombol', _cta,
