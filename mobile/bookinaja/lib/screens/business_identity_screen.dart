@@ -52,6 +52,15 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   // "Lihat di halaman" per field. Kosong = tombol disembunyikan.
   String _previewUrl = '';
 
+  // Fitur (chips) — bagian dari profil tenant, disimpan bersama saveProfile.
+  final List<String> _features = [];
+  final _featureInput = TextEditingController();
+  // Label CTA booking — hidup di page-builder (booking_form), bukan profil.
+  // State page-builder lengkap disimpan agar bisa dikirim balik utuh.
+  final _cta = TextEditingController();
+  Map<String, dynamic>? _pb;
+  String _ctaInitial = '';
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +69,7 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok]) {
+    for (final c in [_name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok, _featureInput, _cta]) {
       c.dispose();
     }
     super.dispose();
@@ -88,6 +97,11 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         _openTime = s('open_time');
         _closeTime = s('close_time');
         _timezone = s('timezone');
+        _features
+          ..clear()
+          ..addAll((p['features'] is List ? p['features'] as List : const [])
+              .map((e) => '$e'.trim())
+              .where((e) => e.isNotEmpty));
         _dirty = false;
         _loading = false;
       });
@@ -104,10 +118,17 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   Future<void> _loadPreviewUrl() async {
     try {
       final s = await context.read<SettingsRepository>().getPageBuilder();
+      if (!mounted) return;
       final url = '${s['preview_url'] ?? ''}';
-      if (url.isNotEmpty && mounted) setState(() => _previewUrl = url);
+      final form = s['booking_form'] is Map ? Map<String, dynamic>.from(s['booking_form'] as Map) : <String, dynamic>{};
+      setState(() {
+        _pb = s;
+        _cta.text = '${form['cta_button_label'] ?? ''}';
+        _ctaInitial = _cta.text;
+        if (url.isNotEmpty) _previewUrl = url;
+      });
     } catch (_) {
-      // Diabaikan — tombol "Lihat di halaman" cukup disembunyikan.
+      // Diabaikan — tombol "Lihat di halaman" & editor CTA cukup disembunyikan.
     }
   }
 
@@ -142,8 +163,20 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
     profile['tiktok_url'] = _tiktok.text.trim();
     profile['open_time'] = _openTime;
     profile['close_time'] = _closeTime;
+    profile['features'] = List<String>.from(_features);
     try {
-      await context.read<SettingsRepository>().saveProfile(profile);
+      final repo = context.read<SettingsRepository>();
+      await repo.saveProfile(profile);
+      // CTA hidup di page-builder — simpan terpisah hanya bila berubah, kirim
+      // page & theme apa adanya agar tak menimpa konfigurasi lain.
+      if (_pb != null && _cta.text.trim() != _ctaInitial.trim()) {
+        final form = _pb!['booking_form'] is Map
+            ? Map<String, dynamic>.from(_pb!['booking_form'] as Map)
+            : <String, dynamic>{};
+        form['cta_button_label'] = _cta.text.trim();
+        await repo.savePageBuilder(page: _pb!['page'] ?? const {}, theme: _pb!['theme'], bookingForm: form);
+        _ctaInitial = _cta.text.trim();
+      }
       if (!mounted) return;
       _dirty = false;
       BkToast.success(context, 'Profil disimpan');
@@ -289,6 +322,18 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                         const SizedBox(width: 6),
                         Text('Zona waktu: $_timezone', style: const TextStyle(fontSize: 12, color: BK.ink3)),
                       ]),
+                    ],
+                    // Editor tampilan landing (fitur & CTA) — dulu cuma di web,
+                    // kini satu tempat bareng identitas biar tak terpencar.
+                    if (_pb != null) ...[
+                      const SizedBox(height: 8),
+                      _group('FITUR (CHIPS DI ATAS)', field: 'features'),
+                      _featuresEditor(),
+                      const SizedBox(height: 8),
+                      _group('TOMBOL BOOKING', field: 'cta'),
+                      _field('Label tombol', _cta,
+                          hint: 'mis. Cek ketersediaan',
+                          location: 'Tombol besar di hero (CTA)'),
                     ],
                   ],
                 ),
@@ -448,6 +493,88 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                 ]),
               ),
             ),
+        ]),
+      ]),
+    );
+  }
+
+  void _addFeature() {
+    final v = _featureInput.text.trim();
+    if (v.isEmpty) return;
+    if (_features.length >= 6) {
+      BkToast.info(context, 'Maksimal 6 fitur');
+      return;
+    }
+    setState(() {
+      _features.add(v);
+      _featureInput.clear();
+      _dirty = true;
+    });
+  }
+
+  /// Editor chips fitur (keunggulan) — tampil sebagai badge di hero.
+  Widget _featuresEditor() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Badge singkat keunggulan bisnismu. Kosongkan untuk pakai default.',
+            style: TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
+        const SizedBox(height: 8),
+        if (_features.isNotEmpty)
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (var i = 0; i < _features.length; i++)
+              Container(
+                padding: const EdgeInsets.only(left: 12, right: 6, top: 7, bottom: 7),
+                decoration: BoxDecoration(
+                  color: BK.accentSoft,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: BK.accent.withValues(alpha: 0.4)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_features[i],
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.accent)),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => setState(() {
+                      _features.removeAt(i);
+                      _dirty = true;
+                    }),
+                    child: const Icon(Icons.close_rounded, size: 15, color: BK.accent),
+                  ),
+                ]),
+              ),
+          ]),
+        if (_features.isNotEmpty) const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _featureInput,
+              style: const TextStyle(fontSize: 14, color: BK.ink),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _addFeature(),
+              decoration: InputDecoration(
+                hintText: 'mis. Wi-Fi kencang',
+                isDense: true,
+                filled: true,
+                fillColor: BK.card,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.line)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: BK.accent)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _addFeature,
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: BK.accent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
         ]),
       ]),
     );

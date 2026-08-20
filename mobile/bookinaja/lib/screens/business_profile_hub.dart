@@ -98,7 +98,7 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
             context,
             icon: Icons.badge_outlined,
             title: 'Identitas & kontak',
-            sub: 'Nama, slogan, WhatsApp, alamat, jam',
+            sub: 'Nama, slogan, kontak, jam, fitur, tombol booking',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const BusinessIdentityScreen())),
           ),

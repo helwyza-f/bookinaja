@@ -218,7 +218,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive", sho
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 md:hidden">
+          <div data-field="features" className="flex flex-wrap items-center justify-center gap-2 md:hidden">
             {mobileFeatures.map((f: string, i: number) => (
               <div
                 key={i}
@@ -260,7 +260,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive", sho
             ))}
           </div>
 
-          <div className={cn(isSplit ? "w-full pt-1 px-0 md:w-auto" : "w-full px-0 pt-2 md:w-auto")}>
+          <div data-field="cta" className={cn(isSplit ? "w-full pt-1 px-0 md:w-auto" : "w-full px-0 pt-2 md:w-auto")}>
             <Link
               href="#catalog"
               className={cn("inline-block group relative", isSplit ? "w-full md:w-auto" : "w-full md:w-auto")}
