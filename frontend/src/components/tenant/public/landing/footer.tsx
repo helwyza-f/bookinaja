@@ -268,7 +268,7 @@ export function TenantFooter({
                 </div>
               </div>
 
-              <div className={cn("p-5", footerCardClass, iconPanelClass)}>
+              <div data-field="hours" className={cn("p-5", footerCardClass, iconPanelClass)}>
                 <div className="flex items-start gap-4">
                 <div className={footerIconChipClass}>
                     <Clock size={18} style={{ color: primaryColor }} />

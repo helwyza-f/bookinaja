@@ -276,7 +276,7 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                         badge: _Badge.opsional,
                         field: 'tiktok'),
                     const SizedBox(height: 8),
-                    _group('JAM OPERASIONAL'),
+                    _group('JAM OPERASIONAL', field: 'hours'),
                     Row(children: [
                       Expanded(child: _timeField('Buka', _openTime, () => _pickTime(true))),
                       const SizedBox(width: 10),
@@ -305,11 +305,30 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
     );
   }
 
-  Widget _group(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 4),
-        child: Text(t,
+  Widget _group(String t, {String? field}) {
+    final canPreview = field != null && _previewUrl.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 4),
+      child: Row(children: [
+        Text(t,
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-      );
+        const Spacer(),
+        if (canPreview)
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => _openPreviewFocus(field),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.visibility_outlined, size: 13, color: BK.accent),
+                SizedBox(width: 3),
+                Text('Lihat di halaman', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
 
   // --- Gerbang publikasi (cermin backend) ---
   // Identitas beres bila Tagline, Slogan, DAN Tentang semuanya terisi.
