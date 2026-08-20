@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
+import '../config.dart';
 import '../repositories/settings_repository.dart';
 import '../state/async_value.dart';
+import '../state/auth_controller.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import 'business_profile_hub.dart';
@@ -128,24 +132,68 @@ class _PublishCard extends StatelessWidget {
     final totalRequired = required.length;
 
     if (progress.isPublished) {
-      return _shell(
-        bg: BK.liveSoft,
-        border: BK.live,
-        icon: Icons.check_circle,
-        iconColor: BK.live,
-        title: 'Bisnismu tayang',
-        titleColor: BK.live,
-        body: 'Pelanggan bisa menemukan dan memesan bisnismu.',
-        action: OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: BK.ink2,
-            side: const BorderSide(color: BK.line),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onPressed: controller.busy ? null : () => _confirmUnpublish(context),
-          child: const Text('Sembunyikan dari customer', style: TextStyle(fontWeight: FontWeight.w700)),
+      final url = _publicUrl(context);
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: BK.liveSoft,
+          borderRadius: BorderRadius.circular(BK.radius),
+          border: Border.all(color: BK.live),
         ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.check_circle, color: BK.live, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Bisnismu tayang',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.live)),
+                const SizedBox(height: 2),
+                const Text('Pelanggan bisa menemukan dan memesan bisnismu. Bagikan linknya biar makin ramai.',
+                    style: TextStyle(fontSize: 12.5, color: BK.ink2, height: 1.4)),
+              ]),
+            ),
+            // Aksi jarang (sembunyikan) dipindah ke menu — bukan tombol utama.
+            _MoreMenu(
+              enabled: !controller.busy,
+              onUnpublish: () => _confirmUnpublish(context),
+            ),
+          ]),
+          if (url != null) ...[
+            const SizedBox(height: 12),
+            _LinkChip(url: url, onCopy: () => _copyLink(context, url)),
+          ],
+          const SizedBox(height: 12),
+          // CTA utama = aksi maju: bagikan / buka halaman pelanggan.
+          Row(children: [
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: BK.live,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: url == null ? null : () => _copyLink(context, url),
+                icon: const Icon(Icons.link_rounded, size: 18),
+                label: const Text('Bagikan link', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: BK.ink,
+                  side: const BorderSide(color: BK.line),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: url == null ? null : () => _openLink(context, url),
+                icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                label: const Text('Lihat halaman', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+        ]),
       );
     }
 
@@ -214,6 +262,31 @@ class _PublishCard extends StatelessWidget {
     }
   }
 
+  /// URL halaman publik pelanggan: base web (apiBaseUrl tanpa `/api/...`) + slug
+  /// workspace aktif. Null bila slug belum tersedia.
+  String? _publicUrl(BuildContext context) {
+    final slug = context.read<AuthController>().workspace?.slug.trim() ?? '';
+    if (slug.isEmpty) return null;
+    var base = AppConfig.apiBaseUrl;
+    final i = base.indexOf('/api/');
+    if (i >= 0) base = base.substring(0, i);
+    base = base.replaceAll(RegExp(r'/+$'), '');
+    return '$base/$slug';
+  }
+
+  Future<void> _copyLink(BuildContext context, String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!context.mounted) return;
+    BkToast.success(context, 'Link disalin', subtitle: 'Tinggal tempel & bagikan ke pelanggan.');
+  }
+
+  Future<void> _openLink(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    final ok = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (ok || !context.mounted) return;
+    BkToast.error(context, 'Tak bisa membuka halaman');
+  }
+
   Future<void> _confirmUnpublish(BuildContext context) async {
     final yes = await showDialog<bool>(
       context: context,
@@ -221,14 +294,15 @@ class _PublishCard extends StatelessWidget {
         backgroundColor: BK.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Sembunyikan bisnis?', style: TextStyle(fontWeight: FontWeight.w800, color: BK.ink, fontSize: 16)),
-        content: const Text('Bisnismu tak akan muncul di direktori & tak bisa dipesan pelanggan sampai diterbitkan lagi.',
+        content: const Text('Bisnismu tak akan muncul di direktori & tak bisa dipesan pelanggan sampai diterbitkan lagi. Bisa diterbitkan lagi kapan saja.',
             style: TextStyle(fontSize: 13, color: BK.ink2, height: 1.4)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal', style: TextStyle(color: BK.ink2))),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: BK.crit),
+          // Reversible → warna netral, bukan kritis (bukan aksi hapus).
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: BK.ink),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sembunyikan'),
+            child: const Text('Sembunyikan', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -271,6 +345,73 @@ class _PublishCard extends StatelessWidget {
         const SizedBox(height: 14),
         SizedBox(width: double.infinity, child: action),
       ]),
+    );
+  }
+}
+
+/// Chip berisi URL publik + ikon salin — read-only, ketuk untuk menyalin.
+class _LinkChip extends StatelessWidget {
+  final String url;
+  final VoidCallback onCopy;
+  const _LinkChip({required this.url, required this.onCopy});
+
+  @override
+  Widget build(BuildContext context) {
+    // Tampilkan tanpa skema biar ringkas (mis. bookinaja.com/warkop-budi).
+    final display = url.replaceFirst(RegExp(r'^https?://'), '');
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onCopy,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: BK.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: BK.line),
+        ),
+        child: Row(children: [
+          const Icon(Icons.link_rounded, size: 16, color: BK.ink3),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(display,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BK.ink2)),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.copy_rounded, size: 15, color: BK.ink3),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Menu titik-tiga untuk aksi jarang pada kartu "tayang" (sembunyikan).
+class _MoreMenu extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onUnpublish;
+  const _MoreMenu({required this.enabled, required this.onUnpublish});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      enabled: enabled,
+      icon: const Icon(Icons.more_horiz_rounded, color: BK.ink3),
+      color: BK.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (v) {
+        if (v == 'unpublish') onUnpublish();
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'unpublish',
+          child: Row(children: [
+            Icon(Icons.visibility_off_outlined, size: 18, color: BK.ink2),
+            SizedBox(width: 10),
+            Text('Sembunyikan dari customer', style: TextStyle(fontSize: 13, color: BK.ink)),
+          ]),
+        ),
+      ],
     );
   }
 }
