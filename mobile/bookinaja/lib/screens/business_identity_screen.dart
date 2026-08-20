@@ -144,6 +144,7 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return; // Cegah double-submit.
     final profile = _profile;
     if (profile == null) return;
     if (_name.text.trim().isEmpty) {
@@ -178,9 +179,12 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         _ctaInitial = _cta.text.trim();
       }
       if (!mounted) return;
-      _dirty = false;
+      // Tetap di form (tidak auto-keluar) — owner bisa lanjut edit bagian lain.
+      setState(() {
+        _dirty = false;
+        _saving = false;
+      });
       BkToast.success(context, 'Profil disimpan');
-      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -342,9 +346,17 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: BK.accent,
+                  disabledBackgroundColor: BK.accent.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
                 onPressed: _saving ? null : _save,
-                child: Text(_saving ? 'Menyimpan…' : 'Simpan', style: const TextStyle(fontWeight: FontWeight.w800)),
+                child: _saving
+                    ? const SizedBox(
+                        height: 18, width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ),
     );
