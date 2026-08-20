@@ -50,6 +50,34 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+/** Slot kosong bertanda data-field untuk pratinjau owner — dashed, redup,
+ *  jadi "Lihat di halaman" tetap punya target walau field belum diisi. */
+function FieldPlaceholder({
+  field,
+  label,
+  radiusClass,
+  children,
+}: {
+  field: string;
+  label: string;
+  radiusClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-field={field}
+      title={`${label} akan muncul di sini`}
+      className={cn(
+        "flex h-14 items-center gap-2 border-2 border-dashed border-slate-300 px-3 text-slate-400 dark:border-white/20 dark:text-white/40",
+        radiusClass,
+      )}
+    >
+      {children}
+      <span className="text-[11px] font-semibold whitespace-nowrap">{label} kosong</span>
+    </div>
+  );
+}
+
 type TenantFooterProps = {
   profile: BuilderProfile;
   primaryColor?: string;
@@ -186,6 +214,25 @@ export function TenantFooter({
                   </Button>
                 </a>
               )}
+
+              {/* Placeholder hantu (hanya pratinjau owner): beri target highlight
+                  untuk field kontak yang masih kosong, supaya "Lihat di halaman"
+                  tetap bisa menunjukkan lokasinya. Tak pernah tampil ke customer. */}
+              {showFieldHints && !profile.whatsapp_number ? (
+                <FieldPlaceholder field="whatsapp" label="WhatsApp" radiusClass={panelRadiusClass}>
+                  <Smartphone className="h-6 w-6" />
+                </FieldPlaceholder>
+              ) : null}
+              {showFieldHints && !profile.instagram_url ? (
+                <FieldPlaceholder field="instagram" label="Instagram" radiusClass={panelRadiusClass}>
+                  <InstagramIcon className="h-6 w-6" />
+                </FieldPlaceholder>
+              ) : null}
+              {showFieldHints && !profile.tiktok_url ? (
+                <FieldPlaceholder field="tiktok" label="TikTok" radiusClass={panelRadiusClass}>
+                  <TikTokIcon className="h-6 w-6" />
+                </FieldPlaceholder>
+              ) : null}
             </div>
           </div>
 
