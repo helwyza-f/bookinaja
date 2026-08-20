@@ -227,7 +227,7 @@ function renderSection({
   switch (section.type) {
     case "hero":
       return (
-        <div key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id}>
+        <div key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type}>
           <TenantHero
             profile={profile}
             content={{
@@ -249,7 +249,7 @@ function renderSection({
       );
     case "highlights":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field="highlights" className="relative z-10 -mt-1 px-6 py-12 md:px-8 md:py-18">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="relative z-10 -mt-1 px-6 py-12 md:px-8 md:py-18">
           <div className="mx-auto max-w-6xl">
             <div className="mb-8 space-y-3 md:mb-10">
               <div className="flex items-center gap-3">
@@ -340,7 +340,7 @@ function renderSection({
       );
     case "catalog":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="py-16 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="py-16 md:py-24">
           <div
             id="catalog"
             className={cn(
@@ -450,7 +450,7 @@ function renderSection({
     case "gallery":
       const galleryImages = (profile.gallery || []).filter((image) => Boolean(image?.trim()));
       return sectionVariant === "grid" ? (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-6xl">
             <div className="mb-8 text-center">
               <div className={themeVisuals.eyebrowClass}>
@@ -483,7 +483,7 @@ function renderSection({
           </div>
         </section>
       ) : sectionVariant === "showcase" && galleryImages.length ? (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-6xl">
             <div className="mb-8 text-center">
               <div className={themeVisuals.eyebrowClass}>
@@ -529,7 +529,7 @@ function renderSection({
           </div>
         </section>
       ) : (
-        <div key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id}>
+        <div key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type}>
           <GallerySection
             images={profile.gallery || []}
             primaryColor={theme.primary_color}
@@ -544,7 +544,7 @@ function renderSection({
       );
     case "testimonials":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-6xl">
             <div className="mb-8">
               <div className={themeVisuals.eyebrowClass}>
@@ -620,7 +620,7 @@ function renderSection({
       );
     case "faq":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-5xl">
             <div className="mb-8">
               <div className={themeVisuals.eyebrowClass}>
@@ -696,7 +696,7 @@ function renderSection({
     case "about":
       const aboutImage = String(section.props?.image_url || "").trim();
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="px-6 py-16 md:px-8 md:py-24">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div
             className={cn(
               "mx-auto gap-8",

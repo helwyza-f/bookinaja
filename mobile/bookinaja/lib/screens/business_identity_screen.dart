@@ -12,6 +12,28 @@ import 'landing_preview_screen.dart';
 /// Penanda kebutuhan field pada gerbang publikasi.
 enum _Badge { wajib, opsional }
 
+/// Deskriptor field teks section page-builder. `tier` A = penting (atas),
+/// B = bisa diisi nanti (bawah). Hanya dirender bila section-nya dipakai.
+typedef _LT = ({String tier, String group, String type, String key, String label, String hint, int maxLines});
+
+const List<_LT> _kLandingFields = [
+  (tier: 'A', group: 'DESKRIPSI HERO', type: 'hero', key: 'description', label: 'Deskripsi hero', hint: 'Kalimat pendukung di bawah tagline', maxLines: 2),
+  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'title', label: 'Judul', hint: 'mis. Kenapa orang pilih tempat ini', maxLines: 1),
+  (tier: 'A', group: 'KEUNGGULAN UTAMA', type: 'highlights', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat penjelasan', maxLines: 3),
+  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'title', label: 'Judul', hint: 'mis. Pilihan tempat', maxLines: 1),
+  (tier: 'B', group: 'KATALOG', type: 'catalog', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 2),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'eyebrow', label: 'Label kecil', hint: 'mis. Visual Experience', maxLines: 1),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'title', label: 'Judul', hint: 'mis. Suasana tempat', maxLines: 1),
+  (tier: 'B', group: 'GALERI', type: 'gallery', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 2),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'title', label: 'Judul', hint: '', maxLines: 1),
+  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat', maxLines: 3),
+  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
+  (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'title', label: 'Judul', hint: '', maxLines: 1),
+  (tier: 'B', group: 'FAQ', type: 'faq', key: 'eyebrow', label: 'Label kecil', hint: '', maxLines: 1),
+  (tier: 'B', group: 'FAQ', type: 'faq', key: 'title', label: 'Judul', hint: '', maxLines: 1),
+];
+
 class BusinessIdentityScreen extends StatefulWidget {
   const BusinessIdentityScreen({super.key});
 
@@ -58,14 +80,12 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   // Label CTA booking + teks section (hero desc, highlights) — hidup di
   // page-builder. State lengkap disimpan agar bisa dikirim balik utuh.
   final _cta = TextEditingController();
-  final _heroDesc = TextEditingController(); // section hero -> props.description
-  final _hlTitle = TextEditingController(); // section highlights -> props.title
-  final _hlDesc = TextEditingController(); // section highlights -> props.description
   Map<String, dynamic>? _pb;
   String _ctaInitial = '';
-  String _heroDescInitial = '';
-  String _hlTitleInitial = '';
-  String _hlDescInitial = '';
+  // Editor teks section page-builder (data-driven). Key = "type.key".
+  final Map<String, TextEditingController> _sec = {};
+  final Map<String, String> _secInit = {};
+  final Set<String> _secTypes = {}; // tipe section yang benar-benar dipakai tenant
 
   @override
   void initState() {
@@ -77,8 +97,11 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   void dispose() {
     for (final c in [
       _name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok,
-      _featureInput, _cta, _heroDesc, _hlTitle, _hlDesc,
+      _featureInput, _cta,
     ]) {
+      c.dispose();
+    }
+    for (final c in _sec.values) {
       c.dispose();
     }
     super.dispose();
@@ -130,23 +153,38 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
       if (!mounted) return;
       final url = '${s['preview_url'] ?? ''}';
       final form = s['booking_form'] is Map ? Map<String, dynamic>.from(s['booking_form'] as Map) : <String, dynamic>{};
-      final hero = _sectionProps(s, 'hero');
-      final hl = _sectionProps(s, 'highlights');
       setState(() {
         _pb = s;
         _cta.text = '${form['cta_button_label'] ?? ''}';
-        _heroDesc.text = '${hero['description'] ?? ''}';
-        _hlTitle.text = '${hl['title'] ?? ''}';
-        _hlDesc.text = '${hl['description'] ?? ''}';
         _ctaInitial = _cta.text;
-        _heroDescInitial = _heroDesc.text;
-        _hlTitleInitial = _hlTitle.text;
-        _hlDescInitial = _hlDesc.text;
+        _secTypes
+          ..clear()
+          ..addAll(_pageSectionTypes(s));
+        // Siapkan controller per descriptor untuk section yang ada.
+        final propsCache = <String, Map<String, dynamic>>{};
+        for (final f in _kLandingFields) {
+          if (!_secTypes.contains(f.type)) continue;
+          final props = propsCache[f.type] ??= _sectionProps(s, f.type);
+          final k = '${f.type}.${f.key}';
+          final v = '${props[f.key] ?? ''}';
+          (_sec[k] ??= TextEditingController()).text = v;
+          _secInit[k] = v;
+        }
         if (url.isNotEmpty) _previewUrl = url;
       });
     } catch (_) {
       // Diabaikan — tombol "Lihat di halaman" & editor CTA cukup disembunyikan.
     }
+  }
+
+  /// Kumpulan tipe section yang dipakai tenant (enabled/tidak tetap dihitung).
+  Set<String> _pageSectionTypes(Map<String, dynamic> pb) {
+    final page = pb['page'] is Map ? pb['page'] as Map : const {};
+    final sections = page['sections'] is List ? page['sections'] as List : const [];
+    return {
+      for (final s in sections)
+        if (s is Map && s['type'] != null) '${s['type']}',
+    };
   }
 
   /// Props section pertama bertipe [type] dari state page-builder (read-only copy).
@@ -216,23 +254,19 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
       // Teks page-builder (CTA + section) disimpan terpisah, hanya bila ada
       // yang berubah; page & theme dikirim utuh agar konfigurasi lain aman.
       final ctaChanged = _cta.text.trim() != _ctaInitial.trim();
-      final pbChanged = ctaChanged ||
-          _heroDesc.text.trim() != _heroDescInitial.trim() ||
-          _hlTitle.text.trim() != _hlTitleInitial.trim() ||
-          _hlDesc.text.trim() != _hlDescInitial.trim();
-      if (_pb != null && pbChanged) {
+      final changedSec = _sec.entries.where((e) => e.value.text.trim() != (_secInit[e.key] ?? '').trim()).toList();
+      if (_pb != null && (ctaChanged || changedSec.isNotEmpty)) {
         final form = _pb!['booking_form'] is Map
             ? Map<String, dynamic>.from(_pb!['booking_form'] as Map)
             : <String, dynamic>{};
         form['cta_button_label'] = _cta.text.trim();
-        _setSectionProp('hero', 'description', _heroDesc.text.trim());
-        _setSectionProp('highlights', 'title', _hlTitle.text.trim());
-        _setSectionProp('highlights', 'description', _hlDesc.text.trim());
+        for (final e in changedSec) {
+          final dot = e.key.indexOf('.');
+          _setSectionProp(e.key.substring(0, dot), e.key.substring(dot + 1), e.value.text.trim());
+          _secInit[e.key] = e.value.text.trim();
+        }
         await repo.savePageBuilder(page: _pb!['page'] ?? const {}, theme: _pb!['theme'], bookingForm: form);
         _ctaInitial = _cta.text.trim();
-        _heroDescInitial = _heroDesc.text.trim();
-        _hlTitleInitial = _hlTitle.text.trim();
-        _hlDescInitial = _hlDesc.text.trim();
       }
       if (!mounted) return;
       // Tetap di form (tidak auto-keluar) — owner bisa lanjut edit bagian lain.
@@ -387,28 +421,34 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
                     // kini satu tempat bareng identitas biar tak terpencar.
                     if (_pb != null) ...[
                       const SizedBox(height: 8),
-                      _group('DESKRIPSI HERO', field: 'hero_desc'),
-                      _field('Deskripsi hero', _heroDesc,
-                          hint: 'Kalimat pendukung di bawah tagline',
-                          maxLines: 2,
-                          location: 'Teks kecil di bawah tagline (atas)'),
-                      const SizedBox(height: 8),
+                      // Tier A (penting): hero desc -> fitur -> CTA -> keunggulan.
+                      ..._landingGroups(tier: 'A', onlyTypes: const {'hero'}),
                       _group('FITUR (CHIPS DI ATAS)', field: 'features'),
                       _featuresEditor(),
-                      const SizedBox(height: 8),
-                      _group('KEUNGGULAN UTAMA', field: 'highlights'),
-                      _field('Judul', _hlTitle,
-                          hint: 'mis. Kenapa orang pilih tempat ini',
-                          location: 'Judul section keunggulan (tengah halaman)'),
-                      _field('Deskripsi', _hlDesc,
-                          hint: 'Paragraf singkat penjelasan',
-                          maxLines: 3,
-                          location: 'Paragraf di section keunggulan'),
                       const SizedBox(height: 8),
                       _group('TOMBOL BOOKING', field: 'cta'),
                       _field('Label tombol', _cta,
                           hint: 'mis. Cek ketersediaan',
                           location: 'Tombol besar di hero (CTA)'),
+                      const SizedBox(height: 8),
+                      ..._landingGroups(tier: 'A', onlyTypes: const {'highlights'}),
+                      // Tier B (bisa nanti): katalog, galeri, tentang, testimoni, faq.
+                      if (_hasTierB()) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(children: [
+                            const Expanded(child: Divider(color: BK.line)),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Text('LAINNYA · BISA DIISI NANTI',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+                            ),
+                            const Expanded(child: Divider(color: BK.line)),
+                          ]),
+                        ),
+                        ..._landingGroups(tier: 'B'),
+                      ],
                     ],
                   ],
                 ),
@@ -579,6 +619,31 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         ]),
       ]),
     );
+  }
+
+  bool _hasTierB() =>
+      _kLandingFields.any((f) => f.tier == 'B' && _secTypes.contains(f.type));
+
+  /// Render field teks section per grup (hanya section yang dipakai tenant).
+  List<Widget> _landingGroups({required String tier, Set<String>? onlyTypes}) {
+    final fields = _kLandingFields
+        .where((f) => f.tier == tier && _secTypes.contains(f.type) && (onlyTypes == null || onlyTypes.contains(f.type)))
+        .toList();
+    final widgets = <Widget>[];
+    String? lastGroup;
+    for (final f in fields) {
+      if (f.group != lastGroup) {
+        lastGroup = f.group;
+        // hero.description menyorot elemen spesifik; lainnya menyorot section.
+        final focus = (f.type == 'hero' && f.key == 'description') ? 'hero_desc' : f.type;
+        widgets.add(_group(f.group, field: focus));
+      }
+      final ctl = _sec['${f.type}.${f.key}'];
+      if (ctl == null) continue;
+      widgets.add(_field(f.label, ctl, hint: f.hint.isEmpty ? null : f.hint, maxLines: f.maxLines));
+    }
+    if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+    return widgets;
   }
 
   void _addFeature() {
