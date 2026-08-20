@@ -74,6 +74,24 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
           ),
           if (_previewUrl.isNotEmpty) ...[
             _previewCard(),
+            const SizedBox(height: 10),
+            // Tombol eksplisit — pill di dalam kartu mudah terlewat karena
+            // WebView mengklaim semua gesture, jadi kartunya sendiri tak bisa
+            // "diketuk" untuk membuka. Ini bikin jalur ke full preview jelas.
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: BK.accent,
+                  side: const BorderSide(color: BK.accent),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _openFull,
+                icon: const Icon(Icons.fullscreen_rounded, size: 19),
+                label: const Text('Buka pratinjau penuh', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
             const SizedBox(height: 16),
           ],
           _tile(
@@ -125,7 +143,7 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
 
   Widget _previewCard() {
     return Container(
-      height: 360,
+      height: 460,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: BK.card,
@@ -144,37 +162,6 @@ class _BusinessProfileHubScreenState extends State<BusinessProfileHubScreen> {
             gestureRecognizers: {
               Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
             },
-          ),
-        ),
-        Positioned(
-          left: 10,
-          top: 10,
-          child: IgnorePointer(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.visibility_outlined, size: 13, color: Colors.white),
-                SizedBox(width: 5),
-                Text('Preview langsung', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-              ]),
-            ),
-          ),
-        ),
-        Positioned(
-          right: 10,
-          bottom: 10,
-          child: GestureDetector(
-            onTap: _openFull,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-              decoration: BoxDecoration(color: BK.accent, borderRadius: BorderRadius.circular(20)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.fullscreen_rounded, size: 15, color: Colors.white),
-                SizedBox(width: 5),
-                Text('Lihat penuh', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
-              ]),
-            ),
           ),
         ),
       ]),
