@@ -6,8 +6,7 @@ import '../repositories/settings_repository.dart';
 import '../state/async_value.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
-import 'business_branding_screen.dart';
-import 'business_identity_screen.dart';
+import 'business_profile_hub.dart';
 import 'payment_setup_wizard_screen.dart' show PaymentSetupWizardScreen;
 import 'resources_screen.dart';
 
@@ -94,19 +93,19 @@ class _View extends StatelessWidget {
   }
 
   /// Peta langkah → layar mobile terkait (backend memberi id: identity /
-  /// resources / payments / branding).
+  /// resources / payments).
   Widget? _screenFor(String id) {
     switch (id) {
       case 'identity':
-        return const BusinessIdentityScreen();
+        // Buka hub Profil Bisnis (identitas, kontak, branding, tema, landing)
+        // supaya owner punya satu pintu lengkap, bukan cuma form identitas.
+        return const BusinessProfileHubScreen();
       case 'resources':
         return const ResourcesScreen();
       case 'payments':
         // Wizard menuntun langkah demi langkah (transfer/QRIS wajib, gateway
         // opsional) — sejalan dgn definisi kesiapan bayar di gerbang publikasi.
         return const PaymentSetupWizardScreen();
-      case 'branding':
-        return const BusinessBrandingScreen();
       default:
         return null;
     }

@@ -2943,14 +2943,9 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 			Complete:    snapshot.PaymentReady,
 			Required:    true,
 		},
-		{
-			ID:          "branding",
-			Label:       "Rapikan visual landing page",
-			Description: "Tambahkan logo atau banner supaya halaman publik tenant tidak terasa kosong.",
-			Href:        "/admin/settings/bisnis#media",
-			Complete:    snapshot.HasVisualIdentity,
-			Required:    false,
-		},
+		// Catatan: langkah opsional "branding/rapikan landing" sengaja tidak
+		// ditampilkan di Setup Bisnis — sudah tercakup di hub Profil Bisnis
+		// (yang dibuka lewat langkah "identity"), jadi tak perlu langkah terpisah.
 	}
 
 	completed := 0
