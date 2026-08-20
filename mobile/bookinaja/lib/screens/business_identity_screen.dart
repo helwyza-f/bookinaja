@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme.dart';
 import '../ui/toast.dart';
@@ -142,6 +143,8 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
       });
       // Preview opsional — ambil di latar, jangan blokir form.
       _loadPreviewUrl();
+      // Tur singkat sekali-jalan menjelaskan ikon 👁 & 📍 (owner baru).
+      _maybeShowLegend();
     } catch (e) {
       setState(() {
         _error = '$e';
@@ -339,6 +342,21 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         elevation: 0,
         title: const Text('Identitas & kontak',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
+        actions: (_loading || _error != null)
+            ? null
+            : [
+                IconButton(
+                  tooltip: 'Cara pakai',
+                  icon: const Icon(Icons.help_outline_rounded, color: BK.ink2),
+                  onPressed: _showLegend,
+                ),
+                IconButton(
+                  tooltip: 'Reset semua isian',
+                  icon: const Icon(Icons.restart_alt_rounded, color: BK.ink2),
+                  onPressed: _resetAll,
+                ),
+                const SizedBox(width: 4),
+              ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -753,6 +771,102 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
     );
   }
 
+  // --- Legend / tur singkat (sekali-jalan) ---
+  static const _kLegendSeenKey = 'identity_legend_seen_v1';
+
+  Future<void> _maybeShowLegend() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_kLegendSeenKey) ?? false) return;
+      if (!mounted) return;
+      await _showLegend();
+      await prefs.setBool(_kLegendSeenKey, true);
+    } catch (_) {
+      // Prefs gagal → cukup lewati; owner tetap bisa buka via ikon bantuan.
+    }
+  }
+
+  Future<void> _showLegend() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: BK.card,
+        title: const Text('Cara pakai form ini',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: const [
+          _LegendRow(
+            icon: Icons.place_outlined,
+            title: 'Teks lokasi 📍',
+            body: 'Di bawah nama field ada keterangan singkat "muncul di mana" pada halaman publikmu.',
+          ),
+          SizedBox(height: 14),
+          _LegendRow(
+            icon: Icons.visibility_outlined,
+            title: '"Lihat di halaman" 👁',
+            body: 'Ketuk untuk membuka pratinjau — field itu otomatis di-scroll & disorot biru, jadi kamu tahu persis tempatnya.',
+          ),
+          SizedBox(height: 14),
+          _LegendRow(
+            icon: Icons.assignment_outlined,
+            title: 'Kotak checklist',
+            body: 'Menunjukkan field wajib yang harus diisi sebelum bisnismu bisa diterbitkan.',
+          ),
+        ]),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.accent),
+            onPressed: () => Navigator.pop(dctx),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Reset semua data (mulai dari awal) ---
+  Future<void> _resetAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: BK.card,
+        title: const Text('Reset semua isian?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: const Text(
+          'Semua field identitas, kontak, dan teks section akan dikosongkan '
+          'seperti setup awal. Perubahan baru tersimpan setelah kamu menekan '
+          '"Simpan".',
+          style: TextStyle(fontSize: 13.5, color: BK.ink2),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BK.crit),
+            onPressed: () => Navigator.pop(dctx, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() {
+      for (final c in [_name, _slogan, _tagline, _about, _whatsapp, _address, _instagram, _tiktok]) {
+        c.clear();
+      }
+      _featureInput.clear();
+      _cta.clear();
+      _features.clear();
+      _category = '';
+      _openTime = '';
+      _closeTime = '';
+      for (final c in _sec.values) {
+        c.clear();
+      }
+      _dirty = true;
+    });
+    if (!mounted) return;
+    BkToast.info(context, 'Semua isian dikosongkan — tekan Simpan untuk menerapkan');
+  }
+
   Future<bool> _confirmDiscard() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -858,6 +972,33 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
             const Icon(Icons.expand_more_rounded, size: 18, color: BK.ink3),
           ]),
         ),
+      ),
+    ]);
+  }
+}
+
+/// Baris penjelas ikon di dialog legend/tur.
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({required this.icon, required this.title, required this.body});
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(9)),
+        child: Icon(icon, size: 18, color: BK.accent),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BK.ink)),
+          const SizedBox(height: 2),
+          Text(body, style: const TextStyle(fontSize: 12.5, color: BK.ink2, height: 1.35)),
+        ]),
       ),
     ]);
   }

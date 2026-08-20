@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TenantNavbar } from "./navbar";
@@ -449,6 +450,36 @@ function renderSection({
       );
     case "gallery":
       const galleryImages = (profile.gallery || []).filter((image) => Boolean(image?.trim()));
+      // Pratinjau owner: galeri kosong tetap dirender sebagai slot hantu
+      // ber-data-field, jadi "Lihat di halaman" punya target & owner tahu di
+      // mana foto akan tampil. Tak pernah tampil ke customer (galeri kosong
+      // hilang seperti biasa saat showFieldHints=false).
+      if (galleryImages.length === 0 && showFieldHints) {
+        return (
+          <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
+            <div className="mx-auto max-w-6xl">
+              <div className="mb-8 text-center">
+                <div className={themeVisuals.eyebrowClass}>{String(section.props?.eyebrow || "Visual Experience")}</div>
+                <h3 className={cn("mt-3 text-3xl font-[1000] tracking-tight md:text-5xl", themeVisuals.heroTitleClass)}>
+                  {String(section.props?.title || "Inside The Hub.")}
+                </h3>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    title="Foto galeri akan muncul di sini"
+                    className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 text-slate-400 dark:border-white/20 dark:text-white/40"
+                  >
+                    <ImageIcon className="h-7 w-7" />
+                    <span className="text-[11px] font-semibold">Foto galeri kosong</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
       return sectionVariant === "grid" ? (
         <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} data-field={section.type} className="px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-6xl">
