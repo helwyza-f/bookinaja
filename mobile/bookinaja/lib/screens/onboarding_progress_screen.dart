@@ -8,7 +8,7 @@ import '../theme.dart';
 import '../ui/toast.dart';
 import 'business_branding_screen.dart';
 import 'business_identity_screen.dart';
-import 'payment_methods_settings.dart';
+import 'payment_setup_wizard_screen.dart' show PaymentSetupWizardScreen;
 import 'resources_screen.dart';
 
 /// Setup Bisnis — gerbang menuju "tayang". Menampilkan langkah wajib/opsional
@@ -102,7 +102,9 @@ class _View extends StatelessWidget {
       case 'resources':
         return const ResourcesScreen();
       case 'payments':
-        return const PaymentMethodsSettingsScreen();
+        // Wizard menuntun langkah demi langkah (transfer/QRIS wajib, gateway
+        // opsional) — sejalan dgn definisi kesiapan bayar di gerbang publikasi.
+        return const PaymentSetupWizardScreen();
       case 'branding':
         return const BusinessBrandingScreen();
       default:

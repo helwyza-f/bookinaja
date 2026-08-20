@@ -225,6 +225,22 @@ class AuthController extends ChangeNotifier {
     await _refreshAppMode();
   }
 
+  /// Buat workspace baru lalu langsung pilih → masuk operasional (dashboard
+  /// akan menuntun lengkapi setup lewat gerbang publikasi). Melempar exception
+  /// dengan pesan backend bila gagal (mis. slug sudah dipakai) agar UI tampil.
+  Future<void> createWorkspace(String name) async {
+    final slug = await _repo.createWorkspace(name);
+    final list = await _repo.workspaces();
+    _workspaces = AsyncValue.data(list);
+    final match = list.where((w) => w.slug == slug).toList();
+    final chosen = match.isNotEmpty ? match.first : (list.isNotEmpty ? list.last : null);
+    if (chosen != null) {
+      await selectWorkspace(chosen); // notify + refresh app mode
+    } else {
+      notifyListeners();
+    }
+  }
+
   /// Kembali ke pemilihan workspace (sesi account tetap).
   Future<void> switchWorkspace() async {
     await _repo.leaveWorkspace();

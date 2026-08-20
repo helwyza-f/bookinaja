@@ -2894,11 +2894,29 @@ func (s *Service) GetReferralPayoutSettings(ctx context.Context, tenantID uuid.U
 	return s.repo.GetReferralPayoutSettings(ctx, tenantID)
 }
 
+// paymentReadyForPublish menyatukan definisi "pembayaran siap" dengan payment
+// setup wizard: minimal ada jalur ONLINE yang benar-benar bisa dipakai customer
+// — transfer bank berdetail lengkap / QRIS statis bergambar (manualUsable) ATAU
+// payment gateway terverifikasi (gatewayUsable). Cash TIDAK dihitung karena
+// bukan jalur online. Dipakai gerbang publikasi & checklist onboarding agar
+// tidak "hijau" hanya karena cash aktif dari default.
+func (s *Service) paymentReadyForPublish(ctx context.Context, tenantID uuid.UUID) bool {
+	status, err := s.PaymentSetupStatus(ctx, tenantID)
+	if err != nil || status == nil {
+		return false
+	}
+	return status.HasOnline
+}
+
 func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.UUID) (*TenantOnboardingSummary, error) {
 	snapshot, err := s.repo.GetTenantOnboardingSnapshot(ctx, tenantID)
 	if err != nil || snapshot == nil {
 		return nil, err
 	}
+	// Sumber kebenaran kesiapan bayar = wizard (HasOnline), bukan flag snapshot
+	// yang menghitung metode apa pun (termasuk cash) sebagai siap.
+	paymentReady := s.paymentReadyForPublish(ctx, tenantID)
+	snapshot.PaymentReady = paymentReady
 
 	steps := []TenantOnboardingStep{
 		{
@@ -2980,7 +2998,9 @@ func (s *Service) TenantPublishReadiness(ctx context.Context, tenantID uuid.UUID
 	if !(snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0) {
 		blocking = append(blocking, "resources")
 	}
-	if !snapshot.PaymentReady {
+	// Sejalan dgn wizard: butuh jalur online usable (transfer/QRIS/gateway), cash
+	// tak cukup. Lihat [paymentReadyForPublish].
+	if !s.paymentReadyForPublish(ctx, tenantID) {
 		blocking = append(blocking, "payments")
 	}
 	return len(blocking) == 0, blocking, nil

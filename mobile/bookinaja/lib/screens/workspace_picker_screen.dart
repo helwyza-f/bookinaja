@@ -4,6 +4,7 @@ import '../models/subscription_view.dart';
 import '../theme.dart';
 import '../models/workspace.dart';
 import '../state/auth_controller.dart';
+import 'create_workspace_screen.dart';
 
 /// Langkah 2: pilih workspace setelah login account.
 class WorkspacePickerScreen extends StatefulWidget {
@@ -13,6 +14,18 @@ class WorkspacePickerScreen extends StatefulWidget {
 }
 
 class _WorkspacePickerScreenState extends State<WorkspacePickerScreen> {
+  // Cegah auto-buka form berulang saat daftar kosong (rebuild).
+  bool _autoOpenedEmpty = false;
+
+  /// Buka form buat workspace. Saat berhasil, AuthController meng-set workspace
+  /// aktif → root beralih ke dashboard sendiri, jadi cukup reload daftar di sini.
+  Future<void> _openCreate() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CreateWorkspaceScreen()),
+    );
+    if (mounted) context.read<AuthController>().loadWorkspaces();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +54,21 @@ class _WorkspacePickerScreenState extends State<WorkspacePickerScreen> {
               TextButton(onPressed: () => context.read<AuthController>().logout(), child: const Text('Keluar')),
             ]),
           ),
+          // Aksi buat workspace baru — 1 account bisa punya banyak workspace.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: BK.accent,
+                side: const BorderSide(color: BK.accent),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _openCreate(),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Tambah workspace', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
           Expanded(
             child: auth.workspaces.when(
               loading: () => const LoadingList(),
@@ -50,7 +78,24 @@ class _WorkspacePickerScreenState extends State<WorkspacePickerScreen> {
               ),
               data: (list) {
                 if (list.isEmpty) {
-                  return const StateView(icon: Icons.workspaces_outline, color: BK.ink3, title: 'Belum punya workspace', hint: 'Buat workspace lewat web dulu.');
+                  // Kosong → langsung tuntun buat workspace pertama (sekali,
+                  // saat frame pertama), sambil tetap sediakan tombolnya.
+                  if (!_autoOpenedEmpty) {
+                    _autoOpenedEmpty = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) => _openCreate());
+                  }
+                  return StateView(
+                    icon: Icons.workspaces_outline,
+                    color: BK.ink3,
+                    title: 'Belum punya workspace',
+                    hint: 'Buat workspace pertamamu untuk mulai berjualan.',
+                    action: FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: BK.accent),
+                      onPressed: () => _openCreate(),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Buat workspace'),
+                    ),
+                  );
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

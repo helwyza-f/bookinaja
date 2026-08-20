@@ -655,6 +655,11 @@ type Tenant struct {
 
 	PaymentSetupSnoozedAt *time.Time `db:"payment_setup_snoozed_at" json:"payment_setup_snoozed_at,omitempty"`
 
+	// Gerbang publikasi (migration 000066). WAJIB dipetakan: GetByID memakai
+	// `SELECT * FROM tenants` dan sqlx berjalan mode aman — kolom tanpa field
+	// tujuan membuat seluruh scan gagal ("missing destination name is_published").
+	IsPublished bool `db:"is_published" json:"is_published"`
+
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
