@@ -2947,6 +2947,10 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		progress = int(float64(completed) / float64(len(steps)) * 100)
 	}
 
+	canPublish := (snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) &&
+		(snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0) &&
+		snapshot.PaymentReady
+
 	return &TenantOnboardingSummary{
 		HasBusinessIdentity: snapshot.HasBusinessIdentity,
 		HasBusinessContact:  snapshot.HasBusinessContact,
@@ -2956,7 +2960,36 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		PaymentReady:        snapshot.PaymentReady,
 		ProgressPercent:     progress,
 		Steps:               steps,
+		IsPublished:         snapshot.IsPublished,
+		CanPublish:          canPublish,
 	}, nil
+}
+
+// TenantPublishReadiness menilai apakah tenant boleh diterbitkan: semua langkah
+// WAJIB (identitas+kontak, resource+harga, metode bayar siap) terpenuhi.
+// Mengembalikan daftar id langkah yang masih memblokir untuk pesan ke owner.
+func (s *Service) TenantPublishReadiness(ctx context.Context, tenantID uuid.UUID) (bool, []string, error) {
+	snapshot, err := s.repo.GetTenantOnboardingSnapshot(ctx, tenantID)
+	if err != nil || snapshot == nil {
+		return false, nil, err
+	}
+	var blocking []string
+	if !(snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) {
+		blocking = append(blocking, "identity")
+	}
+	if !(snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0) {
+		blocking = append(blocking, "resources")
+	}
+	if !snapshot.PaymentReady {
+		blocking = append(blocking, "payments")
+	}
+	return len(blocking) == 0, blocking, nil
+}
+
+// SetTenantPublished mengubah status terbit tenant (dipakai handler
+// publish/unpublish). Verifikasi kesiapan dilakukan di handler untuk publish.
+func (s *Service) SetTenantPublished(ctx context.Context, tenantID uuid.UUID, published bool) error {
+	return s.repo.SetTenantPublished(ctx, tenantID, published)
 }
 
 func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error) {

@@ -249,7 +249,7 @@ class SettingsRepository {
       return _demoDpPolicy;
     }
     try {
-      final res = await _api.get('/deposit-settings');
+      final res = await _api.get('/admin/deposit-settings');
       return res is Map ? res : {'dp_enabled': false, 'dp_percentage': 0, 'resource_configs': []};
     } catch (_) {
       return {'dp_enabled': false, 'dp_percentage': 0, 'resource_configs': []};
@@ -264,7 +264,7 @@ class SettingsRepository {
       _demoDpPolicy = policy;
       return;
     }
-    await _api.put('/deposit-settings', body: policy);
+    await _api.put('/admin/deposit-settings', body: policy);
   }
 
   // --- Owner Account Settings ---
@@ -299,31 +299,45 @@ class SettingsRepository {
     await _api.post('/admin/account/google/link');
   }
 
-  /// DELETE /admin/account → hapus akun owner & workspace selamanya.
-  Future<void> deleteOwnerAccount() async {
-    await _api.delete('/admin/account');
+  /// DELETE /admin/account → hapus (soft-delete) akun owner & workspace.
+  /// Backend wajib: confirm_text = slug workspace; current_password bila owner
+  /// punya password. Gagal bila masih ada staff aktif.
+  Future<void> deleteOwnerAccount({required String confirmText, String? currentPassword}) async {
+    await _api.delete('/admin/account', body: {
+      'confirm_text': confirmText,
+      if (currentPassword != null && currentPassword.isNotEmpty) 'current_password': currentPassword,
+    });
   }
 
   // --- Onboarding Progress ---
 
-  /// GET /admin/tenant/onboarding-summary → checklist setup tasks.
-  /// Response: {tasks: [{id, name, description, completed, action_url}]}
+  /// GET /admin/tenant/onboarding-summary → langkah setup + status publikasi.
+  /// Response: {steps:[{id,label,description,href,complete,required}],
+  ///            is_published, can_publish, progress_percent}
   Future<Map<String, dynamic>> getOnboardingProgress() async {
     try {
       final res = await _api.get('/admin/tenant/onboarding-summary');
-      return res is Map ? Map<String, dynamic>.from(res) : {'tasks': []};
+      return res is Map ? Map<String, dynamic>.from(res) : {'steps': []};
     } catch (_) {
-      return {'tasks': []};
+      return {'steps': []};
     }
   }
 
+  /// POST /admin/tenant/publish → terbitkan bisnis ke customer. Melempar
+  /// ApiException (400 code=setup_incomplete + blocking) bila belum siap.
+  Future<void> publishTenant() => _api.post('/admin/tenant/publish');
+
+  /// POST /admin/tenant/unpublish → sembunyikan bisnis dari customer.
+  Future<void> unpublishTenant() => _api.post('/admin/tenant/unpublish');
+
   // --- Payment Setup Wizard ---
 
-  /// GET /admin/payment-setup/status → check payment setup progress.
-  /// Response: {has_gateway, has_payment_method, has_test_payment}
+  /// GET /admin/payment-setup/status → kesiapan pembayaran. Backend membungkus
+  /// di `data`: {gateway_usable, manual_usable, has_online, needs_setup, ...}.
   Future<Map<String, dynamic>> getPaymentSetupStatus() async {
     try {
       final res = await _api.get('/admin/payment-setup/status');
+      if (res is Map && res['data'] is Map) return Map<String, dynamic>.from(res['data'] as Map);
       return res is Map ? Map<String, dynamic>.from(res) : {};
     } catch (_) {
       return {};

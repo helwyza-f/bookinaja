@@ -400,6 +400,44 @@ func RequireTransactionsAllowed(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// RequirePublishedTenant memblokir aksi publik (booking/order baru) ke tenant
+// yang BELUM diterbitkan owner-nya. Gerbang publikasi: tenant yang datanya belum
+// siap tak boleh menerima pesanan customer, bahkan lewat link langsung. Tenant
+// diidentifikasi oleh TenantIdentifier (slug/header) sebelum middleware ini.
+func RequirePublishedTenant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if db == nil {
+			c.Next()
+			return
+		}
+		tenantID := strings.TrimSpace(c.GetString("tenantID"))
+		if tenantID == "" {
+			// Tanpa identitas tenant, biarkan handler yang menolak (400/404).
+			c.Next()
+			return
+		}
+		var published bool
+		if err := db.GetContext(
+			c.Request.Context(),
+			&published,
+			`SELECT COALESCE(is_published, false) FROM tenants WHERE id = $1::uuid LIMIT 1`,
+			tenantID,
+		); err != nil {
+			abortForbidden(c, "Bisnis tidak ditemukan")
+			return
+		}
+		if published {
+			c.Next()
+			return
+		}
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Bisnis ini belum dibuka.",
+			"code":  "tenant_unpublished",
+		})
+		c.Abort()
+	}
+}
+
 func RequirePermission(required ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if HasAnyPermission(c, required...) {

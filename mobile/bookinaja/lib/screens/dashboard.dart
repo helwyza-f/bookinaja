@@ -21,6 +21,7 @@ import 'reports_screen.dart';
 import 'expenses_screen.dart';
 import 'subscription_screen.dart';
 import 'onboarding_progress_screen.dart';
+import '../repositories/settings_repository.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -69,29 +70,9 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            // Setup status card — quick link ke onboarding progress
-            GestureDetector(
-              onTap: () => _go(context, const OnboardingProgressScreen()),
-              child: BKCard(
-                child: Row(
-                  children: [
-                    const Icon(Icons.checklist_outlined, color: BK.accent, size: 22),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Setup & Status', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BK.ink)),
-                          Text('Lihat progress setup bisnis', style: TextStyle(fontSize: 11.5, color: BK.ink3)),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios, size: 16, color: BK.ink3),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
+            // Kartu setup — hanya tampil selama bisnis belum tayang, mendorong
+            // owner menyelesaikan setup lalu menerbitkan.
+            const _SetupStatusCard(),
             if (dash.error != null && !dash.loading)
               _ErrorCard(onRetry: () => context.read<DashboardController>().load())
             else ...[
@@ -166,6 +147,71 @@ class _GraceChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(view.pill, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
         ]),
+      ),
+    );
+  }
+}
+
+/// Kartu setup di dashboard — tampil hanya selama bisnis BELUM tayang. Memuat
+/// ringkasan onboarding sekali; begitu tenant diterbitkan, kartu ini hilang.
+class _SetupStatusCard extends StatefulWidget {
+  const _SetupStatusCard();
+  @override
+  State<_SetupStatusCard> createState() => _SetupStatusCardState();
+}
+
+class _SetupStatusCardState extends State<_SetupStatusCard> {
+  OnboardingProgress? _p;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await context.read<SettingsRepository>().getOnboardingProgress();
+      if (mounted) setState(() => _p = OnboardingProgress.fromJson(res));
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _p;
+    // Sembunyi saat memuat atau sudah tayang.
+    if (p == null || p.isPublished) return const SizedBox.shrink();
+
+    final required = p.tasks.where((t) => t.required).toList();
+    final done = required.where((t) => t.completed).length;
+    final total = required.length;
+    final ready = p.canPublish;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GestureDetector(
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingProgressScreen()));
+          _load(); // refresh saat kembali (mungkin sudah terbit)
+        },
+        child: BKCard(
+          color: ready ? BK.accentSoft : BK.card,
+          border: ready ? BK.accent : BK.line,
+          child: Row(children: [
+            Icon(ready ? Icons.rocket_launch_outlined : Icons.storefront_outlined, color: BK.accent, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(ready ? 'Siap terbit — bisnismu belum tayang' : 'Bisnismu belum tayang',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
+                const SizedBox(height: 1),
+                Text(ready ? 'Terbitkan agar muncul ke pelanggan' : 'Lengkapi $done/$total langkah wajib untuk terbit',
+                    style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+              ]),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: BK.ink3),
+          ]),
+        ),
       ),
     );
   }

@@ -53,197 +53,122 @@ class _View extends StatelessWidget {
   }
 
   Widget _content(BuildContext context, PaymentSetupWizardController c, PaymentSetupStatus status) {
-    final completed = [
-      status.hasGateway,
-      status.hasPaymentMethod,
-      status.hasTestPayment,
-    ].where((x) => x).length;
-    final total = 3;
+    // Kesiapan = ada minimal satu jalur online aktif. Jalur WAJIB (baseline)
+    // adalah metode manual (transfer/QRIS) dgn verifikasi manual; payment
+    // gateway otomatis adalah OPSIONAL (fitur lanjutan), bukan syarat.
+    final ready = status.isReady;
+
+    Future<void> openThenReload(Widget screen) async {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+      await c.load(); // auto-refresh progres begitu balik dari layar setting
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        // Header dengan progress
-        BKCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Setup Progress', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-                        const SizedBox(height: 6),
-                        Text('$completed/$total selesai', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BK.ink)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: completed == total ? BK.liveSoft : BK.accentSoft,
-                      border: Border.all(color: completed == total ? BK.live : BK.accent, width: 2),
-                    ),
-                    child: Center(
-                      child: Text('${((completed / total) * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: completed == total ? BK.live : BK.accent)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  minHeight: 4,
-                  value: completed / total,
-                  backgroundColor: BK.line,
-                  valueColor: const AlwaysStoppedAnimation<Color>(BK.live),
+        // Hero kesiapan (bukan lagi "X/3" — gateway tak dihitung sbg syarat).
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ready ? BK.liveSoft : BK.accentSoft,
+            border: Border.all(color: ready ? BK.live : BK.accent),
+            borderRadius: BorderRadius.circular(BK.radius),
+          ),
+          child: Row(children: [
+            Icon(ready ? Icons.check_circle : Icons.storefront_outlined,
+                color: ready ? BK.live : BK.accent, size: 30),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(ready ? 'Siap terima pembayaran online' : 'Belum bisa terima pembayaran online',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: ready ? BK.live : BK.ink)),
+                const SizedBox(height: 3),
+                Text(
+                  ready
+                      ? 'Pelanggan bisa bayar transfer atau QRIS, lalu kamu verifikasi manual.'
+                      : 'Aktifkan minimal satu metode pembayaran di bawah.',
+                  style: const TextStyle(fontSize: 12, color: BK.ink2, height: 1.4),
                 ),
-              ),
-            ],
-          ),
+              ]),
+            ),
+          ]),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
-        // Step 1: Gateway
+        _label('WAJIB'),
+        const SizedBox(height: 8),
         _stepCard(
-          number: 1,
-          title: 'Setup Payment Gateway',
-          description: 'Hubungkan Midtrans atau Xendit',
-          completed: status.hasGateway,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PaymentGatewaySettingsScreen()),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Step 2: Payment Methods
-        _stepCard(
-          number: 2,
-          title: 'Tambah Metode Pembayaran',
-          description: 'Setup transfer, e-wallet, QRIS, dsb',
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Aktifkan transfer / QRIS',
+          description: 'Pelanggan transfer atau scan QR, kamu konfirmasi manual. Cukup ini untuk mulai terima pembayaran online.',
           completed: status.hasPaymentMethod,
-          enabled: status.hasGateway,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PaymentMethodsSettingsScreen()),
-          ),
+          onTap: () => openThenReload(const PaymentMethodsSettingsScreen()),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
 
-        // Step 3: Test Payment
+        _label('OPSIONAL · VERIFIKASI OTOMATIS'),
+        const SizedBox(height: 8),
         _stepCard(
-          number: 3,
-          title: 'Tes Pembayaran',
-          description: 'Lakukan test transaction untuk pastikan setup bekerja',
-          completed: status.hasTestPayment,
-          enabled: status.hasPaymentMethod,
-          onTap: () {
-            // TODO: Buka payment test flow
-          },
+          icon: Icons.bolt_outlined,
+          title: 'Payment gateway otomatis',
+          description: 'Midtrans / Xendit memverifikasi pembayaran otomatis, tanpa cek manual. Fitur lanjutan (Pro).',
+          completed: status.hasGateway,
+          optional: true,
+          onTap: () => openThenReload(const PaymentGatewaySettingsScreen()),
         ),
-        const SizedBox(height: 18),
-
-        // Status message
-        if (completed == total)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: BK.liveSoft,
-              border: Border.all(color: BK.live),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle, color: BK.live, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Pembayaran sudah siap! Pelanggan bisa memilih metode pembayaran di booking.',
-                    style: TextStyle(fontSize: 12, color: BK.live, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: BK.accentSoft,
-              border: Border.all(color: BK.accent),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: BK.accent, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Selesaikan setup agar pembayaran online dapat diterima.',
-                    style: const TextStyle(fontSize: 12, color: BK.accent, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
 
+  Widget _label(String t) => Text(t,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3));
+
   Widget _stepCard({
-    required int number,
+    required IconData icon,
     required String title,
     required String description,
     required bool completed,
-    bool enabled = true,
+    bool optional = false,
     VoidCallback? onTap,
   }) {
-    final bgColor = completed ? BK.liveSoft : (enabled ? BK.card : BK.card2);
-    final borderColor = completed ? BK.live : (enabled ? BK.accent : BK.line);
-    final textColor = enabled ? BK.ink : BK.ink3;
-
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
+    final accent = optional ? BK.ink2 : BK.accent;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: bgColor,
-          border: Border.all(color: borderColor, width: 1.5),
+          color: completed ? BK.liveSoft : BK.card,
+          border: Border.all(color: completed ? BK.live : BK.line, width: 1.2),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: completed ? BK.live : BK.accent,
-              ),
-              child: Center(
-                child: completed
-                    ? const Icon(Icons.check, color: Colors.white, size: 20)
-                    : Text(number.toString(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
-              ),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: completed ? BK.live : (optional ? BK.card2 : BK.accentSoft),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: textColor)),
-                  Text(description, style: TextStyle(fontSize: 11.5, color: textColor, fontWeight: FontWeight.w500)),
+            child: Icon(completed ? Icons.check : icon, color: completed ? Colors.white : accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(child: Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BK.ink))),
+                if (optional && !completed) ...[
+                  const SizedBox(width: 6),
+                  Pill.mut('Opsional'),
                 ],
-              ),
-            ),
-            if (enabled && !completed) const Icon(Icons.arrow_forward_ios, size: 16, color: BK.accent),
-          ],
-        ),
+              ]),
+              const SizedBox(height: 2),
+              Text(description, style: const TextStyle(fontSize: 11.5, color: BK.ink3, height: 1.35)),
+            ]),
+          ),
+          const SizedBox(width: 6),
+          Icon(completed ? Icons.edit_outlined : Icons.arrow_forward_ios, size: 15, color: BK.ink3),
+        ]),
       ),
     );
   }
@@ -252,21 +177,23 @@ class _View extends StatelessWidget {
 // --- Models ---
 
 class PaymentSetupStatus {
-  final bool hasGateway; // Midtrans or Xendit configured
-  final bool hasPaymentMethod; // Min 1 payment method setup
-  final bool hasTestPayment; // At least 1 successful test transaction
+  final bool hasGateway; // gateway BYO (Midtrans/Xendit) siap dipakai
+  final bool hasPaymentMethod; // ≥1 metode manual (transfer/QRIS) siap dipakai
+  final bool isReady; // minimal satu jalur pembayaran online aktif
 
   const PaymentSetupStatus({
     this.hasGateway = false,
     this.hasPaymentMethod = false,
-    this.hasTestPayment = false,
+    this.isReady = false,
   });
 
+  /// Dipetakan dari kontrak backend (tenant.PaymentSetupStatus):
+  ///   gateway_usable / manual_usable / has_online.
   factory PaymentSetupStatus.fromJson(Map json) {
     return PaymentSetupStatus(
-      hasGateway: json['has_gateway'] == true,
-      hasPaymentMethod: json['has_payment_method'] == true,
-      hasTestPayment: json['has_test_payment'] == true,
+      hasGateway: json['gateway_usable'] == true,
+      hasPaymentMethod: json['manual_usable'] == true,
+      isReady: json['has_online'] == true,
     );
   }
 }

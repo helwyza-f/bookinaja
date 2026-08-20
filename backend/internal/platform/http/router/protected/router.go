@@ -155,6 +155,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.GET("/tenant/identity", cfg.TenantHandler.GetTenantIdentity)
 					ownerAdmin.GET("/tenant/discovery-profile", cfg.TenantHandler.GetTenantDiscoveryProfile)
 					ownerAdmin.GET("/tenant/onboarding-summary", cfg.TenantHandler.GetTenantOnboardingSummary)
+					ownerAdmin.POST("/tenant/publish", cfg.TenantHandler.PublishTenant)
+					ownerAdmin.POST("/tenant/unpublish", cfg.TenantHandler.UnpublishTenant)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
 					ownerAdmin.GET("/page-builder", cfg.TenantHandler.GetPageBuilder)
 					ownerAdmin.PUT("/page-builder", cfg.TenantHandler.UpdatePageBuilder)

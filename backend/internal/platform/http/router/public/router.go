@@ -2,6 +2,7 @@ package public
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/helwiza/backend/internal/middleware"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
 )
 
@@ -25,12 +26,12 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		public.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
 		public.GET("/validate-customer", cfg.CustomerHandler.ValidateCustomer)
 		public.GET("/bookings/:id", cfg.ReservationHandler.GetPublicDetailByToken)
-		public.POST("/bookings", cfg.ReservationHandler.Create)
-		public.POST("/bookings/preview", cfg.ReservationHandler.PreviewBooking)
+		public.POST("/bookings", middleware.RequirePublishedTenant(cfg.DB), cfg.ReservationHandler.Create)
+		public.POST("/bookings/preview", middleware.RequirePublishedTenant(cfg.DB), cfg.ReservationHandler.PreviewBooking)
 		public.POST("/promos/preview", cfg.PromoHandler.Preview)
 		public.POST("/bookings/exchange", cfg.ReservationHandler.ExchangeAccessToken)
 		public.GET("/payment-methods", cfg.BillingHandler.ListTenantPaymentMethods)
-		public.POST("/sales-orders", cfg.SalesHandler.PublicCreate)
+		public.POST("/sales-orders", middleware.RequirePublishedTenant(cfg.DB), cfg.SalesHandler.PublicCreate)
 		public.POST("/sales-orders/exchange", cfg.SalesHandler.ExchangeAccessToken)
 		public.POST("/bookings/:id/checkout", cfg.BillingHandler.BookingCheckout)
 		public.POST("/bookings/:id/manual-payment", cfg.BillingHandler.SubmitManualBookingPayment)

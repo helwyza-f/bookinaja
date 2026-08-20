@@ -349,6 +349,7 @@ func (r *Repository) GetPublicProfileBySlug(ctx context.Context, slug string) (*
 			t.id,
 			t.name,
 			t.slug,
+			COALESCE(t.is_published, false) AS is_published,
 			COALESCE(owner.email, '') AS owner_email,
 			COALESCE(t.business_category, '') AS business_category,
 			COALESCE(t.business_type, '') AS business_type,
@@ -668,6 +669,7 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			WHERE status != 'deleted'
 			ORDER BY tenant_id, created_at DESC, name ASC
 		) top_resource ON top_resource.tenant_id = tenants.id
+		WHERE COALESCE(tenants.is_published, false) = true
 		ORDER BY tenants.discovery_priority DESC, tenants.created_at DESC, tenants.name ASC`)
 	if err != nil {
 		if isDiscoverySchemaError(err) {
@@ -743,6 +745,7 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 			WHERE status != 'deleted'
 			ORDER BY tenant_id, created_at DESC, name ASC
 		) top_resource ON top_resource.tenant_id = tenants.id
+		WHERE COALESCE(tenants.is_published, false) = true
 		ORDER BY tenants.created_at DESC, tenants.name ASC`)
 	return items, err
 }
@@ -1704,6 +1707,29 @@ type tenantOnboardingSnapshot struct {
 	ResourcesCount      int  `db:"resources_count"`
 	PricePackagesCount  int  `db:"price_packages_count"`
 	PaymentReady        bool `db:"payment_ready"`
+	IsPublished         bool `db:"is_published"`
+}
+
+// SetTenantPublished mengubah status terbit tenant lalu membust cache publik
+// (direktori, discover feed, profil/landing per-slug) agar perubahan
+// visibilitas langsung terasa — bukan tertunda cache 30 menit.
+func (r *Repository) SetTenantPublished(ctx context.Context, tenantID uuid.UUID, published bool) error {
+	var slug string
+	if err := r.db.GetContext(ctx, &slug,
+		`UPDATE tenants SET is_published = $2, updated_at = NOW() WHERE id = $1 RETURNING slug`,
+		tenantID, published,
+	); err != nil {
+		return err
+	}
+	slugKey := strings.ToLower(strings.TrimSpace(slug))
+	r.rdb.Del(ctx,
+		r.getPublicTenantsCacheKey(),
+		r.getPublicDiscoverFeedCacheKey(),
+		r.getProfileCacheKey(slugKey),
+		r.getPublicProfileCacheKey(slugKey),
+		fmt.Sprintf("tenant_id_by_slug:%s", slugKey),
+	)
+	return nil
 }
 
 func (r *Repository) GetTenantOnboardingSnapshot(ctx context.Context, tenantID uuid.UUID) (*tenantOnboardingSnapshot, error) {
@@ -1765,7 +1791,12 @@ func (r *Repository) GetTenantOnboardingSnapshot(ctx context.Context, tenantID u
 					)
 					OR tpm.code NOT IN ('bank_transfer', 'qris_static')
 				  )
-			) AS payment_ready
+			) AS payment_ready,
+			(
+				SELECT COALESCE(is_published, false)
+				FROM tenants
+				WHERE id = $1
+			) AS is_published
 	`, tenantID)
 	if err != nil {
 		return nil, err

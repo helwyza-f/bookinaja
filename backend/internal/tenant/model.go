@@ -563,6 +563,10 @@ type TenantOnboardingSummary struct {
 	PaymentReady        bool                   `json:"payment_ready"`
 	ProgressPercent     int                    `json:"progress_percent"`
 	Steps               []TenantOnboardingStep `json:"steps"`
+	// Gerbang publikasi: IsPublished = tenant sudah tampil ke customer;
+	// CanPublish = semua langkah WAJIB terpenuhi (boleh menekan "Terbitkan").
+	IsPublished bool `json:"is_published"`
+	CanPublish  bool `json:"can_publish"`
 }
 
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik
@@ -658,6 +662,7 @@ type PublicTenantProfile struct {
 	ID                 uuid.UUID      `db:"id" json:"id"`
 	Name               string         `db:"name" json:"name"`
 	Slug               string         `db:"slug" json:"slug"`
+	IsPublished        bool           `db:"is_published" json:"is_published"`
 	OwnerEmail         string         `db:"owner_email" json:"owner_email"`
 	BusinessCategory   string         `db:"business_category" json:"business_category"`
 	BusinessType       string         `db:"business_type" json:"business_type"`

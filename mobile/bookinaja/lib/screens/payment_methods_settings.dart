@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../api/api_client.dart';
 import '../models/payment_method.dart';
 import '../repositories/settings_repository.dart';
 import '../state/settings_controller.dart';
@@ -34,6 +35,28 @@ _Group _groupOf(PaymentMethod m) {
   if (m.isGateway) return _Group.gateway;
   if (m.isManual) return _Group.manual;
   return _Group.cash;
+}
+
+/// Alasan sebuah metode manual AKTIF belum lengkap (null = lengkap/tak relevan).
+/// SATU sumber kebenaran, dipakai gate simpan & state tombol — selaras aturan
+/// backend (transfer butuh bank+pemilik+no rek; QRIS butuh gambar QR).
+String? _incompleteReason(PaymentMethod m) {
+  if (!m.isActive || !m.isManual) return null;
+  final meta = m.meta;
+  switch (m.manualKind) {
+    case PaymentManualKind.qris:
+      return meta.qrImageUrl.trim().isEmpty ? 'unggah gambar QR' : null;
+    case PaymentManualKind.transfer:
+      return (meta.bankName.trim().isEmpty ||
+              meta.accountName.trim().isEmpty ||
+              meta.accountNumber.trim().isEmpty)
+          ? 'lengkapi nama bank, nama pemilik, dan nomor rekening'
+          : null;
+    case PaymentManualKind.ewallet:
+      return (meta.bankName.trim().isEmpty || meta.accountNumber.trim().isEmpty)
+          ? 'lengkapi penyedia dan nomor HP'
+          : null;
+  }
 }
 
 class _View extends StatelessWidget {
@@ -72,35 +95,61 @@ class _View extends StatelessWidget {
                 hint: 'Metode pembayaran akan muncul di sini.')
             : _list(context, c, items),
       ),
-      bottomNavigationBar: c.state.hasData
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: BK.accent, padding: const EdgeInsets.symmetric(vertical: 15)),
-                  onPressed: c.saving ? null : () => _save(context, c),
-                  child: c.saving
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+      bottomNavigationBar: c.state.hasData ? _saveBar(context, c) : null,
+    );
+  }
+
+  /// Tombol simpan yang sadar konteks: nonaktif selama ada metode aktif yang
+  /// belum lengkap, dengan catatan yang menyebut metode mana & apa kurangnya.
+  Widget _saveBar(BuildContext context, PaymentMethodsController c) {
+    final incomplete = [
+      for (final m in c.items)
+        if (_incompleteReason(m) != null) m,
+    ];
+    final blocked = incomplete.isNotEmpty;
+    final first = blocked ? incomplete.first : null;
+    final firstName = first == null
+        ? ''
+        : (first.displayName.isNotEmpty ? first.displayName : first.code);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (blocked) ...[
+            Row(children: [
+              const Icon(Icons.error_outline, size: 16, color: BK.crit),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  incomplete.length == 1
+                      ? '$firstName belum lengkap — ${_incompleteReason(first!)!}.'
+                      : '${incomplete.length} metode aktif belum lengkap.',
+                  style: const TextStyle(fontSize: 12, color: BK.crit, fontWeight: FontWeight.w600, height: 1.3),
                 ),
               ),
-            )
-          : null,
+            ]),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: blocked ? BK.ink3 : BK.accent,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              onPressed: c.saving || blocked ? null : () => _save(context, c),
+              child: c.saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(blocked ? 'Lengkapi metode dulu' : 'Simpan', style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
   Future<void> _save(BuildContext context, PaymentMethodsController c) async {
-    // Validasi: QRIS aktif wajib punya gambar QR.
-    for (final m in c.items) {
-      if (m.isActive && m.manualKind == PaymentManualKind.qris && m.isManual && m.meta.qrImageUrl.isEmpty) {
-        BkToast.error(context, 'QRIS aktif tapi belum ada gambar QR',
-            subtitle: 'Unggah gambar QR atau nonaktifkan QRIS dulu.');
-        return;
-      }
-    }
     final ok = await c.save();
     if (!context.mounted) return;
     if (ok) {
@@ -289,7 +338,14 @@ class _MethodCardState extends State<_MethodCard> {
 
   Future<void> _pickQr() async {
     try {
-      final x = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1200);
+      // QR cukup tajam di ~900px; kompres agresif agar payload kecil & tak kena
+      // batas ukuran upload (413). Kontras tinggi QR tetap terbaca di quality 70.
+      final x = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 900,
+        maxHeight: 900,
+      );
       if (x == null) return;
       setState(() {
         _uploadingQr = true;
@@ -304,8 +360,15 @@ class _MethodCardState extends State<_MethodCard> {
       _pushMeta();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _uploadingQr = false);
-      BkToast.error(context, 'Gagal upload QR', subtitle: '$e');
+      // Bersihkan preview lokal agar tak terlihat "sudah ada QR" padahal upload
+      // gagal (biang bug pill hijau tapi simpan menolak).
+      setState(() {
+        _uploadingQr = false;
+        _qrLocalPreview = null;
+      });
+      final tooLarge = e is ApiException && e.statusCode == 413;
+      BkToast.error(context, 'Gagal upload QR',
+          subtitle: tooLarge ? 'Gambar terlalu besar. Crop QR-nya atau pilih file lebih kecil.' : '$e');
     }
   }
 
@@ -368,9 +431,16 @@ class _MethodCardState extends State<_MethodCard> {
     if (_locked) return Pill.pend('Terkunci · perlu gateway');
     if (!m.isActive) return Pill.mut('Nonaktif');
     if (m.isManual) {
-      final needsQr = m.manualKind == PaymentManualKind.qris && _qrUrl.isEmpty && _qrLocalPreview == null;
-      final needsAcc = m.manualKind != PaymentManualKind.qris &&
-          (_bank.text.trim().isEmpty || _accNumber.text.trim().isEmpty);
+      // Kelengkapan QR = URL hasil upload, bukan preview lokal (yang muncul
+      // instan saat pilih gambar tapi belum tentu ter-upload). Konsisten dgn
+      // gate simpan.
+      final needsQr = m.manualKind == PaymentManualKind.qris && _qrUrl.isEmpty;
+      final needsAcc = switch (m.manualKind) {
+        PaymentManualKind.transfer =>
+          _bank.text.trim().isEmpty || _accName.text.trim().isEmpty || _accNumber.text.trim().isEmpty,
+        PaymentManualKind.ewallet => _bank.text.trim().isEmpty || _accNumber.text.trim().isEmpty,
+        PaymentManualKind.qris => false,
+      };
       if (needsQr) return Pill.crit('Aktif · unggah QR');
       if (needsAcc) return Pill.crit('Aktif · lengkapi rekening');
       // Ringkasan detail yang sudah diisi.
@@ -419,7 +489,7 @@ class _MethodCardState extends State<_MethodCard> {
         return [
           _field('Nama bank', _bank, hint: 'mis. BCA, Mandiri, BNI', onChanged: _refreshPill),
           const SizedBox(height: 10),
-          _field('Nama pemilik rekening', _accName, hint: 'Nama sesuai rekening'),
+          _field('Nama pemilik rekening', _accName, hint: 'Nama sesuai rekening', onChanged: _refreshPill),
           const SizedBox(height: 10),
           _field('Nomor rekening', _accNumber, hint: 'Nomor tujuan transfer', keyboard: TextInputType.number, onChanged: _refreshPill),
           const SizedBox(height: 10),

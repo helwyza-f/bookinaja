@@ -792,6 +792,60 @@ func (h *Handler) GetTenantOnboardingSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
+// PublishTenant menerbitkan tenant ke sisi customer. Verifikasi kesiapan dulu:
+// bila langkah wajib belum lengkap → 400 + daftar blocking (dipakai UI untuk
+// mengarahkan owner menyelesaikan setup).
+func (h *Handler) PublishTenant(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	ready, blocking, err := h.service.TenantPublishReadiness(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa kesiapan bisnis"})
+		return
+	}
+	if !ready {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":    "Lengkapi setup wajib dulu sebelum menerbitkan bisnis.",
+			"code":     "setup_incomplete",
+			"blocking": blocking,
+		})
+		return
+	}
+	if err := h.service.SetTenantPublished(c.Request.Context(), tID, true); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menerbitkan bisnis"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Bisnis berhasil diterbitkan", "is_published": true})
+}
+
+// UnpublishTenant menyembunyikan tenant dari sisi customer.
+func (h *Handler) UnpublishTenant(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	if err := h.service.SetTenantPublished(c.Request.Context(), tID, false); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyembunyikan bisnis"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Bisnis disembunyikan dari customer", "is_published": false})
+}
+
 func (h *Handler) GetReceiptSettings(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {
