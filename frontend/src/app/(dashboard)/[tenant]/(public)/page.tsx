@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SearchX } from "lucide-react";
 import { useParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
@@ -17,6 +17,13 @@ const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
+  // Mode pratinjau owner (dibuka dari app via ?preview=1). Hanya di mode ini
+  // slot ditandai label lokasi — TIDAK bocor ke customer. Dibaca dari
+  // window (bukan useSearchParams) agar tak memicu CSR-bailout saat prerender.
+  const [editorPreview, setEditorPreview] = useState(false);
+  useEffect(() => {
+    setEditorPreview(new URLSearchParams(window.location.search).get("preview") === "1");
+  }, []);
   const { mutate } = useSWRConfig();
   const { profile: initialProfile } = useTenant();
 
@@ -77,6 +84,7 @@ export default function TenantPublicLanding() {
         pageConfig={resolvedProfile?.landing_page_config}
         themeConfig={resolvedProfile?.landing_theme_config}
         bookingFormConfig={resolvedProfile?.booking_form_config}
+        showFieldHints={editorPreview}
         embedded
       />
     </div>

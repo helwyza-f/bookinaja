@@ -24,9 +24,11 @@ type TenantHeroProps = {
   };
   theme: { primary: string; preset?: string; accent?: string; radiusStyle?: string };
   variant?: "immersive" | "split" | "compact";
+  /** Pratinjau owner: tampilkan label lokasi (Nama/Tagline/Slogan diatur di app). */
+  showFieldHints?: boolean;
 };
 
-export function TenantHero({ profile, content, theme, variant = "immersive" }: TenantHeroProps) {
+export function TenantHero({ profile, content, theme, variant = "immersive", showFieldHints = false }: TenantHeroProps) {
   const nameParts = profile.name.split(" ");
   const firstName = nameParts[0];
   const otherNames = nameParts.slice(1).join(" ");
@@ -124,6 +126,11 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
         isCompact ? "min-h-[56dvh] md:min-h-[64dvh]" : isSplit ? "min-h-[66dvh] md:min-h-[78dvh]" : "min-h-[70dvh] md:min-h-[100dvh]",
       )}
     >
+      {showFieldHints ? (
+        <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-full bg-black/70 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur">
+          📍 Bagian atas · Nama, Tagline, Slogan
+        </div>
+      ) : null}
       <div className="absolute inset-0 z-0">
         {hasBanner ? (
           <>
@@ -160,7 +167,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
       >
         <div className={cn("gap-6 md:gap-10", isSplit ? "grid items-center lg:grid-cols-[1.05fr_0.95fr]" : "flex flex-col items-center")}>
           <div className={cn("flex flex-col gap-4 md:gap-7", isSplit ? "items-start" : "items-center")}>
-          <div>
+          <div data-field="slogan">
             <Badge
               className={cn(
                 "max-w-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:px-4 md:py-2 md:text-xs",
@@ -173,7 +180,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
             </Badge>
           </div>
 
-          <div className={cn("w-full select-none", isSplit ? "px-0 py-1" : "px-0 py-1")}>
+          <div data-field="name" className={cn("w-full select-none", isSplit ? "px-0 py-1" : "px-0 py-1")}>
             <h1
               className={cn(
                 "font-semibold uppercase leading-[0.98] tracking-normal",
@@ -201,7 +208,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           </div>
 
           <div className={cn("space-y-3", isSplit ? "max-w-xl px-0" : "max-w-3xl px-1")}>
-            <h2 className={cn("line-clamp-2 text-base font-semibold leading-snug tracking-normal md:text-2xl", tone.title)}>
+            <h2 data-field="tagline" className={cn("line-clamp-2 text-base font-semibold leading-snug tracking-normal md:text-2xl", tone.title)}>
               <span className="md:hidden">{mobileTagline}</span>
               <span className="hidden md:inline">{heroTagline}</span>
             </h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,10 @@ type BuilderRendererProps = {
   bookingFormConfig?: BookingFormConfig | null;
   previewMode?: "desktop" | "mobile";
   isEditorPreview?: boolean;
+  /** Pratinjau owner (app ?preview=1): tandai slot kosong dengan label lokasi.
+   *  Tidak pernah aktif untuk customer. Terpisah dari isEditorPreview agar
+   *  booking tetap interaktif di pratinjau. */
+  showFieldHints?: boolean;
   embedded?: boolean;
 };
 
@@ -45,8 +49,37 @@ export function LandingBuilderRenderer({
   bookingFormConfig,
   previewMode = "desktop",
   isEditorPreview = false,
+  showFieldHints = false,
   embedded = false,
 }: BuilderRendererProps) {
+  // Pratinjau owner: baca ?focus=<field>, lalu scroll + sorot elemen
+  // bertanda data-field itu. Aman untuk customer (hanya jalan bila showFieldHints).
+  useEffect(() => {
+    if (!showFieldHints || typeof window === "undefined") return;
+    const focus = new URLSearchParams(window.location.search).get("focus");
+    if (!focus) return;
+    let cancelled = false;
+    // Tunggu render + gambar ter-layout dulu sebelum scroll.
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const el = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(focus)}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const prev = el.style.cssText;
+      el.style.outline = "3px solid #2563eb";
+      el.style.outlineOffset = "4px";
+      el.style.borderRadius = "10px";
+      el.style.transition = "outline-color 0.4s ease";
+      window.setTimeout(() => {
+        if (!cancelled) el.style.cssText = prev;
+      }, 2600);
+    }, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [showFieldHints]);
+
   const normalizedProfile = enrichBuilderProfile(profile);
   const page = normalizePageBuilderConfig(pageConfig);
   const theme = normalizeThemeConfig(themeConfig, normalizedProfile.primary_color);
@@ -141,6 +174,7 @@ export function LandingBuilderRenderer({
               bookingForm,
               getBestPrice,
               previewMode,
+              showFieldHints,
             }),
           )}
         </main>
@@ -157,6 +191,7 @@ export function LandingBuilderRenderer({
           accentColor={theme.accent_color}
           preset={theme.preset}
           radiusStyle={theme.radius_style}
+          showFieldHints={showFieldHints}
         />
       </div>
     </div>
@@ -173,6 +208,7 @@ function renderSection({
   bookingForm,
   getBestPrice,
   previewMode,
+  showFieldHints,
 }: {
   section: BuilderSection;
   profile: BuilderProfile;
@@ -183,6 +219,7 @@ function renderSection({
   bookingForm: BookingFormConfig;
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
   previewMode: "desktop" | "mobile";
+  showFieldHints: boolean;
 }) {
   const sectionVariant = section.variant || "";
   const testimonials = readObjectArray(section.props?.items);
@@ -206,6 +243,7 @@ function renderSection({
               radiusStyle: theme.radius_style,
             }}
             variant={sectionVariant as "immersive" | "split" | "compact"}
+            showFieldHints={showFieldHints}
           />
         </div>
       );

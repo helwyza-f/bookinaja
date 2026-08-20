@@ -4,10 +4,14 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../repositories/settings_repository.dart';
+import 'landing_preview_screen.dart';
 
 /// Identitas & kontak bisnis (owner). Mengedit subset field profil tenant yang
 /// paling sering diubah sambil jalan. Tersimpan lewat PUT /admin/profile (objek
 /// Tenant utuh), jadi kita GET dulu, ubah field, lalu kirim map balik.
+/// Penanda kebutuhan field pada gerbang publikasi.
+enum _Badge { wajib, opsional }
+
 class BusinessIdentityScreen extends StatefulWidget {
   const BusinessIdentityScreen({super.key});
 
@@ -44,6 +48,9 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
   String _openTime = '';
   String _closeTime = '';
   String _timezone = '';
+  // URL pratinjau publik (sudah mengandung ?preview=1) untuk tombol
+  // "Lihat di halaman" per field. Kosong = tombol disembunyikan.
+  String _previewUrl = '';
 
   @override
   void initState() {
@@ -84,12 +91,35 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         _dirty = false;
         _loading = false;
       });
+      // Preview opsional — ambil di latar, jangan blokir form.
+      _loadPreviewUrl();
     } catch (e) {
       setState(() {
         _error = '$e';
         _loading = false;
       });
     }
+  }
+
+  Future<void> _loadPreviewUrl() async {
+    try {
+      final s = await context.read<SettingsRepository>().getPageBuilder();
+      final url = '${s['preview_url'] ?? ''}';
+      if (url.isNotEmpty && mounted) setState(() => _previewUrl = url);
+    } catch (_) {
+      // Diabaikan — tombol "Lihat di halaman" cukup disembunyikan.
+    }
+  }
+
+  /// Buka pratinjau penuh yang otomatis scroll + highlight [field] di halaman.
+  /// preview_url sudah membawa ?preview=1, jadi tinggal tambah &focus=.
+  void _openPreviewFocus(String field) {
+    if (_previewUrl.isEmpty) return;
+    final sep = _previewUrl.contains('?') ? '&' : '?';
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => LandingPreviewScreen(url: '$_previewUrl${sep}focus=$field'),
+      fullscreenDialog: true,
+    ));
   }
 
   Future<void> _save() async {
@@ -196,18 +226,55 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                   children: [
-                    _group('IDENTITAS'),
-                    _field('Nama bisnis', _name, hint: 'mis. Kopi Senja'),
+                    _requirementBanner(),
+                    const SizedBox(height: 16),
+                    _group('BAGIAN ATAS HALAMAN'),
+                    _field('Nama bisnis', _name,
+                        hint: 'mis. Kopi Senja',
+                        location: 'Judul utama, paling atas',
+                        badge: _Badge.wajib,
+                        field: 'name'),
                     _categorySelector(),
-                    _field('Slogan', _slogan, hint: 'Teks kecil di bawah nama'),
-                    _field('Tagline', _tagline, hint: 'Judul besar di hero'),
-                    _field('Tentang', _about, hint: 'Deskripsi singkat bisnismu', maxLines: 4),
+                    _field('Tagline', _tagline,
+                        hint: 'mis. Ngopi santai tiap sore',
+                        location: 'Tulisan besar paling atas halaman',
+                        badge: _Badge.wajib,
+                        field: 'tagline'),
+                    _field('Slogan', _slogan,
+                        hint: 'mis. Booking online',
+                        location: 'Label kecil dekat nama, di atas',
+                        badge: _Badge.wajib,
+                        field: 'slogan'),
+                    _field('Tentang', _about,
+                        hint: 'Deskripsi singkat bisnismu',
+                        maxLines: 4,
+                        location: 'Paragraf di bagian bawah halaman',
+                        badge: _Badge.wajib,
+                        field: 'about_us'),
                     const SizedBox(height: 8),
-                    _group('KONTAK'),
-                    _field('WhatsApp', _whatsapp, hint: '08xxxxxxxxxx', keyboard: TextInputType.phone),
-                    _field('Alamat', _address, hint: 'Alamat lengkap', maxLines: 2),
-                    _field('Instagram', _instagram, hint: '@username atau URL'),
-                    _field('TikTok', _tiktok, hint: '@username atau URL'),
+                    _group('KONTAK & INFO (BAGIAN BAWAH)'),
+                    _field('WhatsApp', _whatsapp,
+                        hint: '08xxxxxxxxxx',
+                        keyboard: TextInputType.phone,
+                        location: 'Tombol chat di bagian bawah',
+                        badge: _Badge.wajib,
+                        field: 'whatsapp'),
+                    _field('Alamat', _address,
+                        hint: 'Alamat lengkap',
+                        maxLines: 2,
+                        location: 'Info lokasi di bagian bawah',
+                        badge: _Badge.opsional,
+                        field: 'address'),
+                    _field('Instagram', _instagram,
+                        hint: '@username atau URL',
+                        location: 'Ikon sosial di bagian bawah',
+                        badge: _Badge.opsional,
+                        field: 'instagram'),
+                    _field('TikTok', _tiktok,
+                        hint: '@username atau URL',
+                        location: 'Ikon sosial di bagian bawah',
+                        badge: _Badge.opsional,
+                        field: 'tiktok'),
                     const SizedBox(height: 8),
                     _group('JAM OPERASIONAL'),
                     Row(children: [
@@ -243,6 +310,82 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
         child: Text(t,
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
       );
+
+  // --- Gerbang publikasi (cermin backend) ---
+  // Identitas beres bila Tagline, Slogan, DAN Tentang semuanya terisi.
+  bool get _identityDone =>
+      _tagline.text.trim().isNotEmpty && _slogan.text.trim().isNotEmpty && _about.text.trim().isNotEmpty;
+  // Kontak beres bila WhatsApp terisi (zona waktu auto-terisi server).
+  bool get _contactDone => _whatsapp.text.trim().isNotEmpty;
+
+  /// Checklist hidup di atas form — menjawab "aku harus ngisi apa" secara
+  /// eksplisit, update real-time saat user mengetik.
+  Widget _requirementBanner() {
+    final allDone = _identityDone && _contactDone;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: allDone ? BK.liveSoft : BK.accentSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: allDone ? BK.live : BK.accent.withValues(alpha: 0.4)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(allDone ? Icons.check_circle : Icons.assignment_outlined,
+              size: 18, color: allDone ? BK.live : BK.accent),
+          const SizedBox(width: 8),
+          Text(allDone ? 'Langkah ini sudah lengkap' : 'Biar langkah ini beres, isi semua:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: allDone ? BK.live : BK.ink)),
+        ]),
+        const SizedBox(height: 10),
+        _checkRow(_tagline.text.trim().isNotEmpty, 'Tagline'),
+        const SizedBox(height: 6),
+        _checkRow(_slogan.text.trim().isNotEmpty, 'Slogan'),
+        const SizedBox(height: 6),
+        _checkRow(_about.text.trim().isNotEmpty, 'Tentang'),
+        const SizedBox(height: 6),
+        _checkRow(_contactDone, 'Nomor WhatsApp'),
+      ]),
+    );
+  }
+
+  Widget _checkRow(bool done, String label) {
+    return Row(children: [
+      Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 16, color: done ? BK.live : BK.ink3),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: done ? BK.ink3 : BK.ink2,
+              decoration: done ? TextDecoration.lineThrough : null,
+            )),
+      ),
+    ]);
+  }
+
+  Widget _badgeChip(_Badge b) {
+    late Color fg;
+    late Color bg;
+    late String text;
+    switch (b) {
+      case _Badge.wajib:
+        fg = BK.accent;
+        bg = BK.accentSoft;
+        text = 'Wajib';
+      case _Badge.opsional:
+        fg = BK.ink3;
+        bg = BK.card2;
+        text = 'Opsional';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+    );
+  }
 
   Widget _categorySelector() {
     // Opsi = kanonik + nilai saat ini bila di luar daftar (mempertahankan legacy).
@@ -311,18 +454,51 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
     return ok ?? false;
   }
 
-  Widget _field(String label, TextEditingController c, {String? hint, int maxLines = 1, TextInputType? keyboard}) {
+  /// [location] = kalimat "muncul di mana" pada halaman publik (bukan jargon).
+  /// [badge] = penanda wajib/opsional. Keduanya nempel di header field supaya
+  /// user tahu perlu-tidaknya + tempat tampilnya tanpa menebak.
+  Widget _field(String label, TextEditingController c,
+      {String? hint, int maxLines = 1, TextInputType? keyboard, String? location, _Badge? badge, String? field}) {
+    final canPreview = field != null && _previewUrl.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+        Row(children: [
+          Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: BK.ink2)),
+          if (badge != null) ...[const SizedBox(width: 8), _badgeChip(badge)],
+          const Spacer(),
+          if (canPreview)
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => _openPreviewFocus(field),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.visibility_outlined, size: 13, color: BK.accent),
+                  SizedBox(width: 3),
+                  Text('Lihat di halaman', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BK.accent)),
+                ]),
+              ),
+            ),
+        ]),
+        if (location != null) ...[
+          const SizedBox(height: 3),
+          Row(children: [
+            const Icon(Icons.place_outlined, size: 12, color: BK.ink3),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(location, style: const TextStyle(fontSize: 11, color: BK.ink3, height: 1.3)),
+            ),
+          ]),
+        ],
         const SizedBox(height: 6),
         TextField(
           controller: c,
           maxLines: maxLines,
           keyboardType: keyboard,
           onChanged: (_) {
-            if (!_dirty) setState(() => _dirty = true);
+            // Selalu rebuild: banner checklist wajib ikut update real-time.
+            setState(() => _dirty = true);
           },
           style: const TextStyle(fontSize: 14, color: BK.ink),
           decoration: InputDecoration(

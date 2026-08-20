@@ -1740,11 +1740,9 @@ func (r *Repository) GetTenantOnboardingSnapshot(ctx context.Context, tenantID u
 				SELECT 1
 				FROM tenants
 				WHERE id = $1
-				  AND (
-					NULLIF(BTRIM(tagline), '') IS NOT NULL
-					OR NULLIF(BTRIM(slogan), '') IS NOT NULL
-					OR NULLIF(BTRIM(about_us), '') IS NOT NULL
-				  )
+				  AND NULLIF(BTRIM(tagline), '') IS NOT NULL
+				  AND NULLIF(BTRIM(slogan), '') IS NOT NULL
+				  AND NULLIF(BTRIM(about_us), '') IS NOT NULL
 			) AS has_business_identity,
 			EXISTS (
 				SELECT 1

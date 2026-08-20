@@ -56,6 +56,8 @@ type TenantFooterProps = {
   accentColor?: string;
   preset?: string;
   radiusStyle?: string;
+  /** Pratinjau owner: label lokasi (Tentang, Kontak, Jam diatur di app). */
+  showFieldHints?: boolean;
 };
 
 export function TenantFooter({
@@ -64,6 +66,7 @@ export function TenantFooter({
   accentColor,
   preset = "bookinaja-classic",
   radiusStyle = "rounded",
+  showFieldHints = false,
 }: TenantFooterProps) {
   const tone = getLandingPresetTone(preset);
   const mapSrc = resolveMapEmbedSrc(profile.map_iframe_url);
@@ -100,6 +103,11 @@ export function TenantFooter({
 
   return (
     <footer className={cn("pt-32 pb-12 border-t px-6 overflow-hidden relative", sectionBackgroundClass)}>
+      {showFieldHints ? (
+        <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-full bg-black/70 px-3 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur">
+          📍 Bagian bawah · Tentang, Kontak, Alamat, Jam
+        </div>
+      ) : null}
       {/* Background Decor */}
       <div
         className="absolute bottom-0 right-0 h-96 w-96 opacity-[0.03] blur-[100px] pointer-events-none rounded-full"
@@ -133,7 +141,7 @@ export function TenantFooter({
               </div>
             </div>
 
-            <p className={cn("max-w-md font-medium italic leading-relaxed text-sm md:text-lg", tone.subtle)}>
+            <p data-field="about_us" className={cn("max-w-md font-medium italic leading-relaxed text-sm md:text-lg", tone.subtle)}>
               &quot;
               {profile.about_us ||
                 profile.description ||
@@ -145,6 +153,7 @@ export function TenantFooter({
               {socialLinks.map((social) => (
                 <a
                   key={social.id}
+                  data-field={social.id === "ig" ? "instagram" : social.id}
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -162,6 +171,7 @@ export function TenantFooter({
 
               {profile.whatsapp_number && (
                 <a
+                  data-field="whatsapp"
                   href={`https://wa.me/${profile.whatsapp_number}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -185,7 +195,7 @@ export function TenantFooter({
               Info singkat
             </p>
             <div className="grid gap-5 md:grid-cols-2">
-              <div className={cn("p-5", footerCardClass, iconPanelClass)}>
+              <div data-field="address" className={cn("p-5", footerCardClass, iconPanelClass)}>
                 <div className="flex items-start gap-4">
                 <div className={footerIconChipClass}>
                     <MapPin size={18} style={{ color: primaryColor }} />

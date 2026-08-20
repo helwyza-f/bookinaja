@@ -171,7 +171,7 @@ func (s *Service) GetPageBuilder(ctx context.Context, id uuid.UUID) (*PageBuilde
 		Page:          s.decodeLandingPageConfig(tenant),
 		Theme:         s.decodeLandingThemeConfig(tenant),
 		BookingForm:   s.decodeBookingFormConfig(tenant),
-		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com", tenant.Slug),
+		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com?preview=1", tenant.Slug),
 		PreviewMobile: true,
 	}, nil
 }
@@ -218,7 +218,7 @@ func (s *Service) UpdatePageBuilder(ctx context.Context, actorUserID, id uuid.UU
 		Page:          page,
 		Theme:         theme,
 		BookingForm:   form,
-		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com", tenant.Slug),
+		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com?preview=1", tenant.Slug),
 		PreviewMobile: true,
 	}, nil
 }
@@ -2922,7 +2922,7 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		{
 			ID:          "identity",
 			Label:       "Lengkapi identitas bisnis",
-			Description: "Isi copy dasar, WhatsApp bisnis, timezone, dan identitas publik tenant.",
+			Description: "Isi tagline, slogan, tentang, dan WhatsApp bisnis.",
 			Href:        "/admin/settings/bisnis",
 			Complete:    snapshot.HasBusinessIdentity && snapshot.HasBusinessContact,
 			Required:    true,
