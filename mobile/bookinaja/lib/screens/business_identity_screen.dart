@@ -28,9 +28,9 @@ const List<_LT> _kLandingFields = [
   (tier: 'B', group: 'GALERI', type: 'gallery', key: 'eyebrow', label: 'Label kecil', hint: 'Visual Experience', maxLines: 1),
   (tier: 'B', group: 'GALERI', type: 'gallery', key: 'title', label: 'Judul', hint: 'Inside The Hub.', maxLines: 1),
   (tier: 'B', group: 'GALERI', type: 'gallery', key: 'description', label: 'Deskripsi', hint: 'Paragraf singkat (opsional)', maxLines: 2),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section (mis. Tentang)', maxLines: 1),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'title', label: 'Judul', hint: 'Tentang <nama bisnis>', maxLines: 1),
-  (tier: 'B', group: 'TENTANG (SECTION)', type: 'about', key: 'description', label: 'Deskripsi', hint: 'Default ambil dari field Tentang', maxLines: 3),
+  (tier: 'B', group: "SECTION 'TENTANG KAMI'", type: 'about', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section (mis. Tentang)', maxLines: 1),
+  (tier: 'B', group: "SECTION 'TENTANG KAMI'", type: 'about', key: 'title', label: 'Judul', hint: 'Tentang <nama bisnis>', maxLines: 1),
+  (tier: 'B', group: "SECTION 'TENTANG KAMI'", type: 'about', key: 'description', label: 'Deskripsi', hint: 'Default ambil dari field Tentang', maxLines: 3),
   (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section', maxLines: 1),
   (tier: 'B', group: 'TESTIMONI', type: 'testimonials', key: 'title', label: 'Judul', hint: 'Kata pelanggan', maxLines: 1),
   (tier: 'B', group: 'FAQ', type: 'faq', key: 'eyebrow', label: 'Label kecil', hint: 'Nama section', maxLines: 1),
@@ -659,7 +659,13 @@ class _BusinessIdentityScreenState extends State<BusinessIdentityScreen> {
       }
       final ctl = _sec['${f.type}.${f.key}'];
       if (ctl == null) continue;
-      widgets.add(_field(f.label, ctl, hint: f.hint.isEmpty ? null : f.hint, maxLines: f.maxLines));
+      // Placeholder dinamis: ganti <nama bisnis> dengan nama asli.
+      var hint = f.hint;
+      if (hint.contains('<nama bisnis>')) {
+        final nm = _name.text.trim();
+        hint = hint.replaceAll('<nama bisnis>', nm.isEmpty ? 'bisnis ini' : nm);
+      }
+      widgets.add(_field(f.label, ctl, hint: hint.isEmpty ? null : hint, maxLines: f.maxLines, badge: _Badge.opsional));
     }
     if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
     return widgets;
