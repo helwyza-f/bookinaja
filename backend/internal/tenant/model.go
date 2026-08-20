@@ -661,6 +661,9 @@ type Tenant struct {
 	IsPublished bool `db:"is_published" json:"is_published"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	// WAJIB dipetakan sejak migrasi 000067 menambah kolomnya — `SELECT *` +
+	// sqlx mode aman: kolom tanpa field tujuan menggagalkan seluruh scan.
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type PublicTenantProfile struct {
