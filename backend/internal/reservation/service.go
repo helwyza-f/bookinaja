@@ -1585,9 +1585,9 @@ func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID
 	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID, ActorContext{Type: "customer"})
 }
 
-func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {
+func (s *Service) ListByTenant(ctx context.Context, tenantID, status, from, to string) ([]BookingDetail, error) {
 	tID, _ := uuid.Parse(tenantID)
-	return s.repo.FindAllByTenant(ctx, tID, status)
+	return s.repo.FindAllByTenant(ctx, tID, status, from, to)
 }
 
 func (s *Service) GetAnalyticsSummary(ctx context.Context, tenantID string, days int) (*BookingAnalyticsSummary, error) {

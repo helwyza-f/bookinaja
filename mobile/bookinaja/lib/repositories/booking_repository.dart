@@ -9,13 +9,20 @@ class BookingRepository {
   BookingRepository(this._api);
   final ApiClient _api;
 
-  Future<List<Booking>> listAll() async {
+  /// GET /bookings — daftar booking. [from]/[to] opsional (YYYY-MM-DD) untuk
+  /// mempersempit ke rentang tanggal di server (dipakai filter kalender/rentang);
+  /// tanpa itu, backend mengembalikan semua booking tenant.
+  Future<List<Booking>> listAll({String? from, String? to}) async {
     if (AppConfig.useDemoData) {
       await Future<void>.delayed(const Duration(milliseconds: 400)); // simulasi latency
       return sampleBookings;
     }
 
-    final res = await _api.get('/bookings');
+    final q = <String>[];
+    if (from != null && from.isNotEmpty) q.add('from=$from');
+    if (to != null && to.isNotEmpty) q.add('to=$to');
+    final path = '/bookings${q.isEmpty ? '' : '?${q.join('&')}'}';
+    final res = await _api.get(path);
     final list = _extractList(res);
     return list
         .whereType<Map>()

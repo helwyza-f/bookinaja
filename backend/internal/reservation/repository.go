@@ -1692,11 +1692,20 @@ func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, fro
 	return bookings, err
 }
 
-func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
+// FindAllByTenant mengembalikan booking tenant. [status] opsional (filter status
+// tunggal). [from]/[to] opsional (rentang tanggal YYYY-MM-DD, difilter pada
+// start_time; inklusif). Cache hanya dipakai untuk kueri tanpa rentang (jalur
+// umum "semua"/per-status) agar tak meledakkan key untuk rentang ad-hoc.
+func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status, from, to string) ([]BookingDetail, error) {
+	from = strings.TrimSpace(from)
+	to = strings.TrimSpace(to)
+	useCache := from == "" && to == ""
 	cacheKey := reservationTenantBookingsCacheKey(tenantID, status)
-	var cached []BookingDetail
-	if r.cacheGet(ctx, cacheKey, &cached) {
-		return cached, nil
+	if useCache {
+		var cached []BookingDetail
+		if r.cacheGet(ctx, cacheKey, &cached) {
+			return cached, nil
+		}
 	}
 
 	var res []BookingDetail
@@ -1712,21 +1721,30 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 		JOIN resources res ON b.resource_id = res.id
 		WHERE b.tenant_id = $1`
 
+	args := []any{tenantID}
 	if status != "" {
-		query += " AND b.status = $2"
-		err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", tenantID, status)
-		return res, err
+		args = append(args, status)
+		query += fmt.Sprintf(" AND b.status = $%d", len(args))
+	}
+	if from != "" {
+		args = append(args, from)
+		query += fmt.Sprintf(" AND b.start_time >= $%d::date", len(args))
+	}
+	if to != "" {
+		args = append(args, to)
+		query += fmt.Sprintf(" AND b.start_time < ($%d::date + INTERVAL '1 day')", len(args))
 	}
 
-	err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", tenantID)
-	if err != nil {
+	if err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", args...); err != nil {
 		return nil, err
 	}
 
 	for i := range res {
 		normalizeBookingFinancials(&res[i].Booking, res[i].TotalResource, res[i].TotalFnb)
 	}
-	r.cacheSet(ctx, cacheKey, res, 30*time.Second)
+	if useCache {
+		r.cacheSet(ctx, cacheKey, res, 30*time.Second)
+	}
 	return res, nil
 }
 

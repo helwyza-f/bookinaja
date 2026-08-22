@@ -22,7 +22,8 @@ class Booking {
   final BookingStatus status;
   final int total;
   final int paid;
-  final DateTime? startAt; // waktu mulai (untuk urutan "akan datang")
+  final DateTime? startAt; // waktu mulai (untuk urutan "akan datang" & kalender)
+  final DateTime? endAt; // waktu selesai (untuk agenda kalender)
 
   const Booking({
     required this.id,
@@ -34,6 +35,7 @@ class Booking {
     required this.total,
     required this.paid,
     this.startAt,
+    this.endAt,
   });
 
   int get remaining => (total - paid).clamp(0, total);
@@ -48,6 +50,7 @@ class Booking {
     int? total,
     int? paid,
     DateTime? startAt,
+    DateTime? endAt,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -59,6 +62,7 @@ class Booking {
       total: total ?? this.total,
       paid: paid ?? this.paid,
       startAt: startAt ?? this.startAt,
+      endAt: endAt ?? this.endAt,
     );
   }
 
@@ -83,7 +87,16 @@ class Booking {
       total: total,
       paid: paid,
       startAt: DateTime.tryParse('${j['start_time'] ?? ''}')?.toLocal(),
+      endAt: DateTime.tryParse('${j['end_time'] ?? ''}')?.toLocal(),
     );
+  }
+
+  /// Label jam "16:00–18:00" dari startAt/endAt (untuk agenda kalender).
+  String get clockRange {
+    String hm(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    if (startAt == null) return time;
+    final s = hm(startAt!);
+    return endAt == null ? s : '$s–${hm(endAt!)}';
   }
 }
 

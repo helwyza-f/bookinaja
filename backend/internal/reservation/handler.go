@@ -198,8 +198,10 @@ func (h *Handler) Status(c *gin.Context) {
 func (h *Handler) ListAll(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 	status := c.Query("status")
+	from := c.Query("from")
+	to := c.Query("to")
 
-	bookings, err := h.service.ListByTenant(c.Request.Context(), tenantID, status)
+	bookings, err := h.service.ListByTenant(c.Request.Context(), tenantID, status, from, to)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

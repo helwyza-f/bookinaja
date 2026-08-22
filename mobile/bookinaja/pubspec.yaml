@@ -59,6 +59,8 @@ dependencies:
   # Export laporan: tulis CSV ke file sementara lalu bagikan via share sheet OS.
   path_provider: ^2.1.4
   share_plus: ^10.1.2
+  # Kalender booking (tampilan bulan/minggu + penanda kepadatan per hari).
+  table_calendar: ^3.1.2
 
 dev_dependencies:
   flutter_test:
