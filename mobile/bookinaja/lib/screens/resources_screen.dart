@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/admin_resource.dart';
 import '../repositories/resource_admin_repository.dart';
 import '../state/resource_admin_controller.dart';
+import '../state/auth_controller.dart';
+import '../models/permissions.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import 'resource_detail_screen.dart';
@@ -30,6 +32,7 @@ class _View extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<ResourcesController>();
+    final canCreate = context.watch<AuthController>().can(Perm.resourcesCreate);
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
@@ -39,7 +42,7 @@ class _View extends StatelessWidget {
         title: const Text('Resource',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
       ),
-      floatingActionButton: c.state.hasData
+      floatingActionButton: (c.state.hasData && canCreate)
           ? FloatingActionButton.extended(
               backgroundColor: BK.accent,
               onPressed: () => _create(context, c),
@@ -67,12 +70,14 @@ class _View extends StatelessWidget {
                 color: BK.ink3,
                 title: 'Belum ada resource',
                 hint: 'Resource adalah unit/tempat yang dibooking — mis. ruangan, lapangan, atau konsol.',
-                action: FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: BK.accent),
-                  onPressed: () => _create(context, c),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Buat resource'),
-                ),
+                action: canCreate
+                    ? FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: BK.accent),
+                        onPressed: () => _create(context, c),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Buat resource'),
+                      )
+                    : null,
               )
             : Column(
                 children: [

@@ -90,6 +90,30 @@ func (r *Repository) GetAccountByID(ctx context.Context, id uuid.UUID) (*Account
 	return &item, nil
 }
 
+// UpdateAccountPassword mengganti password akun. Login app memakai
+// accounts.password_hash, jadi cukup update tabel ini. Baris users (admin_user)
+// yang tertaut ke account ini juga disinkronkan agar jalur login legacy tak basi.
+func (r *Repository) UpdateAccountPassword(ctx context.Context, accountID uuid.UUID, newHash string) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE accounts SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
+		accountID, newHash); err != nil {
+		return err
+	}
+	// Sinkronkan users yang jadi admin_user di membership account ini.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users SET password = $2, password_setup_required = FALSE
+		WHERE id IN (SELECT admin_user_id FROM workspace_memberships WHERE account_id = $1)`,
+		accountID, newHash); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (r *Repository) MarkAccountEmailVerified(ctx context.Context, accountID uuid.UUID, email string) (*Account, error) {
 	var item Account
 	err := r.db.GetContext(ctx, &item, `

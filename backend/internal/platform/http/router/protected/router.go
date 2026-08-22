@@ -18,6 +18,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			appArea := protected.Group("/app")
 			appArea.Use(middleware.AccountOnly())
 			{
+				appArea.POST("/account/password", cfg.AccountHandler.ChangePassword)
 				appArea.GET("/workspaces", cfg.AccountHandler.ListWorkspaces)
 				appArea.POST("/workspaces", cfg.AccountHandler.CreateWorkspace)
 				appArea.GET("/workspaces/:workspaceId/onboarding", cfg.AccountHandler.GetOnboarding)

@@ -56,6 +56,9 @@ dependencies:
   esc_pos_utils_plus: ^2.0.4
   # Minta izin Bluetooth/lokasi runtime (Android 12+ butuh BLUETOOTH_SCAN/CONNECT).
   permission_handler: ^11.3.1
+  # Export laporan: tulis CSV ke file sementara lalu bagikan via share sheet OS.
+  path_provider: ^2.1.4
+  share_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:

@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../models/fnb_item.dart';
 import '../repositories/fnb_repository.dart';
 import '../state/fnb_menu_controller.dart';
+import '../state/auth_controller.dart';
+import '../models/permissions.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../utils/fnb_category.dart';
@@ -31,6 +33,7 @@ class _View extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<FnbMenuController>();
+    final canCreate = context.watch<AuthController>().can(Perm.fnbCreate);
     return Scaffold(
       backgroundColor: BK.bg,
       appBar: AppBar(
@@ -40,7 +43,7 @@ class _View extends StatelessWidget {
         title: const Text('Menu F&B',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.ink)),
       ),
-      floatingActionButton: c.state.hasData
+      floatingActionButton: (c.state.hasData && canCreate)
           ? FloatingActionButton.extended(
               backgroundColor: BK.accent,
               onPressed: () => _openForm(context, c),
@@ -79,12 +82,14 @@ class _View extends StatelessWidget {
                   color: BK.ink3,
                   title: 'Belum ada menu',
                   hint: 'Tambahkan item pertama lewat tombol di bawah.',
-                  action: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: BK.accent),
-                    onPressed: () => _openForm(context, c),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Tambah item'),
-                  ),
+                  action: context.watch<AuthController>().can(Perm.fnbCreate)
+                      ? FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: BK.accent),
+                          onPressed: () => _openForm(context, c),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Tambah item'),
+                        )
+                      : null,
                 )
               : grouped.isEmpty
                   ? const StateView(

@@ -154,6 +154,34 @@ func (s *Service) Login(ctx context.Context, req LoginReq) (*AuthResponse, error
 	return &AuthResponse{Token: token, Account: *account}, nil
 }
 
+// ChangePassword mengganti password akun yang sedang login. Wajib menyertakan
+// password lama yang benar. Berlaku untuk owner maupun staff (keduanya account).
+func (s *Service) ChangePassword(ctx context.Context, accountID uuid.UUID, oldPassword, newPassword string) error {
+	oldPassword = strings.TrimSpace(oldPassword)
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < 6 {
+		return errors.New("password baru minimal 6 karakter")
+	}
+	account, err := s.repo.GetAccountByID(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return errors.New("akun tidak ditemukan")
+	}
+	if strings.TrimSpace(account.PasswordHash) == "" {
+		return errors.New("akun ini login tanpa password (mis. Google); atur lewat metode lain")
+	}
+	if bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(oldPassword)) != nil {
+		return errors.New("password lama salah")
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdateAccountPassword(ctx, accountID, string(hashed))
+}
+
 func (s *Service) RequestEmailVerification(ctx context.Context, email string) (*EmailVerificationResponse, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" {

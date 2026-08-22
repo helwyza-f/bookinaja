@@ -258,6 +258,11 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Ganti password akun (owner/staff). Melempar exception dgn pesan backend
+  /// bila gagal (mis. password lama salah) agar UI bisa menampilkannya.
+  Future<void> changeAccountPassword({required String oldPassword, required String newPassword}) =>
+      _repo.changeAccountPassword(oldPassword: oldPassword, newPassword: newPassword);
+
   /// Kembali ke pemilihan workspace (sesi account tetap).
   Future<void> switchWorkspace() async {
     await _repo.leaveWorkspace();

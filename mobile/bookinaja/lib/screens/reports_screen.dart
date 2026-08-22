@@ -5,6 +5,8 @@ import '../models/report.dart';
 import '../repositories/reports_repository.dart';
 import '../state/reports_controller.dart';
 import '../theme.dart';
+import '../ui/toast.dart';
+import '../utils/report_export.dart';
 
 /// Layar admin: laporan tenant. Ringkasan omzet/biaya/laba per periode + daftar
 /// transaksi & biaya. Read-only.
@@ -53,6 +55,19 @@ class _ReportsViewState extends State<_ReportsView>
     super.dispose();
   }
 
+  /// Export laporan periode aktif ke CSV lalu buka share sheet. Data diambil dari
+  /// cache controller (yang sedang tampil); bila belum siap, minta tunggu.
+  void _export(BuildContext context) {
+    final c = context.read<ReportsController>();
+    final period = _periods[_tab.index];
+    final bundle = c.stateFor(period).data;
+    if (bundle == null) {
+      BkToast.info(context, 'Data belum siap', subtitle: 'Tunggu laporan selesai dimuat lalu coba lagi.');
+      return;
+    }
+    shareReportCsv(context, bundle, period.label);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,6 +84,13 @@ class _ReportsViewState extends State<_ReportsView>
             color: BK.ink,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Export CSV',
+            icon: const Icon(Icons.ios_share_rounded, color: BK.ink2, size: 20),
+            onPressed: () => _export(context),
+          ),
+        ],
       ),
       body: Column(
         children: [

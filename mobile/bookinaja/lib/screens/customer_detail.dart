@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../ui/toast.dart';
 import '../models/customer.dart';
@@ -11,6 +12,34 @@ class CustomerDetailScreen extends StatelessWidget {
   const CustomerDetailScreen({super.key, required this.customer});
 
   void _snack(BuildContext c, String m) => BkToast.info(c, m);
+
+  /// Normalisasi nomor Indonesia untuk wa.me: buang non-digit, 0 di depan → 62,
+  /// tambahkan 62 bila belum berawalan.
+  String _waNumber(String raw) {
+    var d = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (d.startsWith('0')) return '62${d.substring(1)}';
+    if (d.startsWith('62')) return d;
+    if (d.isNotEmpty) return '62$d';
+    return d;
+  }
+
+  Future<void> _openWhatsApp(BuildContext context, String phone) async {
+    final num = _waNumber(phone);
+    if (num.isEmpty) return _snack(context, 'Nomor tidak tersedia');
+    final uri = Uri.parse('https://wa.me/$num');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && context.mounted) {
+      _snack(context, 'Tak bisa membuka WhatsApp');
+    }
+  }
+
+  Future<void> _call(BuildContext context, String phone) async {
+    final d = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (d.isEmpty) return _snack(context, 'Nomor tidak tersedia');
+    final uri = Uri.parse('tel:$d');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && context.mounted) {
+      _snack(context, 'Tak bisa memulai panggilan');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +76,13 @@ class CustomerDetailScreen extends StatelessWidget {
           Row(children: [
             Expanded(child: FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: BK.live, padding: const EdgeInsets.symmetric(vertical: 13)),
-              onPressed: () => _snack(context, 'Buka WhatsApp ${c.name}'),
+              onPressed: () => _openWhatsApp(context, c.phone),
               icon: const Icon(Icons.chat_bubble_outline, size: 18), label: const Text('WhatsApp'),
             )),
             const SizedBox(width: 9),
             Expanded(child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card2, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 13)),
-              onPressed: () => _snack(context, 'Telepon ${c.phone}'),
+              onPressed: () => _call(context, c.phone),
               icon: const Icon(Icons.call_outlined, size: 18), label: const Text('Telepon'),
             )),
           ]),

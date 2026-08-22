@@ -14,6 +14,7 @@ import 'reports_screen.dart';
 import 'resources_screen.dart';
 import 'owner_account_settings.dart';
 import 'staff_access_screen.dart';
+import 'staff_account_screen.dart';
 import 'activity_log_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
@@ -78,6 +79,14 @@ class MoreHubScreen extends StatelessWidget {
           if (keuangan.isNotEmpty) ...[
             const _SectionLabel('KEUANGAN'),
             ...keuangan,
+            const SizedBox(height: 18),
+          ],
+
+          // Staff: hanya akun sendiri (ganti password). Area owner disembunyikan.
+          if (!owner) ...[
+            const _SectionLabel('AKUN'),
+            _tile(context, Icons.person_outline, 'Akun saya', 'Profil & ganti password',
+                () => go(const StaffAccountScreen())),
             const SizedBox(height: 18),
           ],
 

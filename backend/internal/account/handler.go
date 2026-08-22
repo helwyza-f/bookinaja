@@ -115,6 +115,27 @@ func (h *Handler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func (h *Handler) ChangePassword(c *gin.Context) {
+	accountID, ok := accountIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "akun tidak valid"})
+		return
+	}
+	var req struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data password tidak lengkap"})
+		return
+	}
+	if err := h.service.ChangePassword(c.Request.Context(), accountID, req.OldPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password diperbarui"})
+}
+
 func (h *Handler) ListWorkspaces(c *gin.Context) {
 	accountID, ok := accountIDFromContext(c)
 	if !ok {

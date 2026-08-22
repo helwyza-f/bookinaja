@@ -209,6 +209,14 @@ class AuthRepository {
     await _store.saveWorkspace(slug: w.slug, name: w.name, role: w.role);
   }
 
+  /// POST /app/account/password — ganti password akun (owner/staff). Butuh
+  /// password lama. Login app memakai accounts.password_hash.
+  Future<void> changeAccountPassword({required String oldPassword, required String newPassword}) =>
+      _api.post('/app/account/password', body: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      });
+
   /// Slug workspace terakhir yang dibuka (buat auto-pilih saat login).
   Future<String?> lastWorkspaceSlug() => _store.lastWorkspaceSlug();
 
