@@ -93,113 +93,40 @@ class _BookingsScreenState extends State<BookingsScreen> {
     );
   }
 
-  // ── Filter lanjutan ─────────────────────────────────────────────────────────
-  Widget _filterButton(BookingsController ctrl, int active) {
-    return GestureDetector(
-      onTap: () => _openFilterSheet(ctrl),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: active > 0 ? BK.accent : BK.card,
-          borderRadius: BorderRadius.circular(BK.radius),
-          border: Border.all(color: active > 0 ? BK.accent : BK.line),
-        ),
-        child: Row(children: [
-          Icon(Icons.tune_rounded, size: 18, color: active > 0 ? Colors.white : BK.ink2),
-          if (active > 0) ...[
-            const SizedBox(width: 6),
-            Text('$active', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
-          ],
-        ]),
-      ),
-    );
-  }
-
-  Widget _activeFilterChips(BookingsController ctrl) {
-    final chips = <Widget>[
-      for (final s in ctrl.statuses)
-        _chip(_statusLabel(s), () {
-          final next = {...ctrl.statuses}..remove(s);
-          ctrl.applyFilters(statuses: next, resource: ctrl.resourceFilter, sort: ctrl.sort, from: ctrl.fromDate, to: ctrl.toDate);
-        }),
-      if (ctrl.resourceFilter != null)
-        _chip(ctrl.resourceFilter!, () {
-          ctrl.applyFilters(statuses: ctrl.statuses, resource: null, sort: ctrl.sort, from: ctrl.fromDate, to: ctrl.toDate);
-        }),
-      if (ctrl.fromDate != null || ctrl.toDate != null)
-        _chip(_rangeLabel(ctrl.fromDate, ctrl.toDate), () {
-          ctrl.applyFilters(statuses: ctrl.statuses, resource: ctrl.resourceFilter, sort: ctrl.sort, from: null, to: null);
-        }),
-      if (ctrl.sort != 0)
-        _chip('Jadwal terdekat', () {
-          ctrl.applyFilters(statuses: ctrl.statuses, resource: ctrl.resourceFilter, sort: 0, from: ctrl.fromDate, to: ctrl.toDate);
-        }),
-    ];
-    return SizedBox(
-      height: 30,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 7),
-        itemBuilder: (_, i) {
-          if (i == chips.length) {
-            return GestureDetector(
-              onTap: ctrl.resetFilters,
-              child: Container(
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 11),
-                child: const Text('Hapus semua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BK.crit)),
-              ),
-            );
-          }
-          return chips[i];
-        },
-      ),
-    );
-  }
-
-  Widget _chip(String label, VoidCallback onRemove) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.only(left: 12, right: 6),
-      decoration: BoxDecoration(color: BK.accentSoft, borderRadius: BorderRadius.circular(20)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BK.accent)),
-        const SizedBox(width: 3),
-        GestureDetector(onTap: onRemove, child: const Icon(Icons.close, size: 15, color: BK.accent)),
-      ]),
-    );
-  }
-
-  Future<void> _openFilterSheet(BookingsController ctrl) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _FilterSheet(ctrl: ctrl),
-    );
-  }
-
   // ── Mode List ───────────────────────────────────────────────────────────────
+  static const _filters = ['Semua', 'Aktif', 'DP', 'Lunas', 'Batal'];
+
   Widget _listView(BookingsController ctrl) {
-    final active = ctrl.activeFilterCount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _SearchField(ctrl)),
-            const SizedBox(width: 9),
-            _filterButton(ctrl, active),
-          ]),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _SearchField(ctrl)),
+        const SizedBox(height: 11),
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _filters.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 7),
+            itemBuilder: (_, i) {
+              final on = ctrl.filter == i;
+              return GestureDetector(
+                onTap: () => ctrl.setFilter(i),
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: on ? BK.ink : BK.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: on ? BK.ink : BK.line),
+                  ),
+                  child: Text(_filters[i], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: on ? Colors.white : BK.ink2)),
+                ),
+              );
+            },
+          ),
         ),
-        if (active > 0) ...[
-          const SizedBox(height: 10),
-          _activeFilterChips(ctrl),
-        ],
         const SizedBox(height: 12),
         Expanded(
           child: ctrl.state.when(
@@ -525,219 +452,6 @@ class _SearchFieldState extends State<_SearchField> {
             child: const Icon(Icons.close, size: 17, color: BK.ink3),
           ),
       ]),
-    );
-  }
-}
-
-/// Semua status untuk selektor filter (urut kegunaan).
-const List<BookingStatus> kBookingStatuses = [
-  BookingStatus.pending,
-  BookingStatus.dp,
-  BookingStatus.review,
-  BookingStatus.live,
-  BookingStatus.paid,
-  BookingStatus.cancelled,
-  BookingStatus.noShow,
-];
-
-String _statusLabel(BookingStatus s) => switch (s) {
-      BookingStatus.pending => 'Pending',
-      BookingStatus.dp => 'DP',
-      BookingStatus.review => 'Review',
-      BookingStatus.live => 'Live',
-      BookingStatus.paid => 'Lunas',
-      BookingStatus.cancelled => 'Batal',
-      BookingStatus.noShow => 'No-show',
-    };
-
-String _dmy(DateTime d) {
-  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-  return '${d.day} ${mon[d.month - 1]}';
-}
-
-String _rangeLabel(DateTime? from, DateTime? to) {
-  if (from != null && to != null) return '${_dmy(from)}–${_dmy(to)}';
-  if (from != null) return 'Dari ${_dmy(from)}';
-  if (to != null) return 'Sampai ${_dmy(to)}';
-  return 'Rentang tanggal';
-}
-
-/// Sheet filter lanjutan booking: status (multi), resource, rentang tanggal, urut.
-class _FilterSheet extends StatefulWidget {
-  final BookingsController ctrl;
-  const _FilterSheet({required this.ctrl});
-  @override
-  State<_FilterSheet> createState() => _FilterSheetState();
-}
-
-class _FilterSheetState extends State<_FilterSheet> {
-  late Set<BookingStatus> _statuses;
-  late String? _resource;
-  late int _sort;
-  DateTime? _from;
-  DateTime? _to;
-
-  @override
-  void initState() {
-    super.initState();
-    _statuses = {...widget.ctrl.statuses};
-    _resource = widget.ctrl.resourceFilter;
-    _sort = widget.ctrl.sort;
-    _from = widget.ctrl.fromDate;
-    _to = widget.ctrl.toDate;
-  }
-
-  Future<void> _pick(bool isFrom) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: (isFrom ? _from : _to) ?? now,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035, 12, 31),
-    );
-    if (picked == null) return;
-    setState(() {
-      if (isFrom) {
-        _from = DateUtils.dateOnly(picked);
-        if (_to != null && _to!.isBefore(_from!)) _to = _from;
-      } else {
-        _to = DateUtils.dateOnly(picked);
-        if (_from != null && _from!.isAfter(_to!)) _from = _to;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final resources = widget.ctrl.resourceOptions;
-    return Container(
-      decoration: const BoxDecoration(
-        color: BK.bg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SafeArea(
-        top: false,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 10),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: BK.line, borderRadius: BorderRadius.circular(4))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-            child: Row(children: [
-              const Text('Filter booking', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: BK.ink)),
-              const Spacer(),
-              TextButton(
-                onPressed: () => setState(() {
-                  _statuses = {};
-                  _resource = null;
-                  _sort = 0;
-                  _from = null;
-                  _to = null;
-                }),
-                child: const Text('Reset', style: TextStyle(color: BK.ink2, fontWeight: FontWeight.w700)),
-              ),
-            ]),
-          ),
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-              children: [
-                _label('STATUS'),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final s in kBookingStatuses)
-                    _selectChip(_statusLabel(s), _statuses.contains(s), () {
-                      setState(() => _statuses.contains(s) ? _statuses.remove(s) : _statuses.add(s));
-                    }),
-                ]),
-                const SizedBox(height: 18),
-                _label('RESOURCE'),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  _selectChip('Semua', _resource == null, () => setState(() => _resource = null)),
-                  for (final r in resources)
-                    _selectChip(r, _resource == r, () => setState(() => _resource = r)),
-                ]),
-                const SizedBox(height: 18),
-                _label('RENTANG TANGGAL'),
-                Row(children: [
-                  Expanded(child: _dateBox('Dari', _from, () => _pick(true))),
-                  const SizedBox(width: 10),
-                  Expanded(child: _dateBox('Sampai', _to, () => _pick(false))),
-                ]),
-                const SizedBox(height: 18),
-                _label('URUTKAN'),
-                Row(children: [
-                  Expanded(child: _selectChip('Terbaru', _sort == 0, () => setState(() => _sort = 0), fill: true)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _selectChip('Jadwal terdekat', _sort == 1, () => setState(() => _sort = 1), fill: true)),
-                ]),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: BK.accent,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: () {
-                  widget.ctrl.applyFilters(
-                    statuses: _statuses,
-                    resource: _resource,
-                    sort: _sort,
-                    from: _from,
-                    to: _to,
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Terapkan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-              ),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _label(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: BK.ink3)),
-      );
-
-  Widget _selectChip(String label, bool on, VoidCallback onTap, {bool fill = false}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: on ? BK.accent : BK.card,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: on ? BK.accent : BK.line),
-        ),
-        child: Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: on ? Colors.white : BK.ink2)),
-      ),
-    );
-  }
-
-  Widget _dateBox(String hint, DateTime? value, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
-        decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: BK.line)),
-        child: Row(children: [
-          const Icon(Icons.calendar_today_outlined, size: 15, color: BK.ink3),
-          const SizedBox(width: 8),
-          Text(value != null ? _dmy(value) : hint,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: value != null ? BK.ink : BK.ink3)),
-        ]),
-      ),
     );
   }
 }
