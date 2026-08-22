@@ -2952,28 +2952,32 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		}
 	}
 
-	steps := []TenantOnboardingStep{
-		{
+	// Identitas bisnis (tagline/slogan/tentang/WhatsApp) adalah setup halaman
+	// booking publik. Mode kasir-saja tak punya halaman publik, jadi langkah ini
+	// tak relevan dan sengaja tidak ditampilkan. Lihat identityRequired().
+	steps := make([]TenantOnboardingStep, 0, 3)
+	if identityRequired(mode) {
+		steps = append(steps, TenantOnboardingStep{
 			ID:          "identity",
 			Label:       "Lengkapi identitas bisnis",
 			Description: "Isi tagline, slogan, tentang, dan WhatsApp bisnis.",
 			Href:        "/admin/settings/bisnis",
 			Complete:    snapshot.HasBusinessIdentity && snapshot.HasBusinessContact,
 			Required:    true,
-		},
-		catalogStep,
-		{
-			ID:          "payments",
-			Label:       "Review metode pembayaran",
-			Description: "Aktifkan metode bayar yang bisa dipakai customer sejak hari pertama.",
-			Href:        "/admin/settings/payment-methods",
-			Complete:    snapshot.PaymentReady,
-			Required:    true,
-		},
-		// Catatan: langkah opsional "branding/rapikan landing" sengaja tidak
-		// ditampilkan di Setup Bisnis — sudah tercakup di hub Profil Bisnis
-		// (yang dibuka lewat langkah "identity"), jadi tak perlu langkah terpisah.
+		})
 	}
+	steps = append(steps, catalogStep)
+	steps = append(steps, TenantOnboardingStep{
+		ID:          "payments",
+		Label:       "Review metode pembayaran",
+		Description: "Aktifkan metode bayar yang bisa dipakai customer sejak hari pertama.",
+		Href:        "/admin/settings/payment-methods",
+		Complete:    snapshot.PaymentReady,
+		Required:    true,
+	})
+	// Catatan: langkah opsional "branding/rapikan landing" sengaja tidak
+	// ditampilkan di Setup Bisnis — sudah tercakup di hub Profil Bisnis
+	// (yang dibuka lewat langkah "identity"), jadi tak perlu langkah terpisah.
 
 	// Mode Reservasi + Kasir: booking wajib punya resource+harga, tapi kasir juga
 	// aktif — jadi ingatkan owner menyiapkan produk kasir lewat langkah OPSIONAL
@@ -3010,7 +3014,7 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		progress = int(float64(completed) / float64(requiredTotal) * 100)
 	}
 
-	canPublish := (snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) &&
+	canPublish := (!identityRequired(mode) || (snapshot.HasBusinessIdentity && snapshot.HasBusinessContact)) &&
 		catalogReady(mode, snapshot) &&
 		snapshot.PaymentReady
 
@@ -3038,7 +3042,7 @@ func (s *Service) TenantPublishReadiness(ctx context.Context, tenantID uuid.UUID
 	}
 	mode := s.tenantAppMode(ctx, tenantID)
 	var blocking []string
-	if !(snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) {
+	if identityRequired(mode) && !(snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) {
 		blocking = append(blocking, "identity")
 	}
 	// Kesiapan katalog tergantung Mode Aplikasi: pos_only butuh produk kasir,
@@ -3070,6 +3074,13 @@ func (s *Service) tenantAppMode(ctx context.Context, tenantID uuid.UUID) string 
 		return AppModeBookingOnly
 	}
 	return AppModeBookingPos
+}
+
+// identityRequired menyatakan apakah langkah "identitas bisnis" (setup halaman
+// booking publik) relevan untuk mode ini. Mode kasir-saja tak punya halaman
+// publik, jadi identitas tak diwajibkan.
+func identityRequired(mode string) bool {
+	return NormalizeAppMode(mode) != AppModePosOnly
 }
 
 // catalogReady menyatakan apakah langkah katalog (resource/produk) sudah beres

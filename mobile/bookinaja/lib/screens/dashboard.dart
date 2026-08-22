@@ -179,34 +179,61 @@ class _SetupStatusCardState extends State<_SetupStatusCard> {
   @override
   Widget build(BuildContext context) {
     final p = _p;
-    // Sembunyi saat memuat atau sudah tayang.
-    if (p == null || p.isPublished) return const SizedBox.shrink();
+    if (p == null) return const SizedBox.shrink();
 
     final required = p.tasks.where((t) => t.required).toList();
     final done = required.where((t) => t.completed).length;
     final total = required.length;
     final ready = p.canPublish;
 
+    // Mode kasir-saja: tak ada konsep "tayang" — kartu ini murni panduan setup
+    // (produk, bayar, identitas). Sembunyi begitu semua langkah wajib beres.
+    final posOnly = !context.watch<AuthController>().bookingEnabled;
+    if (posOnly) {
+      if (total > 0 && done >= total) return const SizedBox.shrink();
+    } else {
+      // Mode booking: sembunyi setelah bisnis diterbitkan.
+      if (p.isPublished) return const SizedBox.shrink();
+    }
+
+    final IconData icon;
+    final String title;
+    final String subtitle;
+    if (posOnly) {
+      icon = Icons.checklist_rounded;
+      title = 'Selesaikan setup kasir';
+      subtitle = 'Lengkapi $done/$total langkah: produk & pembayaran';
+    } else if (ready) {
+      icon = Icons.rocket_launch_outlined;
+      title = 'Siap terbit — bisnismu belum tayang';
+      subtitle = 'Terbitkan agar muncul ke pelanggan';
+    } else {
+      icon = Icons.storefront_outlined;
+      title = 'Bisnismu belum tayang';
+      subtitle = 'Lengkapi $done/$total langkah wajib untuk terbit';
+    }
+
+    // Aksen "ajakan" hanya saat booking siap-terbit; pos_only tetap netral.
+    final highlight = !posOnly && ready;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: GestureDetector(
         onTap: () async {
           await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingProgressScreen()));
-          _load(); // refresh saat kembali (mungkin sudah terbit)
+          _load(); // refresh saat kembali (mungkin sudah terbit / selesai)
         },
         child: BKCard(
-          color: ready ? BK.accentSoft : BK.card,
-          border: ready ? BK.accent : BK.line,
+          color: highlight ? BK.accentSoft : BK.card,
+          border: highlight ? BK.accent : BK.line,
           child: Row(children: [
-            Icon(ready ? Icons.rocket_launch_outlined : Icons.storefront_outlined, color: BK.accent, size: 22),
+            Icon(icon, color: BK.accent, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(ready ? 'Siap terbit — bisnismu belum tayang' : 'Bisnismu belum tayang',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink)),
                 const SizedBox(height: 1),
-                Text(ready ? 'Terbitkan agar muncul ke pelanggan' : 'Lengkapi $done/$total langkah wajib untuk terbit',
-                    style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
+                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: BK.ink3)),
               ]),
             ),
             const Icon(Icons.arrow_forward_ios, size: 16, color: BK.ink3),
@@ -747,6 +774,8 @@ class _KasirDashboardView extends StatelessWidget {
               _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
             ]),
             const SizedBox(height: 18),
+            // Panduan setup (mode kasir-saja) — hilang begitu langkah wajib beres.
+            const _SetupStatusCard(),
             state.when(
               loading: () => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: const [
                 _SectionLabel('TRANSAKSI TERAKHIR'),

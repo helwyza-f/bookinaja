@@ -135,6 +135,12 @@ class _PublishCard extends StatelessWidget {
     final doneRequired = required.where((t) => t.completed).length;
     final totalRequired = required.length;
 
+    // Mode kasir-saja: tak ada halaman publik untuk "diterbitkan". Tampilkan
+    // kartu panduan setup saja (produk, bayar, identitas) — tanpa tombol
+    // terbit / status tayang.
+    final posOnly = !context.watch<AuthController>().bookingEnabled;
+    if (posOnly) return _setupCard(doneRequired, totalRequired);
+
     if (progress.isPublished) {
       final url = _publicUrl(context);
       return Container(
@@ -248,6 +254,64 @@ class _PublishCard extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 5,
             value: totalRequired > 0 ? doneRequired / totalRequired : 0,
+            backgroundColor: BK.line,
+            valueColor: const AlwaysStoppedAnimation<Color>(BK.accent),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// Kartu panduan setup untuk mode kasir-saja — tanpa konsep "tayang".
+  /// Dua keadaan: masih ada langkah tersisa, atau semua beres.
+  Widget _setupCard(int done, int total) {
+    final allDone = total > 0 && done >= total;
+    if (allDone) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: BK.liveSoft,
+          borderRadius: BorderRadius.circular(BK.radius),
+          border: Border.all(color: BK.live),
+        ),
+        child: Row(children: [
+          const Icon(Icons.check_circle, color: BK.live, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+              Text('Setup selesai',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BK.live)),
+              SizedBox(height: 2),
+              Text('Kasir siap dipakai untuk transaksi. Bisa lengkapi detail lain kapan saja.',
+                  style: TextStyle(fontSize: 12.5, color: BK.ink2, height: 1.4)),
+            ]),
+          ),
+        ]),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: BK.card, borderRadius: BorderRadius.circular(BK.radius), border: Border.all(color: BK.line)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.checklist_rounded, color: BK.accent, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Siapkan kasir', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BK.ink)),
+              const SizedBox(height: 2),
+              Text('Lengkapi ${total - done} langkah: produk kasir dan metode pembayaran.',
+                  style: const TextStyle(fontSize: 12, color: BK.ink2, height: 1.35)),
+            ]),
+          ),
+          Text('$done/$total', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BK.ink3)),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            minHeight: 5,
+            value: total > 0 ? done / total : 0,
             backgroundColor: BK.line,
             valueColor: const AlwaysStoppedAnimation<Color>(BK.accent),
           ),
