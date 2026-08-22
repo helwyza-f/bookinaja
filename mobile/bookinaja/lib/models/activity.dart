@@ -28,6 +28,7 @@ class ActivityEntry {
   /// Label aksi manusiawi (Indonesia). Fallback: ubah snake_case jadi kalimat.
   String get label {
     const map = {
+      // Area owner
       'create_staff': 'Menambah staff',
       'update_staff': 'Mengubah staff',
       'delete_staff': 'Menghapus staff',
@@ -39,6 +40,20 @@ class ActivityEntry {
       'unpublish_tenant': 'Menyembunyikan bisnis',
       'update_payment_methods': 'Mengubah metode pembayaran',
       'update_settings': 'Mengubah pengaturan',
+      // Booking (operasional)
+      'booking_confirmed': 'Mengonfirmasi booking',
+      'booking_active': 'Memulai sesi',
+      'booking_completed': 'Menyelesaikan sesi',
+      'booking_cancelled': 'Membatalkan booking',
+      'booking_no_show': 'Menandai tidak hadir',
+      'booking_rescheduled': 'Menjadwalkan ulang booking',
+      'booking_deposit_recorded': 'Mencatat DP booking',
+      'booking_deposit_override': 'Override DP booking',
+      // Kasir & biaya
+      'pos_order_created': 'Membuat order kasir',
+      'expense_created': 'Mencatat biaya',
+      'expense_updated': 'Mengubah biaya',
+      'expense_deleted': 'Menghapus biaya',
     };
     final m = map[action];
     if (m != null) return m;
@@ -51,6 +66,9 @@ class ActivityEntry {
     if (action.contains('publish')) return Icons.rocket_launch_outlined;
     if (action.contains('payment')) return Icons.account_balance_wallet_outlined;
     if (action.contains('profile') || action.contains('settings')) return Icons.tune;
+    if (action.startsWith('booking')) return Icons.event_note_outlined;
+    if (action.startsWith('pos')) return Icons.point_of_sale_outlined;
+    if (action.startsWith('expense')) return Icons.payments_outlined;
     return Icons.history;
   }
 

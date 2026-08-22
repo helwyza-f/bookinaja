@@ -10,10 +10,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+
+	"github.com/helwiza/backend/internal/platform/audit"
 )
 
 type Repository struct {
 	db *sqlx.DB
+}
+
+// LogAudit menulis entri log aktivitas terpusat (best-effort).
+func (r *Repository) LogAudit(ctx context.Context, tenantID uuid.UUID, actorUserID *uuid.UUID, action, resourceType string, resourceID *uuid.UUID, metadata map[string]any) {
+	audit.Log(ctx, r.db, tenantID, actorUserID, action, resourceType, resourceID, metadata)
 }
 
 func NewRepository(db *sqlx.DB) *Repository {

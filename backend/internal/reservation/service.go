@@ -50,6 +50,18 @@ func actorIDString(id *uuid.UUID) string {
 	return id.String()
 }
 
+// auditBooking menulis entri log aktivitas terpusat untuk aksi booking oleh
+// staff/owner. Aksi oleh customer/sistem (UserID nil) dilewati — feed ini untuk
+// akuntabilitas tim, bukan aksi customer.
+func (s *Service) auditBooking(ctx context.Context, tenantID, bookingID uuid.UUID, actor ActorContext, action string) {
+	if actor.UserID == nil {
+		return
+	}
+	s.repo.LogAudit(ctx, tenantID, actor.UserID, action, "booking", &bookingID, map[string]any{
+		"actor_role": actor.Role,
+	})
+}
+
 func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantIDRaw string) (*ReceiptDeliveryResult, error) {
 	bookingID, err := uuid.Parse(bookingIDRaw)
 	if err != nil {
@@ -658,6 +670,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+	s.auditBooking(ctx, tID, bID, actor, "booking_"+status)
 
 	if updatedRealtime, realtimeErr := s.repo.FindByID(ctx, bID, tID); realtimeErr == nil {
 		s.emitBookingRealtime(ctx, mapBookingRealtimeType(status), updatedRealtime, map[string]any{
@@ -724,6 +737,7 @@ func (s *Service) Reschedule(ctx context.Context, id, tenantID string, newStart,
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+	s.auditBooking(ctx, tID, bID, actor, "booking_rescheduled")
 
 	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil {
 		s.emitBookingRealtime(ctx, "booking.rescheduled", updated, map[string]any{
@@ -813,6 +827,7 @@ func (s *Service) RecordDepositByAdmin(ctx context.Context, id, tenantID, notes 
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+	s.auditBooking(ctx, tID, bID, actor, "booking_deposit_recorded")
 
 	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil && updated != nil {
 		s.emitBookingRealtime(ctx, "payment.dp.paid", updated, map[string]any{
@@ -866,6 +881,7 @@ func (s *Service) OverrideDepositRequirement(ctx context.Context, id, tenantID, 
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+	s.auditBooking(ctx, tID, bID, actor, "booking_deposit_override")
 
 	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil && updated != nil {
 		s.emitBookingRealtime(ctx, "booking.dp_override.enabled", updated, map[string]any{

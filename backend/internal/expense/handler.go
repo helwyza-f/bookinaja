@@ -219,7 +219,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.Update(c.Request.Context(), tenantID, id, UpdateExpenseInput{
+	if err := h.service.Update(c.Request.Context(), tenantID, id, actorUserID(c), UpdateExpenseInput{
 		Title:         req.Title,
 		Category:      req.Category,
 		Amount:        req.Amount,
@@ -250,7 +250,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.Delete(c.Request.Context(), tenantID, id); err != nil {
+	if err := h.service.Delete(c.Request.Context(), tenantID, id, actorUserID(c)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

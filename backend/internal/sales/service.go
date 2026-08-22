@@ -103,7 +103,12 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, createdBy
 		UpdatedAt:       now,
 	}
 
-	return s.repo.CreateOrder(ctx, order)
+	created, err := s.repo.CreateOrder(ctx, order)
+	if err == nil && created != nil {
+		s.repo.LogAudit(ctx, tenantID, createdByUserID, "pos_order_created", "sales_order", &created.ID,
+			map[string]any{"order_number": created.OrderNumber, "kind": created.OrderKind})
+	}
+	return created, err
 }
 
 // CreateMenuOrder membuat sales order jenis "menu" (kasir F&B standalone) tanpa
@@ -142,6 +147,8 @@ func (s *Service) CreateMenuOrder(ctx context.Context, tenantID uuid.UUID, creat
 	if _, err := s.repo.CreateOrder(ctx, order); err != nil {
 		return nil, err
 	}
+	s.repo.LogAudit(ctx, tenantID, createdByUserID, "pos_order_created", "sales_order", &order.ID,
+		map[string]any{"order_number": order.OrderNumber, "kind": order.OrderKind})
 
 	for _, line := range input.Items {
 		itemID, err := uuid.Parse(strings.TrimSpace(line.FnbItemID))

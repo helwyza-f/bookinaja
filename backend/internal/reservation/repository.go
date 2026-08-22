@@ -13,12 +13,18 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/helwiza/backend/internal/platform/audit"
 	"github.com/helwiza/backend/internal/tenant"
 )
 
 type Repository struct {
 	db  *sqlx.DB
 	rdb *redis.Client
+}
+
+// LogAudit menulis entri log aktivitas terpusat (best-effort).
+func (r *Repository) LogAudit(ctx context.Context, tenantID uuid.UUID, actorUserID *uuid.UUID, action, resourceType string, resourceID *uuid.UUID, metadata map[string]any) {
+	audit.Log(ctx, r.db, tenantID, actorUserID, action, resourceType, resourceID, metadata)
 }
 
 func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {

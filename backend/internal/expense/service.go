@@ -52,10 +52,15 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, actorUserID *u
 		UpdatedAt:       now,
 	}
 
-	return s.repo.Create(ctx, expense)
+	created, err := s.repo.Create(ctx, expense)
+	if err == nil && created != nil {
+		s.repo.LogAudit(ctx, tenantID, actorUserID, "expense_created", "expense", &created.ID,
+			map[string]any{"title": created.Title, "amount": created.Amount})
+	}
+	return created, err
 }
 
-func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input UpdateExpenseInput) error {
+func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, actorUserID *uuid.UUID, input UpdateExpenseInput) error {
 	if err := validateExpenseInput(input); err != nil {
 		return err
 	}
@@ -83,11 +88,20 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 		UpdatedAt:     time.Now(),
 	}
 
-	return s.repo.Update(ctx, expense)
+	if err := s.repo.Update(ctx, expense); err != nil {
+		return err
+	}
+	s.repo.LogAudit(ctx, tenantID, actorUserID, "expense_updated", "expense", &id,
+		map[string]any{"title": expense.Title, "amount": expense.Amount})
+	return nil
 }
 
-func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.repo.Delete(ctx, tenantID, id)
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID, actorUserID *uuid.UUID) error {
+	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
+		return err
+	}
+	s.repo.LogAudit(ctx, tenantID, actorUserID, "expense_deleted", "expense", &id, nil)
+	return nil
 }
 
 func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Expense, error) {
