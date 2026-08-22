@@ -5,6 +5,7 @@ import '../models/payment_gateway.dart';
 import '../models/payment_method.dart';
 import '../models/promo.dart';
 import '../models/receipt_settings.dart';
+import '../models/staff.dart';
 
 /// Pengaturan tenant (owner-only). Endpoint: /admin/cancellation-settings,
 /// /admin/payment-methods.
@@ -331,6 +332,86 @@ class SettingsRepository {
   Future<void> unpublishTenant() => _api.post('/admin/tenant/unpublish');
 
   // --- Payment Setup Wizard ---
+
+  // --- Staff & akses (roles + staff) ---
+  // Endpoint owner-only & gated fitur (RolePermissions/StaffAccounts): backend
+  // membalas 403 pada paket yang tak mendukung — biarkan ApiException naik agar
+  // UI bisa tampilkan upsell.
+
+  /// GET /admin/settings/staff → {items:[User]}.
+  Future<List<StaffMember>> getStaff() async {
+    final res = await _api.get('/admin/settings/staff');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => StaffMember.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// GET /admin/settings/roles → {items:[StaffRole]}.
+  Future<List<StaffRole>> getRoles() async {
+    final res = await _api.get('/admin/settings/roles');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => StaffRole.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// POST /admin/settings/staff → buat staff baru (name, email, password, role_id).
+  Future<void> createStaff({
+    required String name,
+    required String email,
+    required String password,
+    required String roleId,
+  }) =>
+      _api.post('/admin/settings/staff', body: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'role_id': roleId,
+      });
+
+  /// PUT /admin/settings/staff/:id → ubah nama/email/peran (password tak diubah di sini).
+  Future<void> updateStaff({
+    required String id,
+    required String name,
+    required String email,
+    required String roleId,
+  }) =>
+      _api.put('/admin/settings/staff/$id', body: {
+        'name': name,
+        'email': email,
+        'role_id': roleId,
+      });
+
+  /// DELETE /admin/settings/staff/:id.
+  Future<void> deleteStaff(String id) => _api.delete('/admin/settings/staff/$id');
+
+  /// POST /admin/settings/roles → buat peran (name, description, permission_keys, is_default).
+  Future<StaffRole> createRole(StaffRole r) async {
+    final res = await _api.post('/admin/settings/roles', body: {
+      'name': r.name,
+      'description': r.description,
+      'permission_keys': r.permissionKeys,
+      'is_default': r.isDefault,
+    });
+    return res is Map ? StaffRole.fromJson(Map<String, dynamic>.from(res)) : r;
+  }
+
+  /// PUT /admin/settings/roles/:id → ubah peran.
+  Future<StaffRole> updateRole(StaffRole r) async {
+    final res = await _api.put('/admin/settings/roles/${r.id}', body: {
+      'name': r.name,
+      'description': r.description,
+      'permission_keys': r.permissionKeys,
+      'is_default': r.isDefault,
+    });
+    return res is Map ? StaffRole.fromJson(Map<String, dynamic>.from(res)) : r;
+  }
+
+  /// DELETE /admin/settings/roles/:id.
+  Future<void> deleteRole(String id) => _api.delete('/admin/settings/roles/$id');
 
   /// GET /admin/payment-setup/status → kesiapan pembayaran. Backend membungkus
   /// di `data`: {gateway_usable, manual_usable, has_online, needs_setup, ...}.

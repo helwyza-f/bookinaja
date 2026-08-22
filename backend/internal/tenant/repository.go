@@ -2178,13 +2178,76 @@ func (r *Repository) ListUsersByTenant(ctx context.Context, tenantID uuid.UUID) 
 	return users, err
 }
 
-func (r *Repository) CreateStaff(ctx context.Context, tenantID uuid.UUID, name, email, password string, roleID uuid.UUID) (*User, error) {
-	query := `
-		INSERT INTO users (id, tenant_id, role_id, name, email, password, role, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'staff', NOW())
-		RETURNING id, tenant_id, role_id, name, email, role, created_at`
+// CreateStaff membuat staff yang BISA login lewat app (auth berbasis account).
+// Dalam satu transaksi: (1) akun login (accounts) — dibuat bila email belum
+// terdaftar, email auto-verified sesuai kebijakan "owner set password";
+// (2) baris users role='staff' (admin_user); (3) workspace_memberships yang
+// menjembatani account ↔ workspace ↔ admin_user + izin peran. Tanpa ini staff
+// tak punya account/membership sehingga /auth/login menolaknya.
+func (r *Repository) CreateStaff(ctx context.Context, tenantID uuid.UUID, name, email, password string, roleID uuid.UUID, permissionKeys pq.StringArray) (*User, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// 1. Workspace milik tenant — target membership.
+	var workspaceID uuid.UUID
+	if err := tx.GetContext(ctx, &workspaceID,
+		`SELECT id FROM workspaces WHERE tenant_id = $1 LIMIT 1`, tenantID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("workspace untuk tenant ini tidak ditemukan")
+		}
+		return nil, err
+	}
+
+	// 2. Akun login (buat bila belum ada; email auto-verified).
+	var accountID uuid.UUID
+	accErr := tx.GetContext(ctx, &accountID, `SELECT id FROM accounts WHERE email = $1`, email)
+	if accErr == sql.ErrNoRows {
+		accountID = uuid.New()
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO accounts (id, name, email, password_hash, email_verified_at)
+			VALUES ($1, $2, $3, $4, NOW())`,
+			accountID, name, email, password); err != nil {
+			return nil, err
+		}
+	} else if accErr != nil {
+		return nil, accErr
+	} else {
+		// Email sudah punya akun — pastikan belum jadi anggota workspace ini.
+		var exists bool
+		if err := tx.GetContext(ctx, &exists,
+			`SELECT EXISTS(SELECT 1 FROM workspace_memberships WHERE account_id = $1 AND workspace_id = $2)`,
+			accountID, workspaceID); err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, fmt.Errorf("email sudah menjadi anggota workspace ini")
+		}
+	}
+
+	// 3. Baris users staff (admin_user).
 	var u User
-	if err := r.db.GetContext(ctx, &u, query, uuid.New(), tenantID, roleID, name, email, password); err != nil {
+	if err := tx.GetContext(ctx, &u, `
+		INSERT INTO users (id, tenant_id, role_id, name, email, password, role, email_verified_at, password_setup_required, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, 'staff', NOW(), FALSE, NOW())
+		RETURNING id, tenant_id, role_id, name, email, role, created_at`,
+		uuid.New(), tenantID, roleID, name, email, password); err != nil {
+		return nil, err
+	}
+
+	// 4. Membership penghubung. permission_keys disimpan sebagai snapshot; sumber
+	// kebenaran runtime tetap peran (lihat GetWorkspaceAdminContext yang resolve
+	// izin dari role_id), jadi edit peran langsung berlaku.
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO workspace_memberships (id, account_id, workspace_id, admin_user_id, role, permission_keys, status)
+		VALUES ($1, $2, $3, $4, 'staff', $5, 'active')`,
+		uuid.New(), accountID, workspaceID, u.ID, permissionKeys); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -2274,12 +2337,26 @@ func (r *Repository) ClearDefaultRoles(ctx context.Context, tenantID uuid.UUID) 
 }
 
 func (r *Repository) DeleteStaff(ctx context.Context, tenantID, staffID uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Lepaskan membership dulu (mencabut akses login ke workspace) lalu hapus
+	// baris users. Akun login sengaja dibiarkan — tak berbahaya tanpa membership
+	// dan bisa dipakai ulang bila staff ditambahkan lagi.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM workspace_memberships WHERE admin_user_id = $1`, staffID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM users
 		WHERE id = $1 AND tenant_id = $2 AND role = 'staff' AND deleted_at IS NULL`,
-		staffID, tenantID,
-	)
-	if err != nil {
+		staffID, tenantID); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

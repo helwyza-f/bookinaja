@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
-import '../ui/toast.dart';
 import '../state/auth_controller.dart';
 import '../widgets/langganan_hero.dart';
 import 'kasir.dart';
@@ -13,11 +12,10 @@ import 'expenses_screen.dart';
 import 'reports_screen.dart';
 import 'resources_screen.dart';
 import 'owner_account_settings.dart';
+import 'staff_access_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
-
-  void _soon(BuildContext c, String m) => BkToast.info(c, m, subtitle: 'Fitur ini segera hadir.');
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +84,9 @@ class MoreHubScreen extends StatelessWidget {
           _tile(context, Icons.person_outline, 'Akun owner', 'Password, email, linked accounts', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerAccountSettingsScreen()));
           }),
-          _tile(context, Icons.group_outlined, 'Staff & akses', 'Role & permission', () => _soon(context, 'Staff')),
+          _tile(context, Icons.group_outlined, 'Staff & akses', 'Anggota tim & peran', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StaffAccessScreen()));
+          }),
           _tile(context, Icons.tune, 'Pengaturan lanjutan', 'Mode aplikasi, pembayaran, nota, promo', () {
             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
           }),

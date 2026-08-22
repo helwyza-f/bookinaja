@@ -975,6 +975,9 @@ func (r *Repository) GetWorkspaceAdminContext(ctx context.Context, accountID uui
 		return nil, sql.ErrNoRows
 	}
 
+	// Izin staff diambil LIVE dari peran (users.role_id → staff_roles), bukan dari
+	// snapshot wm.permission_keys — supaya perubahan peran langsung berlaku tanpa
+	// sinkronisasi membership. Owner (role_id NULL) jatuh ke wm.permission_keys.
 	var item WorkspaceAdminContext
 	err := r.db.GetContext(ctx, &item, `
 		SELECT
@@ -982,11 +985,13 @@ func (r *Repository) GetWorkspaceAdminContext(ctx context.Context, accountID uui
 			w.tenant_id,
 			wm.admin_user_id,
 			wm.role,
-			wm.permission_keys,
+			COALESCE(sr.permission_keys, wm.permission_keys) AS permission_keys,
 			w.plan,
 			w.subscription_status
 		FROM workspaces w
 		JOIN workspace_memberships wm ON wm.workspace_id = w.id
+		LEFT JOIN users u ON u.id = wm.admin_user_id
+		LEFT JOIN staff_roles sr ON sr.id = u.role_id
 		WHERE wm.account_id = $1
 		  AND w.tenant_id = $2
 		  AND wm.status = 'active'

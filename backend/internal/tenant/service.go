@@ -3760,7 +3760,7 @@ func (s *Service) CreateStaff(ctx context.Context, actorUserID uuid.UUID, tenant
 		return nil, err
 	}
 
-	staff, err := s.repo.CreateStaff(ctx, tenantID, req.Name, req.Email, string(hashed), role.ID)
+	staff, err := s.repo.CreateStaff(ctx, tenantID, req.Name, req.Email, string(hashed), role.ID, role.PermissionKeys)
 	if err != nil {
 		return nil, err
 	}
