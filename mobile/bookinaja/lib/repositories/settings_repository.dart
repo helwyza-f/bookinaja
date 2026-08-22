@@ -6,6 +6,7 @@ import '../models/payment_method.dart';
 import '../models/promo.dart';
 import '../models/receipt_settings.dart';
 import '../models/staff.dart';
+import '../models/activity.dart';
 
 /// Pengaturan tenant (owner-only). Endpoint: /admin/cancellation-settings,
 /// /admin/payment-methods.
@@ -412,6 +413,17 @@ class SettingsRepository {
 
   /// DELETE /admin/settings/roles/:id.
   Future<void> deleteRole(String id) => _api.delete('/admin/settings/roles/$id');
+
+  /// GET /admin/settings/activity → {items:[AuditLogEntry]} (owner-only).
+  /// Log aktivitas: siapa mengubah apa (staff/role/settings/publish).
+  Future<List<ActivityEntry>> getActivity() async {
+    final res = await _api.get('/admin/settings/activity');
+    final list = (res is Map && res['items'] is List) ? res['items'] as List : const [];
+    return list
+        .whereType<Map>()
+        .map((e) => ActivityEntry.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 
   /// GET /admin/payment-setup/status → kesiapan pembayaran. Backend membungkus
   /// di `data`: {gateway_usable, manual_usable, has_online, needs_setup, ...}.

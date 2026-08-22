@@ -144,11 +144,20 @@ class BootstrapResult {
   /// `features.plan_features`.
   final List<String> planFeatures;
 
+  /// Peran user di workspace aktif (owner|staff). Dari `user.role`.
+  final String role;
+
+  /// Izin efektif user (sudah di-expand backend). Dari `user.permission_keys`.
+  /// Kosong untuk owner (owner bypass semua cek).
+  final List<String> permissionKeys;
+
   const BootstrapResult({
     required this.appMode,
     required this.grace,
     this.plan = '',
     this.planFeatures = const [],
+    this.role = '',
+    this.permissionKeys = const [],
   });
 }
 
@@ -212,12 +221,17 @@ class AuthRepository {
       final res = await _api.get('/admin/me/bootstrap');
       final features = (res is Map && res['features'] is Map) ? res['features'] as Map : const {};
       final tenant = (res is Map && res['tenant'] is Map) ? res['tenant'] as Map : const {};
+      final user = (res is Map && res['user'] is Map) ? res['user'] as Map : const {};
       return BootstrapResult(
         appMode: AppModeConfig.fromFeatures(features),
         grace: GraceState.fromTenant(tenant),
         plan: '${tenant['plan'] ?? ''}'.toLowerCase(),
         planFeatures: (features['plan_features'] is List)
             ? (features['plan_features'] as List).map((e) => '$e').toList()
+            : const [],
+        role: '${user['role'] ?? ''}'.toLowerCase(),
+        permissionKeys: (user['permission_keys'] is List)
+            ? (user['permission_keys'] as List).map((e) => '$e').toList()
             : const [],
       );
     } catch (_) {

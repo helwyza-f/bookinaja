@@ -30,6 +30,20 @@ type expensePayload struct {
 	ReceiptURL    string `json:"receipt_url"`
 }
 
+// actorUserID mengambil user id pelaku dari context (staff/owner) untuk
+// akuntabilitas pencatatan biaya. Null bila tak ada (mis. token account murni).
+func actorUserID(c *gin.Context) *uuid.UUID {
+	raw := strings.TrimSpace(c.GetString("userID"))
+	if raw == "" {
+		return nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
 func parseExpenseDate(raw string) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -162,7 +176,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := h.service.Create(c.Request.Context(), tenantID, CreateExpenseInput{
+	item, err := h.service.Create(c.Request.Context(), tenantID, actorUserID(c), CreateExpenseInput{
 		Title:         req.Title,
 		Category:      req.Category,
 		Amount:        req.Amount,

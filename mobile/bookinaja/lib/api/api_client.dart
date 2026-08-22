@@ -132,10 +132,16 @@ class ApiClient {
     final parsed = res.body.isEmpty ? null : _tryDecode(res.body);
     if (res.statusCode >= 200 && res.statusCode < 300) return parsed;
 
-    final msg = (parsed is Map && parsed['error'] is String)
+    var msg = (parsed is Map && parsed['error'] is String)
         ? parsed['error'] as String
         : 'Terjadi kesalahan (${res.statusCode}).';
     final code = (parsed is Map && parsed['code'] is String) ? parsed['code'] as String : null;
+    // 403 dari gating izin/owner: ganti pesan teknis backend dengan yang ramah,
+    // KECUALI 402 (paywall) yang punya alur sendiri. Fitur belum aktif di plan
+    // tetap pakai pesan aslinya.
+    if (res.statusCode == 403 && !msg.toLowerCase().contains('fitur')) {
+      msg = 'Kamu tak punya akses untuk tindakan ini. Hubungi owner bila perlu.';
+    }
     throw ApiException(res.statusCode, msg, code: code);
   }
 

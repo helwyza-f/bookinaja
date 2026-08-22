@@ -10,6 +10,7 @@ import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../state/reports_controller.dart';
 import '../models/subscription_view.dart';
+import '../models/permissions.dart';
 import '../theme.dart';
 import '../widgets/grace_banner.dart';
 import 'booking_detail.dart';
@@ -44,35 +45,14 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 14),
             _Hero(dash: dash),
             const SizedBox(height: 16),
-            const _SectionLabel('AKSI CEPAT'),
-            const SizedBox(height: 9),
-            Row(
-              children: [
-                // Booking disembunyikan saat mode kasir-saja (pos_only).
-                if (auth.bookingEnabled) ...[
-                  _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () {
-                    if (guardCanTransact(context, action: 'booking baru')) _go(context, const CreateBookingScreen());
-                  }),
-                  const SizedBox(width: 9),
-                ],
-                // Kasir selalu tampil sebagai quick action (bukan tab bottom
-                // nav) agar letaknya konsisten di semua mode — kecuali saat
-                // Kasir A dimatikan (kasirEnabled == false).
-                if (auth.kasirEnabled) ...[
-                  _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
-                    if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
-                  }),
-                  const SizedBox(width: 9),
-                ],
-                _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
-                const SizedBox(width: 9),
-                _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
-              ],
-            ),
-            const SizedBox(height: 18),
-            // Kartu setup — hanya tampil selama bisnis belum tayang, mendorong
-            // owner menyelesaikan setup lalu menerbitkan.
-            const _SetupStatusCard(),
+            if (_bookingQuick(context, auth).isNotEmpty) ...[
+              const _SectionLabel('AKSI CEPAT'),
+              const SizedBox(height: 9),
+              Row(children: _withGaps(_bookingQuick(context, auth))),
+              const SizedBox(height: 18),
+            ],
+            // Kartu setup — hanya owner (publish & setup = area owner).
+            if (auth.isOwner) const _SetupStatusCard(),
             if (dash.error != null && !dash.loading)
               _ErrorCard(onRetry: () => context.read<DashboardController>().load())
             else ...[
@@ -275,12 +255,12 @@ class _Header extends StatelessWidget {
             ],
           ]),
         ),
-        // Chip langganan di header — pengganti banner sebalok yang mengganggu.
+        // Chip langganan di header — billing = urusan owner, staff tak lihat.
         // Grace (fase-aware) didahulukan; kalau tidak, tampilkan nudge trial.
-        if (auth.graceActive) ...[
+        if (auth.isOwner && auth.graceActive) ...[
           _GraceChip(view: auth.subView),
           const SizedBox(width: 8),
-        ] else if (auth.trialDaysLeft != null && auth.trialDaysLeft! <= 7) ...[
+        ] else if (auth.isOwner && auth.trialDaysLeft != null && auth.trialDaysLeft! <= 7) ...[
           GestureDetector(
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SubscriptionScreen())),
@@ -726,6 +706,34 @@ Widget _statusPill(BookingStatus status) {
 
 void _go(BuildContext c, Widget page) => Navigator.of(c).push(MaterialPageRoute(builder: (_) => page));
 
+/// Sisipkan jarak 9px antar quick action (masing-masing Expanded).
+List<Widget> _withGaps(List<Widget> items) {
+  final out = <Widget>[];
+  for (var i = 0; i < items.length; i++) {
+    out.add(items[i]);
+    if (i < items.length - 1) out.add(const SizedBox(width: 9));
+  }
+  return out;
+}
+
+/// Quick action dashboard booking, gated per izin peran (owner selalu lolos).
+List<Widget> _bookingQuick(BuildContext context, AuthController auth) => [
+      if (auth.bookingEnabled && auth.can(Perm.bookingsCreate))
+        _QuickAction(Icons.add, 'Booking', BK.accent, onTap: () {
+          if (guardCanTransact(context, action: 'booking baru')) _go(context, const CreateBookingScreen());
+        }),
+      if (auth.kasirEnabled && auth.can(Perm.posRead))
+        _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
+          if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
+        }),
+      if (auth.canAny(const [Perm.reportsRead, Perm.analyticsRead]))
+        _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1),
+            onTap: () => _go(context, const ReportsScreen())),
+      if (auth.can(Perm.expensesRead))
+        _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit,
+            onTap: () => _go(context, const ExpensesScreen())),
+    ];
+
 // ============================================================================
 // Dashboard mode kasir-saja (pos_only): fokus omzet/transaksi kasir, tanpa
 // apa pun berbau booking. Sumber data = ReportsController (bundle hari ini).
@@ -747,7 +755,24 @@ class _KasirDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reports = context.watch<ReportsController>();
+    final auth = context.watch<AuthController>();
     final state = reports.stateFor(ReportPeriod.today);
+    // Aksi cepat kasir gated per izin peran (owner selalu lolos).
+    final quick = <Widget>[
+      if (auth.can(Perm.posRead))
+        _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
+          if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
+        }),
+      if (auth.can(Perm.posRead))
+        _QuickAction(Icons.receipt_long_outlined, 'Order', BK.accent,
+            onTap: () => _go(context, const KasirOpenOrdersScreen())),
+      if (auth.canAny(const [Perm.reportsRead, Perm.analyticsRead]))
+        _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1),
+            onTap: () => _go(context, const ReportsScreen())),
+      if (auth.can(Perm.expensesRead))
+        _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit,
+            onTap: () => _go(context, const ExpensesScreen())),
+    ];
     return SafeArea(
       child: RefreshIndicator(
         color: BK.accent,
@@ -760,22 +785,14 @@ class _KasirDashboardView extends StatelessWidget {
             const SizedBox(height: 14),
             _KasirHero(state: state),
             const SizedBox(height: 16),
-            const _SectionLabel('AKSI CEPAT'),
-            const SizedBox(height: 9),
-            Row(children: [
-              _QuickAction(Icons.shopping_cart_outlined, 'Kasir', BK.live, onTap: () {
-                if (guardCanTransact(context, action: 'order kasir')) _go(context, const KasirScreen());
-              }),
-              const SizedBox(width: 9),
-              _QuickAction(Icons.receipt_long_outlined, 'Order', BK.accent, onTap: () => _go(context, const KasirOpenOrdersScreen())),
-              const SizedBox(width: 9),
-              _QuickAction(Icons.bar_chart, 'Laporan', const Color(0xFF6366F1), onTap: () => _go(context, const ReportsScreen())),
-              const SizedBox(width: 9),
-              _QuickAction(Icons.payments_outlined, 'Biaya', BK.crit, onTap: () => _go(context, const ExpensesScreen())),
-            ]),
-            const SizedBox(height: 18),
-            // Panduan setup (mode kasir-saja) — hilang begitu langkah wajib beres.
-            const _SetupStatusCard(),
+            if (quick.isNotEmpty) ...[
+              const _SectionLabel('AKSI CEPAT'),
+              const SizedBox(height: 9),
+              Row(children: _withGaps(quick)),
+              const SizedBox(height: 18),
+            ],
+            // Panduan setup (mode kasir-saja) — owner-only.
+            if (auth.isOwner) const _SetupStatusCard(),
             state.when(
               loading: () => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: const [
                 _SectionLabel('TRANSAKSI TERAKHIR'),

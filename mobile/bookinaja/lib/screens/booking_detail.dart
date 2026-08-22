@@ -13,6 +13,7 @@ import '../repositories/pos_repository.dart';
 import '../repositories/catalog_repository.dart';
 import '../state/booking_detail_controller.dart';
 import '../state/auth_controller.dart';
+import '../models/permissions.dart';
 import '../ui/session_widgets.dart';
 import '../ui/toast.dart';
 
@@ -176,6 +177,7 @@ class _DetailView extends StatelessWidget {
 
   Widget _body(BuildContext context, BookingDetail d) {
     final c = context.read<BookingDetailController>();
+    final auth = context.watch<AuthController>();
     final disabled = c.acting;
     // Tarik-untuk-refresh: ambil status terbaru (mis. bukti bayar baru dari
     // customer) selama app belum punya push realtime.
@@ -219,8 +221,8 @@ class _DetailView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Verifikasi bukti transfer
-        if (d.hasPendingVerification) ...[
+        // Verifikasi bukti transfer — hanya yang boleh ubah booking.
+        if (d.hasPendingVerification && auth.can(Perm.bookingsUpdate)) ...[
           const Text('PERLU VERIFIKASI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.crit)),
           const SizedBox(height: 8),
           for (final a in d.pendingAttempts)
@@ -293,21 +295,24 @@ class _DetailView extends StatelessWidget {
         // === SESI: konfirmasi, mulai, akhiri, perpanjang, F&B/add-on ===
         if (!d.isFinal)
           Builder(builder: (_) {
+            // Tiap aksi digating izin peran (owner selalu lolos) SELAIN kondisi
+            // status booking (d.canX). Backend juga menegakkan; ini mencegah
+            // tombol yang pasti 403 muncul ke staff.
             final acts = <Widget>[
-              if (d.canConfirm)
+              if (d.canConfirm && auth.can(Perm.bookingsConfirm))
                 _primary('Konfirmasi booking', BK.accent, disabled ? null : () => _run(context, c.confirm, 'Booking dikonfirmasi')),
-              if (d.canStart)
+              if (d.canStart && auth.can(Perm.sessionsStart))
                 _primary('▶ Mulai sesi', BK.live, disabled ? null : () => _run(context, c.start, 'Sesi dimulai')),
-              if (d.canComplete)
+              if (d.canComplete && auth.can(Perm.sessionsComplete))
                 _primary('■ Akhiri sesi', BK.accent, disabled ? null : () => _run(context, c.end, 'Sesi diakhiri')),
-              if (d.isActive)
+              if (d.isActive && auth.can(Perm.sessionsExtend))
                 _primary('＋ Perpanjang sesi', BK.accent, disabled ? null : () => _extendSheet(context, d), outline: true),
-              if (d.isActive && (d.enableFnb || d.enableAddons))
+              if (d.isActive && (d.enableFnb || d.enableAddons) && auth.can(Perm.posOrderAdd))
                 _catalogButtons(context, d, disabled),
-              if (d.canOverrideDeposit) _overrideLink(context, disabled),
-              if (d.canReschedule)
+              if (d.canOverrideDeposit && auth.can(Perm.bookingsUpdate)) _overrideLink(context, disabled),
+              if (d.canReschedule && auth.can(Perm.bookingsUpdate))
                 _primary('Jadwalkan ulang', BK.accent, disabled ? null : () => _rescheduleSheet(context, d), outline: true),
-              if (d.canMarkNoShow)
+              if (d.canMarkNoShow && auth.can(Perm.bookingsCancel))
                 _primary('Tandai tidak hadir', BK.crit, disabled ? null : () => _confirmNoShow(context), outline: true),
             ];
             if (acts.isEmpty) return const SizedBox.shrink();
@@ -317,11 +322,11 @@ class _DetailView extends StatelessWidget {
         // === PEMBAYARAN: satu tombol per tahap; metode (cash/transfer) dipilih di sheet ===
         Builder(builder: (_) {
           final pays = <Widget>[
-            if (d.canRecordDeposit)
+            if (d.canRecordDeposit && auth.can(Perm.bookingsUpdate))
               _primary('Catat ${d.depositTerm}', BK.pend, disabled ? null : () => _payDeposit(context, d)),
-            if (d.canSettle)
+            if (d.canSettle && auth.can(Perm.bookingsUpdate))
               _primary('Lunasi · Rp${rupiah(d.balanceDue)}', BK.pend, disabled ? null : () => _paySettle(context, d)),
-            if (d.canSendReceipt)
+            if (d.canSendReceipt && auth.can(Perm.receiptsSend))
               _primary('Kirim nota (WhatsApp)', BK.ink, disabled ? null : () => _run(context, c.sendReceipt, 'Nota dikirim'), outline: true),
           ];
           if (pays.isEmpty) return const SizedBox.shrink();
@@ -392,7 +397,7 @@ class _DetailView extends StatelessWidget {
           BKCard(child: _Timeline(events: d.events, rowBuilder: _timelineRow)),
         ],
 
-        if (d.canCancel) ...[
+        if (d.canCancel && auth.can(Perm.bookingsCancel)) ...[
           const SizedBox(height: 18),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: BK.critSoft, foregroundColor: BK.crit, padding: const EdgeInsets.symmetric(vertical: 14)),

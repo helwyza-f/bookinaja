@@ -1352,7 +1352,9 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			Name:                  item.UserName,
 			Email:                 item.UserEmail,
 			Role:                  item.UserRole,
-			PermissionKeys:        []string(item.PermissionKeys),
+			// Expand implikasi (mis. receipts.print → bookings.read/pos.read) supaya
+			// gating klien cocok persis dgn enforcement middleware.
+			PermissionKeys: ExpandPermissionKeys([]string(item.PermissionKeys)),
 			EmailVerifiedAt:       item.UserEmailVerifiedAt,
 			PasswordSetupRequired: item.UserPasswordSetupReq,
 			GoogleLinked:          item.UserGoogleSubject != nil && strings.TrimSpace(*item.UserGoogleSubject) != "",

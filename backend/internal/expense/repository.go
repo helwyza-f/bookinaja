@@ -22,11 +22,11 @@ func (r *Repository) Create(ctx context.Context, expense Expense) (*Expense, err
 		INSERT INTO expenses (
 			id, tenant_id, title, category, amount,
 			expense_date, payment_method, vendor, notes,
-			receipt_url, created_at, updated_at
+			receipt_url, created_by_user_id, created_at, updated_at
 		) VALUES (
 			:id, :tenant_id, :title, :category, :amount,
 			:expense_date, :payment_method, :vendor, :notes,
-			:receipt_url, :created_at, :updated_at
+			:receipt_url, :created_by_user_id, :created_at, :updated_at
 		)`
 	_, err := r.db.NamedExecContext(ctx, query, expense)
 	return &expense, err

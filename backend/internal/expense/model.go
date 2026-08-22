@@ -17,8 +17,10 @@ type Expense struct {
 	Vendor        string    `db:"vendor" json:"vendor"`
 	Notes         string    `db:"notes" json:"notes"`
 	ReceiptURL    string    `db:"receipt_url" json:"receipt_url"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
+	// Pencatat biaya (akuntabilitas staff). NULL untuk data lama.
+	CreatedByUserID *uuid.UUID `db:"created_by_user_id" json:"created_by_user_id,omitempty"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 type Summary struct {

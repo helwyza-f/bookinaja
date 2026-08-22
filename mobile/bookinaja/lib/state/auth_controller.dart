@@ -40,6 +40,12 @@ class AuthController extends ChangeNotifier {
   String _plan = '';
   List<String> _planFeatures = const [];
 
+  // Peran + izin efektif user di workspace aktif (dari bootstrap). Sumber
+  // kebenaran gating UI sadar-izin (staff vs owner). Owner: role='owner',
+  // _permissions kosong tapi can() selalu true (bypass, selaras backend).
+  String _bootstrapRole = '';
+  Set<String> _permissions = const {};
+
   AuthRole get role => _role;
   bool get isStaff => _role == AuthRole.tenantStaff;
   bool get isCustomer => _role == AuthRole.customer;
@@ -104,9 +110,18 @@ class AuthController extends ChangeNotifier {
   /// Fitur efektif (grace-aware) yang aktif untuk tenant.
   List<String> get planFeatures => _planFeatures;
 
-  /// Owner workspace aktif — hanya owner yang boleh checkout langganan
-  /// (endpoint billing owner-only). Staff diarahkan minta owner.
-  bool get isOwner => (_workspace?.role ?? '').toLowerCase() == 'owner';
+  /// Owner workspace aktif — hanya owner yang boleh area owner (billing, profil,
+  /// pengaturan, staff, publish). Sumber utama = bootstrap (`user.role`), fallback
+  /// ke role workspace dari picker sebelum bootstrap selesai.
+  bool get isOwner =>
+      _bootstrapRole == 'owner' || (_workspace?.role ?? '').toLowerCase() == 'owner';
+
+  /// Punya izin [key]? Owner selalu true (bypass, selaras middleware backend).
+  /// Untuk staff, cek daftar izin efektif (sudah di-expand backend).
+  bool can(String key) => isOwner || _permissions.contains(key);
+
+  /// Punya salah satu dari [keys]? Owner selalu true.
+  bool canAny(Iterable<String> keys) => isOwner || keys.any(_permissions.contains);
 
   /// Akhir masa berlaku langganan/trial.
   DateTime? get periodEnd => _grace.periodEnd;
@@ -136,6 +151,8 @@ class AuthController extends ChangeNotifier {
     _grace = res.grace;
     _plan = res.plan;
     _planFeatures = res.planFeatures;
+    if (res.role.isNotEmpty) _bootstrapRole = res.role;
+    _permissions = res.permissionKeys.toSet();
     notifyListeners();
   }
 
@@ -247,6 +264,8 @@ class AuthController extends ChangeNotifier {
     _workspace = null;
     _appMode = AppModeConfig.fallback;
     _grace = GraceState.none;
+    _bootstrapRole = '';
+    _permissions = const {};
     notifyListeners();
   }
 
@@ -339,6 +358,8 @@ class AuthController extends ChangeNotifier {
     _role = AuthRole.none;
     _appMode = AppModeConfig.fallback;
     _grace = GraceState.none;
+    _bootstrapRole = '';
+    _permissions = const {};
     notifyListeners();
   }
 }

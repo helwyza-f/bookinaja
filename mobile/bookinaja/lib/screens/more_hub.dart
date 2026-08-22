@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../models/permissions.dart';
 import '../state/auth_controller.dart';
 import '../widgets/langganan_hero.dart';
 import 'kasir.dart';
@@ -13,6 +14,7 @@ import 'reports_screen.dart';
 import 'resources_screen.dart';
 import 'owner_account_settings.dart';
 import 'staff_access_screen.dart';
+import 'activity_log_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -21,6 +23,37 @@ class MoreHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final ws = auth.workspace;
+    final owner = auth.isOwner;
+
+    void go(Widget page) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+
+    // KELOLA — data harian, gated per mode + izin peran.
+    final kelola = <Widget>[
+      if (auth.bookingEnabled && auth.can(Perm.customersRead))
+        _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan',
+            () => go(const CustomersScreen())),
+      if (auth.bookingEnabled && auth.can(Perm.resourcesRead))
+        _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking',
+            () => go(const ResourcesScreen())),
+      if (auth.kasirEnabled && auth.can(Perm.fnbRead))
+        _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok',
+            () => go(const FnbMenuScreen())),
+      if (auth.kasirEnabled && auth.can(Perm.posRead))
+        _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in',
+            () => go(const KasirScreen())),
+    ];
+
+    // KEUANGAN — laporan & biaya, gated per izin.
+    final keuangan = <Widget>[
+      if (auth.canAny(const [Perm.reportsRead, Perm.analyticsRead]))
+        _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi',
+            () => go(const ReportsScreen())),
+      if (auth.can(Perm.expensesRead))
+        _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran',
+            () => go(const ExpensesScreen())),
+    ];
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -30,67 +63,40 @@ class MoreHubScreen extends StatelessWidget {
           Text('${auth.account?.name ?? ''} · ${ws?.name ?? ''} (${ws?.role ?? ''})', style: const TextStyle(fontSize: 12.5, color: BK.ink3)),
           const SizedBox(height: 16),
 
-          // Hero Langganan di puncak — status akun paling bernilai, dipindah ke
-          // sini dari Setelan agar tak terkubur satu tap lebih dalam.
-          const LanggananHero(),
-          const SizedBox(height: 18),
+          // Hero Langganan (billing) hanya untuk owner — staff tak punya akses.
+          if (owner) ...[
+            const LanggananHero(),
+            const SizedBox(height: 18),
+          ],
 
-          // KELOLA = objek & alat bisnis harian (data yang dikelola). Resource
-          // dulu salah kamar di "WORKSPACE"; sekarang sekamar dg Customer/Menu.
-          const Text('KELOLA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 9),
-          // Customer (CRM admin) berbasis booking — riwayatnya menarik dari
-          // tabel bookings, bukan sales_order. Di pos_only (booking mati) tile
-          // ini disembunyikan; walk-in POS tak memakai CRM ini.
-          if (auth.bookingEnabled)
-            _tile(context, Icons.people_outline, 'Customer', 'Profil & histori pelanggan', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomersScreen()));
-            }),
-          // Resource hanya relevan saat booking aktif.
-          if (auth.bookingEnabled)
-            _tile(context, Icons.storefront_outlined, 'Resource', 'Unit yang dibooking', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()));
-            }),
-          // Kasir disembunyikan total saat mode F&B "Matikan" — tenant itu
-          // pakai app POS lain (mis. Majoo), Bookinaja fokus booking saja.
-          if (auth.kasirEnabled)
-            _tile(context, Icons.ramen_dining_outlined, 'Menu F&B', 'Kelola item & stok', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FnbMenuScreen()));
-            }),
-          if (auth.kasirEnabled)
-            _tile(context, Icons.shopping_cart_outlined, 'Kasir / Direct sale', 'Buat order walk-in', () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KasirScreen()));
-            }),
-          const SizedBox(height: 18),
+          if (kelola.isNotEmpty) ...[
+            const _SectionLabel('KELOLA'),
+            ...kelola,
+            const SizedBox(height: 18),
+          ],
 
-          // KEUANGAN = insight & uang, kelompok mental sendiri.
-          const Text('KEUANGAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 9),
-          _tile(context, Icons.bar_chart, 'Laporan', 'Pendapatan & transaksi', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()));
-          }),
-          _tile(context, Icons.payments_outlined, 'Biaya operasional', 'Catat pengeluaran', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExpensesScreen()));
-          }),
-          const SizedBox(height: 18),
+          if (keuangan.isNotEmpty) ...[
+            const _SectionLabel('KEUANGAN'),
+            ...keuangan,
+            const SizedBox(height: 18),
+          ],
 
-          // AKUN & PENGATURAN = yang sering disentuh naik ke permukaan; config
-          // sekali-atur diringkas jadi "Pengaturan lanjutan".
-          const Text('AKUN & PENGATURAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
-          const SizedBox(height: 9),
-          _tile(context, Icons.storefront_outlined, 'Profil bisnis', 'Nama, kontak, tampilan', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BusinessProfileHubScreen()));
-          }),
-          _tile(context, Icons.person_outline, 'Akun owner', 'Password, email, linked accounts', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerAccountSettingsScreen()));
-          }),
-          _tile(context, Icons.group_outlined, 'Staff & akses', 'Anggota tim & peran', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StaffAccessScreen()));
-          }),
-          _tile(context, Icons.tune, 'Pengaturan lanjutan', 'Mode aplikasi, pembayaran, nota, promo', () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsHubScreen()));
-          }),
-          const SizedBox(height: 18),
+          // AKUN & PENGATURAN — seluruh area owner-only (backend OwnerOnly).
+          // Staff tak melihat sama sekali (kalau ditekan pun pasti 403).
+          if (owner) ...[
+            const _SectionLabel('AKUN & PENGATURAN'),
+            _tile(context, Icons.storefront_outlined, 'Profil bisnis', 'Nama, kontak, tampilan',
+                () => go(const BusinessProfileHubScreen())),
+            _tile(context, Icons.person_outline, 'Akun owner', 'Password, email, linked accounts',
+                () => go(const OwnerAccountSettingsScreen())),
+            _tile(context, Icons.group_outlined, 'Staff & akses', 'Anggota tim & peran',
+                () => go(const StaffAccessScreen())),
+            _tile(context, Icons.history, 'Log aktivitas', 'Siapa mengubah apa & kapan',
+                () => go(const ActivityLogScreen())),
+            _tile(context, Icons.tune, 'Pengaturan lanjutan', 'Mode aplikasi, pembayaran, nota, promo',
+                () => go(const SettingsHubScreen())),
+            const SizedBox(height: 18),
+          ],
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: BK.ink, backgroundColor: BK.card, side: const BorderSide(color: BK.line), padding: const EdgeInsets.symmetric(vertical: 14), minimumSize: const Size.fromHeight(0)),
             onPressed: () => context.read<AuthController>().switchWorkspace(),
@@ -131,4 +137,15 @@ class MoreHubScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 9),
+        child: Text(text,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: BK.ink3)),
+      );
 }

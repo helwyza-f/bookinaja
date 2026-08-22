@@ -30,25 +30,26 @@ type CreateExpenseInput struct {
 
 type UpdateExpenseInput = CreateExpenseInput
 
-func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateExpenseInput) (*Expense, error) {
+func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, actorUserID *uuid.UUID, input CreateExpenseInput) (*Expense, error) {
 	if err := validateExpenseInput(input); err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
 	expense := Expense{
-		ID:            uuid.New(),
-		TenantID:      tenantID,
-		Title:         strings.TrimSpace(input.Title),
-		Category:      normalizeExpenseCategory(input.Category),
-		Amount:        input.Amount,
-		ExpenseDate:   input.ExpenseDate,
-		PaymentMethod: normalizeExpensePaymentMethod(input.PaymentMethod),
-		Vendor:        strings.TrimSpace(input.Vendor),
-		Notes:         strings.TrimSpace(input.Notes),
-		ReceiptURL:    strings.TrimSpace(input.ReceiptURL),
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		Title:           strings.TrimSpace(input.Title),
+		Category:        normalizeExpenseCategory(input.Category),
+		Amount:          input.Amount,
+		ExpenseDate:     input.ExpenseDate,
+		PaymentMethod:   normalizeExpensePaymentMethod(input.PaymentMethod),
+		Vendor:          strings.TrimSpace(input.Vendor),
+		Notes:           strings.TrimSpace(input.Notes),
+		ReceiptURL:      strings.TrimSpace(input.ReceiptURL),
+		CreatedByUserID: actorUserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
 	return s.repo.Create(ctx, expense)

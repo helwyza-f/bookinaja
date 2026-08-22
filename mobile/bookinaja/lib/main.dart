@@ -23,6 +23,7 @@ import 'repositories/customer_payment_repository.dart';
 import 'realtime/realtime_channels.dart';
 import 'realtime/realtime_client.dart';
 import 'state/auth_controller.dart';
+import 'models/permissions.dart';
 import 'state/bookings_controller.dart';
 import 'state/dashboard_controller.dart';
 import 'state/pos_controller.dart';
@@ -212,17 +213,22 @@ class _HomeShellState extends State<HomeShell> {
     // Nav dinamis: tab Booking hanya muncul saat booking aktif. Kasir tidak
     // pernah jadi tab bottom nav — letaknya konsisten sebagai quick action
     // (dashboard) / tile More hub saja di semua mode aplikasi.
+    // Tab sadar-izin: staff hanya melihat tab yang boleh diakses (owner semua).
+    // Booking butuh bookings.read; Operasional/Kasir butuh bookings.read (mode
+    // booking, papan sesi live) atau pos.read (mode kasir).
+    final showBooking = auth.bookingEnabled && auth.can(Perm.bookingsRead);
+    final showOps = auth.bookingEnabled ? auth.can(Perm.bookingsRead) : auth.can(Perm.posRead);
     final pages = <Widget>[
       const DashboardScreen(),
-      if (auth.bookingEnabled) const BookingsScreen(),
-      const OperationsScreen(),
+      if (showBooking) const BookingsScreen(),
+      if (showOps) const OperationsScreen(),
       const MoreHubScreen(),
     ];
     final items = <({IconData off, IconData on, String label})>[
       _NavBar.home,
-      if (auth.bookingEnabled) _NavBar.booking,
+      if (showBooking) _NavBar.booking,
       // Tanpa booking, "POS" lebih intuitif dinamai "Kasir".
-      auth.bookingEnabled ? _NavBar.ops : _NavBar.kasir,
+      if (showOps) (auth.bookingEnabled ? _NavBar.ops : _NavBar.kasir),
       _NavBar.more,
     ];
     final safeIndex = _i >= pages.length ? 0 : _i;
