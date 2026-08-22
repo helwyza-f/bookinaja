@@ -2975,16 +2975,39 @@ func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.
 		// (yang dibuka lewat langkah "identity"), jadi tak perlu langkah terpisah.
 	}
 
+	// Mode Reservasi + Kasir: booking wajib punya resource+harga, tapi kasir juga
+	// aktif — jadi ingatkan owner menyiapkan produk kasir lewat langkah OPSIONAL
+	// (tak memblokir publish). Mode booking_only tak dapat langkah ini; pos_only
+	// sudah menjadikan produk kasir sebagai langkah katalog wajib di atas.
+	if NormalizeAppMode(mode) == AppModeBookingPos {
+		steps = append(steps, TenantOnboardingStep{
+			ID:          "kasir_products",
+			Label:       "Tambah produk kasir",
+			Description: "Siapkan minimal satu produk/menu supaya kasir bisa langsung transaksi.",
+			Href:        "/admin/fnb",
+			Complete:    snapshot.FnbItemsCount > 0,
+			Required:    false,
+		})
+	}
+
+	// Persentase dihitung dari langkah WAJIB saja supaya 100% sejalan dengan
+	// kesiapan publish; langkah opsional (mis. produk kasir di booking_pos) tak
+	// mengencerkan progres.
 	completed := 0
+	requiredTotal := 0
 	for _, step := range steps {
+		if !step.Required {
+			continue
+		}
+		requiredTotal++
 		if step.Complete {
 			completed++
 		}
 	}
 
 	progress := 0
-	if len(steps) > 0 {
-		progress = int(float64(completed) / float64(len(steps)) * 100)
+	if requiredTotal > 0 {
+		progress = int(float64(completed) / float64(requiredTotal) * 100)
 	}
 
 	canPublish := (snapshot.HasBusinessIdentity && snapshot.HasBusinessContact) &&
